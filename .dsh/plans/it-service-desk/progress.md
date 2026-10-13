@@ -60,3 +60,19 @@
 - 完成：WorkOrderController 增加 X-Token 鉴权；创建报修仅 REPORTER、提交维修仅 REPAIRER；前端三页携带 token
 - 验证：报修人创建成功 / 维修工创建 403 / 匿名 401 / 管理员创建 403 / 维修工今日任务成功 / 报修人维修 403 / 维修工维修成功
 - 下一步：Day 2 数据模型重构（三端流程）
+### 2026-10-13：Day 2 完成（报修单/工单分离数据模型）
+
+- 完成：
+  - schema.sql 新增 department_binding / report / consumable / reimbursement 四表；work_order 增加 report_id/sign_status/signed_by/signed_at
+  - 新增实体 Report/DepartmentBinding/Consumable/Reimbursement + 对应 Mapper + 枚举（ReportStatus/SignStatus/ReimbursementStatus）
+  - ReportService（创建报修单/列表/派单生成工单）+ ReportController（仅报修人提交、仅管理员/调度查看与派单）
+  - create.html 重写为极简报修单表单（报修人姓名/设备名称/照片/描述/科室负责人）
+- 结果/输出：验证通过——报修人提交 R000001(PENDING) → 维修工提交 403 → 管理员查看 → 派单生成工单(report_id=1, UNSIGNED) → 维修工今日任务 → 提交维修完成；MySQL 落库正确
+- 里程碑进展：M1 complete；Day 2 complete
+- 下一步：Day 3 科室报修端免登录
+
+## Git 提交记录
+
+| 日期 | 提交 | 内容 |
+|---|---|---|
+| 2026-10-13 | （待提交） | feat: Day2 报修单/工单分离数据模型 |

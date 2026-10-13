@@ -130,3 +130,10 @@
   - 无 token：401
 - 前端 create.html / today.html / detail.html 已改为携带 X-Token
 - 验证矩阵 7 项全部通过（见 progress）
+### 2026-10-13：Day 2 技术要点
+
+- report 表用 report_no（R000001 格式）作为业务编号，插入后根据自增 id 更新生成
+- 派单时从 report 复制信息生成 work_order（deviceName 作为 title，departmentHead 作为联系人），并回写 report.status=DISPATCHED
+- work_order 新增 report_id 关联、sign_status/signed_by/signed_at 为签字确认预留
+- consumable/reimbursement/department_binding 表已建但 Day 2 未接 API（Day 3/5/6 使用）
+- 兼容性：旧 work_order 数据（report_id=NULL）不受影响

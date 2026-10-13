@@ -27,4 +27,8 @@ public class WorkOrder {
     private LocalDateTime createdAt;
     private LocalDateTime completedAt;
     private String repairRecord;
+    private Long reportId;
+    private SignStatus signStatus;
+    private String signedBy;
+    private LocalDateTime signedAt;
 }
