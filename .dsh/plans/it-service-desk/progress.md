@@ -141,3 +141,15 @@
 - 后端：GET /api/reports/{id}（管理员/调度员查看报修单详情）；GET /api/work-orders/{id}/consumables（管理员/调度员/该单维修工查看耗材）
 - 前端：admin.html 工单列表加「详情」按钮；右侧抽屉展示：基本信息/报修信息（照片可点击放大）/流转记录/维修记录/耗材更换记录/签字状态；空值显示「未填写/暂无」
 - 验证：报修单 R000015 详情正常；工单#8 耗材（碳粉40元+搓纸轮25元）正常；admin.html 200
+### 2026-10-13：Day 6-2 完成（签字闭环 + 核价）
+
+- 后端：
+  - WorkOrderStatus 增加 PENDING_ACCEPT（待科室验收）；维修工提交后工单进入待验收
+  - work_order 增加 signature_url 字段
+  - 科室端免登录接口：GET /api/work-orders/pending-accept?deviceCode=；GET /api/work-orders/{id}?deviceCode=；POST /{id}/sign
+  - 管理员核价：POST /api/work-orders/{id}/consumables/pricing
+- 前端：
+  - detail.html：耗材只填名称+数量（去掉单价/欠条）；提交后提示「已提交科室验收」
+  - report.html：新增「待验收工单」列表 + 手写签名弹窗（Canvas/代签/清除/确认）
+  - admin.html：工单详情抽屉耗材可编辑实际单价 + 保存核价
+- 验证：报修单 R000017(科室1) → 派单#10 → 接单维修 → PENDING_ACCEPT → DEV001 看到待验收 → 王护士长签字 → COMPLETED/SIGNED → 代签「王护士长(由张护士代签)」 → 核价电源线50元 全部通过

@@ -98,10 +98,7 @@
     div.className = 'consumable-row';
     div.innerHTML =
       '<input type="text" class="c-name" placeholder="耗材名（如硒鼓）">' +
-      '<input type="number" class="c-qty" placeholder="数量" style="max-width:60px;">' +
-      '<input type="number" class="c-price" placeholder="单价" style="max-width:70px;">' +
-      '<label class="cb"><input type="checkbox" class="c-iou"> 欠条</label>' +
-      '<input type="text" class="c-iou-no" placeholder="欠条编号" style="max-width:100px;">' +
+      '<input type="number" class="c-qty" placeholder="数量" style="max-width:70px;">' +
       '<button class="add-row" onclick="this.parentNode.remove()">✕</button>';
     document.getElementById('consumableRows').appendChild(div);
   }
@@ -116,10 +113,7 @@
       if (!name) return;
       consumables.push({
         name,
-        quantity: Number(row.querySelector('.c-qty').value) || 1,
-        unitPrice: Number(row.querySelector('.c-price').value) || 0,
-        isIou: row.querySelector('.c-iou').checked,
-        iouNo: row.querySelector('.c-iou-no').value.trim()
+        quantity: Number(row.querySelector('.c-qty').value) || 1
       });
     });
     repairMsg.textContent = '提交中...';
@@ -133,7 +127,7 @@
       const json = await res.json();
       if (json.code !== 0) { repairMsg.textContent = json.message; document.getElementById('submitBtn').disabled = false; return; }
       repairMsg.style.color = '#27ae60';
-      repairMsg.textContent = '工单已完成，等待护士长签字 ✓';
+      repairMsg.textContent = '已提交科室验收，等待护士长签字 ✓';
       setTimeout(() => { window.location.href = 'today.html?userId=' + userId; }, 1200);
     } catch (e) {
       repairMsg.textContent = '网络错误：' + e.message;

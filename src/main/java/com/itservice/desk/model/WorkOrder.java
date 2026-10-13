@@ -31,4 +31,5 @@ public class WorkOrder {
     private SignStatus signStatus;
     private String signedBy;
     private LocalDateTime signedAt;
+    private String signatureUrl;
 }

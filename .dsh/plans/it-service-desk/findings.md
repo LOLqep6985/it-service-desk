@@ -171,3 +171,11 @@
 - 工单详情通过多个接口组合：/api/work-orders/{id} + /api/reports/{reportId} + /api/work-orders/{id}/consumables
 - 前端用右侧 Drawer（transform translateX）避免打断列表；照片 window.open 放大
 - 空值统一兜底「未填写/暂无数据」，杜绝 undefined
+### 2026-10-13：Day 6-2 技术要点
+
+- 签字采用轻量方案：科室端免登录（deviceCode）查看本科室待验收工单并手写签名（Canvas 导出 PNG 上传）
+- 代签：signedBy 存「被代签人(由代签人代签)」，不新增字段
+- 核价：管理员在工单详情抽屉直接编辑耗材实际单价（unit_price），第一版不引入独立采购角色
+- 状态机：ASSIGNED → IN_PROGRESS → PENDING_ACCEPT（维修工提交）→ COMPLETED（签字后）
+- 欠条字段（is_iou/iou_no）保留在表，但 UI 不再展示（符合「第一版不做欠条」）
+- 测试注意：科室端待验收按工单 department_id 过滤，必须用绑定同一科室的报修单测试（DEV001=科室1）

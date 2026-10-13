@@ -208,6 +208,26 @@
     load();
   });
 
+  async function savePricing(woId) {
+    const items = [];
+    document.querySelectorAll('.price-input').forEach(inp => {
+      const id = Number(inp.getAttribute('data-id'));
+      const val = inp.value.trim();
+      items.push({ id: id, unitPrice: val === '' ? null : Number(val) });
+    });
+    try {
+      const res = await fetch('/api/work-orders/' + woId + '/consumables/pricing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Token': user.token },
+        body: JSON.stringify({ consumables: items })
+      });
+      const json = await res.json();
+      if (json.code !== 0) { showToast(json.message, 'error'); } else { showToast('核价已保存', 'success'); }
+    } catch (e) {
+      showToast('网络错误：' + e.message, 'error');
+    }
+  }
+
   function closeDrawer() {
     document.getElementById('drawer').classList.remove('show');
     document.getElementById('drawerMask').classList.remove('show');
@@ -255,9 +275,9 @@
       const signStatusText = wo.signStatus === 'SIGNED' ? '已签字' : '待签字';
       const signedTime = wo.signedAt ? fmtTime(wo.signedAt) : '未签字';
       const signedBy = wo.signedBy || '未填写';
-      const consumableHtml = consumables.length ? '<table class="consumable-table"><tr><th>耗材</th><th>数量</th><th>单价</th><th>欠条</th><th>欠条号</th></tr>' + consumables.map(cn =>
-        '<tr><td>' + esc(cn.name) + '</td><td>' + (cn.quantity ?? '1') + '</td><td>' + (cn.unitPrice != null ? cn.unitPrice : '未填写') + '</td><td>' + (cn.isIou ? '是' : '否') + '</td><td>' + esc(cn.iouNo || '') + '</td></tr>'
-      ).join('') + '</table>' : '<div style="color:#95a5a6;font-size:13px;">暂无耗材记录</div>';
+      const consumableHtml = consumables.length ? '<table class="consumable-table"><tr><th>耗材</th><th>数量</th><th>实际单价（核价）</th></tr>' + consumables.map(cn =>
+        '<tr><td>' + esc(cn.name) + '</td><td>' + (cn.quantity ?? '1') + '</td><td><input type="number" step="0.01" class="price-input" data-id="' + cn.id + '" value="' + (cn.unitPrice != null ? cn.unitPrice : '') + '" placeholder="未核价"></td></tr>'
+      ).join('') + '</table><button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="savePricing(' + woId + ')">保存核价</button>' : '<div style="color:#95a5a6;font-size:13px;">暂无耗材记录</div>';
 
       body.innerHTML =
         '<div class="detail-section"><h3>基本信息</h3>' +
@@ -324,6 +344,7 @@
   .consumable-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .consumable-table th, .consumable-table td { border: 1px solid #ecf0f1; padding: 5px 8px; text-align: left; }
   .consumable-table th { background: #f8fafc; }
+  .price-input { width: 90px; padding: 4px 6px; border: 1px solid #d0d5dd; border-radius: 4px; font-size: 13px; }
 </style>
 
 </body>
