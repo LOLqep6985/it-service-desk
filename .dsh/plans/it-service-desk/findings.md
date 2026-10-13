@@ -80,3 +80,12 @@
   - Use settings from .mvn/maven.config：已勾选（本项目无 .mvn/maven.config，无影响）
   - JDK 17 已选为 SDK
 - 备注：沙箱内 CLI 构建继续用项目内 .m2repo（沙箱无权限写 D:\Maven\repository）；IDEA 构建用 D:\Maven\repository，二者互不冲突
+### Maven 双仓库说明（重要，防止后续出错）
+
+- 状态：accepted
+- 来源：项目开发过程中的环境事实
+- **IDEA 用系统仓库 D:\Maven\repository**（IDEA 无沙箱限制，能正常写入；由 settings.xml 的 localRepository 指定）
+- **沙箱 CLI 用项目内 .m2repo**（沙箱没权限写 D:\Maven\repository，所以构建时用 -Dmaven.repo.local=.m2repo + 代理环境变量 HTTP_PROXY/HTTPS_PROXY=http://127.0.0.1:7890）
+- **两者互不冲突**：.m2repo 已 gitignore；依赖版本一致（都从阿里云镜像解析）
+- 注意：如果后续想在沙箱里直接把依赖写到 D:\Maven\repository，需要每次构建时给「完整权限」授权，但没必要，保持现状最省事
+- 关联：IDEA 里项目可直接 Reload Maven；沙箱里构建命令见 task_plan 备注

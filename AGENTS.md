@@ -25,6 +25,7 @@
 - .dsh/plans/it-service-desk/handoff.md：最近交接摘要
 
 ## 强制规则
+- Maven 双仓库：IDEA 用 D:\Maven\repository；沙箱内 CLI 用项目内 .m2repo（代理 127.0.0.1:7890 + -Dmaven.repo.local=.m2repo），不要混淆。
 
 - 每完成一个 Step/天，更新 task_plan 的 Next Step 并提交 git。
 - 重要决策记入 findings.md。
