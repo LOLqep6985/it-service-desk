@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>科室报修 - IT运维工单系统</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f2f4f7; color: #2c3e50; }
+    .header { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #27ae60; color: #fff; position: sticky; top: 0; }
+    .header .t { font-size: 16px; font-weight: 600; }
+    .container { max-width: 480px; margin: 0 auto; padding: 16px; }
+    .card { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.06); margin-bottom: 14px; }
+    .card h2 { font-size: 16px; margin-bottom: 8px; }
+    .dept-box { background: #e8f8ef; border: 1px dashed #27ae60; border-radius: 8px; padding: 10px 12px; font-size: 14px; margin-bottom: 10px; }
+    label { display: block; font-size: 13px; color: #7f8c8d; margin: 10px 0 6px; }
+    input, select, textarea { width: 100%; padding: 11px; border: 1px solid #d0d5dd; border-radius: 8px; font-size: 15px; }
+    textarea { min-height: 60px; line-height: 1.5; }
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .tag { border: 1px solid #d0d5dd; background: #fff; border-radius: 14px; padding: 4px 10px; font-size: 12px; color: #555; cursor: pointer; }
+    .tag.active { background: #27ae60; color: #fff; border-color: #27ae60; }
+    .photo-row { display: flex; align-items: center; gap: 8px; }
+    .photo-preview { max-width: 80px; max-height: 80px; border-radius: 6px; display: none; }
+    button.primary { width: 100%; padding: 14px; background: #27ae60; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; margin-top: 14px; }
+    button.primary:disabled { background: #b0b8c1; }
+    .msg { margin-top: 10px; text-align: center; font-size: 14px; color: #d63031; min-height: 18px; }
+    .history-item { border-bottom: 1px dashed #ecf0f1; padding: 8px 0; font-size: 13px; }
+    .history-item .no { font-weight: 600; color: #27ae60; }
+    .bind-row { display: flex; gap: 8px; }
+    .bind-row input { flex: 1; }
+    .bind-row button { width: 90px; background: #27ae60; color: #fff; border: none; border-radius: 8px; font-size: 14px; }
+  </style>
+</head>
+<body>
+<div class="header"><span class="t">科室报修（免登录）</span></div>
+<div class="container">
+  <div class="card" id="bindCard">
+    <h2>设备绑定</h2>
+    <p style="font-size:13px;color:#95a5a6;">请使用科室专用工作手机，输入管理员分配的设备码。</p>
+    <div class="bind-row" style="margin-top:10px;">
+      <input id="deviceCode" placeholder="输入设备码">
+      <button id="bindBtn">进入</button>
+    </div>
+    <div class="msg" id="bindMsg"></div>
+  </div>
+
+  <div class="card" id="formCard" style="display:none;">
+    <h2>报修单</h2>
+    <div class="dept-box" id="deptBox">科室：加载中...</div>
+    <label>报修人姓名 *</label>
+    <input id="reporterName" placeholder="如：李护士">
+    <label>设备名称 *</label>
+    <select id="deviceName">
+      <option value="">请选择设备类型</option>
+      <option value="打印机">打印机</option>
+      <option value="电脑">电脑</option>
+      <option value="显示器">显示器</option>
+      <option value="网络设备">网络设备</option>
+      <option value="其他">其他</option>
+    </select>
+    <label>设备照片（可选）</label>
+    <div class="photo-row">
+      <input type="file" id="photoInput" accept="image/*" style="flex:1;">
+      <img id="photoPreview" class="photo-preview">
+    </div>
+    <input type="hidden" id="devicePhoto">
+    <label>问题描述</label>
+    <textarea id="problemDesc" placeholder="简单描述问题"></textarea>
+    <div class="tags" id="tags">
+      <span class="tag">卡纸</span><span class="tag">缺墨</span><span class="tag">不亮</span><span class="tag">打不开机</span><span class="tag">网络不通</span>
+    </div>
+    <label>科室负责人</label>
+    <input id="departmentHead" placeholder="如：护士长张某某">
+    <button class="primary" id="submitBtn">提交报修单</button>
+    <div class="msg" id="submitMsg"></div>
+  </div>
+
+  <div class="card" id="historyCard" style="display:none;">
+    <h2>本科室报修历史</h2>
+    <div id="historyList"><div class="history-item">加载中...</div></div>
+  </div>
+</div>
+<script>
+  const bindCard = document.getElementById('bindCard');
+  const formCard = document.getElementById('formCard');
+  const historyCard = document.getElementById('historyCard');
+  const bindMsg = document.getElementById('bindMsg');
+  const submitMsg = document.getElementById('submitMsg');
+  let deviceCode = localStorage.getItem('itsdDeviceCode') || '';
+
+  document.getElementById('bindBtn').addEventListener('click', async () => {
+    deviceCode = document.getElementById('deviceCode').value.trim();
+    if (!deviceCode) { bindMsg.textContent = '请输入设备码'; return; }
+    bindMsg.textContent = '验证中...';
+    try {
+      const res = await fetch('/api/bindings/info?deviceCode=' + encodeURIComponent(deviceCode));
+      const json = await res.json();
+      if (json.code !== 0) { bindMsg.textContent = json.message; return; }
+      localStorage.setItem('itsdDeviceCode', deviceCode);
+      bindCard.style.display = 'none';
+      formCard.style.display = 'block';
+      historyCard.style.display = 'block';
+      document.getElementById('deptBox').textContent = '科室：' + json.data.departmentName + '（' + json.data.campus.label + '）';
+      loadHistory();
+    } catch (e) {
+      bindMsg.textContent = '网络错误：' + e.message;
+    }
+  });
+
+  if (deviceCode) {
+    (async () => {
+      const res = await fetch('/api/bindings/info?deviceCode=' + encodeURIComponent(deviceCode));
+      const json = await res.json();
+      if (json.code === 0) {
+        bindCard.style.display = 'none';
+        formCard.style.display = 'block';
+        historyCard.style.display = 'block';
+        document.getElementById('deptBox').textContent = '科室：' + json.data.departmentName + '（' + json.data.campus.label + '）';
+        loadHistory();
+      }
+    })();
+  }
+
+  // 快捷标签
+  document.querySelectorAll('.tag').forEach(tag => {
+    tag.addEventListener('click', () => {
+      tag.classList.toggle('active');
+      const textarea = document.getElementById('problemDesc');
+      const tagText = tag.textContent;
+      if (tag.classList.contains('active')) {
+        textarea.value = textarea.value ? textarea.value + '，' + tagText : tagText;
+      } else {
+        textarea.value = textarea.value.replace(new RegExp('(，?' + tagText + ')'), '');
+      }
+    });
+  });
+
+  // 照片上传
+  document.getElementById('photoInput').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const res = await fetch('/api/files/upload', { method: 'POST', body: fd });
+      const json = await res.json();
+      if (json.code !== 0) { submitMsg.textContent = json.message; return; }
+      document.getElementById('devicePhoto').value = json.data.url;
+      const img = document.getElementById('photoPreview');
+      img.src = json.data.url;
+      img.style.display = 'block';
+      submitMsg.textContent = '照片已上传 ✓';
+    } catch (err) {
+      submitMsg.textContent = '照片上传失败：' + err.message;
+    }
+  });
+
+  document.getElementById('submitBtn').addEventListener('click', async () => {
+    const reporterName = document.getElementById('reporterName').value.trim();
+    const deviceName = document.getElementById('deviceName').value;
+    const devicePhoto = document.getElementById('devicePhoto').value;
+    const problemDesc = document.getElementById('problemDesc').value.trim();
+    const departmentHead = document.getElementById('departmentHead').value.trim();
+    if (!reporterName || !deviceName) { submitMsg.textContent = '请填写报修人姓名和设备名称'; return; }
+    submitMsg.textContent = '';
+    document.getElementById('submitBtn').disabled = true;
+    try {
+      const res = await fetch('/api/reports/anonymous', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceCode, reporterName, deviceName, devicePhoto, problemDesc, departmentHead })
+      });
+      const json = await res.json();
+      if (json.code !== 0) { submitMsg.textContent = json.message; document.getElementById('submitBtn').disabled = false; return; }
+      submitMsg.style.color = '#27ae60';
+      submitMsg.textContent = '报修单 ' + json.data.reportNo + ' 已提交，待管理员受理 ✓';
+      document.getElementById('submitBtn').disabled = false;
+      loadHistory();
+    } catch (err) {
+      submitMsg.textContent = '网络错误：' + err.message;
+      document.getElementById('submitBtn').disabled = false;
+    }
+  });
+
+  async function loadHistory() {
+    try {
+      const res = await fetch('/api/reports/by-device?deviceCode=' + encodeURIComponent(deviceCode));
+      const json = await res.json();
+      if (json.code !== 0) { document.getElementById('historyList').innerHTML = '<div class="history-item">' + json.message + '</div>'; return; }
+      const list = json.data || [];
+      if (list.length === 0) { document.getElementById('historyList').innerHTML = '<div class="history-item">暂无报修记录</div>'; return; }
+      document.getElementById('historyList').innerHTML = list.map(r =>
+        '<div class="history-item"><span class="no">' + (r.reportNo || r.id) + '</span> ' + r.deviceName +
+        ' · ' + (r.status ? r.status.label : r.status) + ' · ' + (r.createdAt || '').replace('T', ' ').slice(0, 16) + '</div>'
+      ).join('');
+    } catch (e) {
+      document.getElementById('historyList').innerHTML = '<div class="history-item">加载失败</div>';
+    }
+  }
+</script>
+</body>
+</html>

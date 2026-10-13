@@ -137,3 +137,9 @@
 - work_order 新增 report_id 关联、sign_status/signed_by/signed_at 为签字确认预留
 - consumable/reimbursement/department_binding 表已建但 Day 2 未接 API（Day 3/5/6 使用）
 - 兼容性：旧 work_order 数据（report_id=NULL）不受影响
+### 2026-10-13：Day 3 技术要点
+
+- 免登录报修：通过 department_binding.device_code 识别科室，报修单 creator_id=null、binding_id 记录设备
+- 文件上传：保存到 uploads/（gitignore）；访问用控制器 @GetMapping /uploads/{filename:.+} 而非 WebMvcConfigurer 资源映射（后者在本环境 404）
+- 权限：绑定设备仅 ADMIN/DISPATCHER；免登录报修/历史查询以 device_code 为凭据（设备码即弱凭证，Day6 可加 PIN）
+- 报修单历史按 department_id 查询，非严格按设备，便于科室共用

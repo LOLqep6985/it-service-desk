@@ -76,3 +76,20 @@
 | 日期 | 提交 | 内容 |
 |---|---|---|
 | 2026-10-13 | （待提交） | feat: Day2 报修单/工单分离数据模型 |
+### 2026-10-13：Day 3 完成（科室免登录报修端）
+
+- 完成：
+  - DepartmentBinding API：管理员/调度绑定设备码↔科室；/api/bindings/info 设备码识别科室
+  - 免登录报修：POST /api/reports/anonymous（设备码验证→科室自动带出）+ GET /api/reports/by-device（本科室历史）
+  - 文件上传：POST /api/files/upload（保存到 uploads/）+ GET /uploads/{filename}（控制器方式提供，修复静态映射404）
+  - report.html 科室免登录报修页（设备码进入/极简表单/照片上传/快捷标签/报修历史）
+  - login.html 增加科室免登录入口
+- 结果/输出：绑定 DEV001→科室1；免登录提交 R000002/R000003 自动带出科室；照片上传后 HTTP 200；维修工绑定设备 403
+- 里程碑进展：M2 complete；Day 3 complete
+- 下一步：Day 4 管理员后台
+
+## Git 提交记录
+
+| 日期 | 提交 | 内容 |
+|---|---|---|
+| 2026-10-13 | （待提交） | feat: Day3 科室免登录报修端 |
