@@ -68,6 +68,14 @@ public class WorkOrderService {
         return repairers.get((int) idx).getId();
     }
 
+    public List<WorkOrder> listAll(String status) {
+        LambdaQueryWrapper<WorkOrder> qw = new LambdaQueryWrapper<WorkOrder>()
+                .orderByDesc(WorkOrder::getCreatedAt);
+        if (status != null && !status.isBlank()) {
+            qw.eq(WorkOrder::getStatus, status);
+        }
+        return workOrderMapper.selectList(qw);
+    }
     public List<WorkOrder> listTodayTasks(Long assigneeId) {
         return workOrderMapper.selectList(new LambdaQueryWrapper<WorkOrder>()
                 .eq(WorkOrder::getAssigneeId, assigneeId)

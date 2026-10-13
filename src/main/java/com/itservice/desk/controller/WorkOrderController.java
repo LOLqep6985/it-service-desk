@@ -42,6 +42,18 @@ public class WorkOrderController {
         }
     }
 
+    @GetMapping
+    public ApiResponse list(@RequestHeader(value = "X-Token", required = false) String token,
+                            @RequestParam(required = false) String status) {
+        User user = resolveUserByToken(token);
+        if (user == null) {
+            return ApiResponse.error(401, "未登录或登录已过期");
+        }
+        if (user.getRole() != UserRole.ADMIN && user.getRole() != UserRole.DISPATCHER) {
+            return ApiResponse.error(403, "无权限：只有管理员或调度员可以查看工单列表");
+        }
+        return ApiResponse.ok(workOrderService.listAll(status));
+    }
     @GetMapping("/today")
     public ApiResponse today(@RequestHeader(value = "X-Token", required = false) String token) {
         User user = resolveUserByToken(token);
