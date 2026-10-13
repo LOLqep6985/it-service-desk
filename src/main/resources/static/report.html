@@ -97,6 +97,11 @@
     <div id="acceptList"><div class="history-item">加载中...</div></div>
   </div>
 
+  <div class="card" id="completedCard" style="display:none;">
+    <h2>已完成工单 <span id="completedCount" style="font-size:12px;color:#27ae60;"></span></h2>
+    <div id="completedList"><div class="history-item">加载中...</div></div>
+  </div>
+
   <div class="card" id="historyCard" style="display:none;">
     <h2>本科室报修历史</h2>
     <div id="historyList"><div class="history-item">加载中...</div></div>
@@ -130,6 +135,17 @@
   </div>
 </div>
 
+<!-- 维修详情弹窗 -->
+<div class="modal-mask" id="detailModal">
+  <div class="modal">
+    <h3>维修记录详情</h3>
+    <div class="info" id="detailInfo">加载中...</div>
+    <div class="actions">
+      <button class="btn-cancel" id="closeDetail">关闭</button>
+    </div>
+  </div>
+</div>
+
 <script>
   const REPORT_STATUS = { PENDING:'待受理', ACCEPTED:'已受理', DISPATCHED:'已派单', CANCELLED:'已取消' };
   const WO_STATUS = { ASSIGNED:'已派单', IN_PROGRESS:'处理中', PENDING_ACCEPT:'待验收', COMPLETED:'已完成' };
@@ -158,10 +174,12 @@
       bindCard.style.display = 'none';
       formCard.style.display = 'block';
       acceptCard.style.display = 'block';
+      completedCard.style.display = 'block';
       historyCard.style.display = 'block';
       document.getElementById('deptBox').textContent = '科室：' + json.data.departmentName + '（' + (CAMPUS_LABEL[json.data.campus] || json.data.campus) + '）';
       document.getElementById('departmentHead').value = json.data.departmentHead || '';
       loadAccept();
+      loadCompleted();
       loadHistory();
     } catch (e) {
       bindMsg.textContent = '网络错误：' + e.message;
@@ -176,10 +194,13 @@
         bindCard.style.display = 'none';
         formCard.style.display = 'block';
         acceptCard.style.display = 'block';
+        completedCard.style.display = 'block';
+      completedCard.style.display = 'block';
         historyCard.style.display = 'block';
         document.getElementById('deptBox').textContent = '科室：' + json.data.departmentName + '（' + (CAMPUS_LABEL[json.data.campus] || json.data.campus) + '）';
         document.getElementById('departmentHead').value = json.data.departmentHead || '';
         loadAccept();
+        loadCompleted();
         loadHistory();
       }
     })();
@@ -240,6 +261,7 @@
       resetForm();
       startCountdown(DUPLICATE_MINUTES * 60);
       loadAccept();
+      loadCompleted();
       loadHistory();
     } catch (err) {
       submitMsg.textContent = '网络错误：' + err.message;
@@ -296,6 +318,62 @@
       document.getElementById('acceptList').innerHTML = '<div class="history-item">加载失败</div>';
     }
   }
+
+  // ---------- 已完成工单 ----------
+  async function loadCompleted() {
+    try {
+      const res = await fetch('/api/work-orders/by-department?deviceCode=' + encodeURIComponent(deviceCode) + '&status=COMPLETED');
+      const json = await res.json();
+      if (json.code !== 0) { document.getElementById('completedList').innerHTML = '<div class="history-item">' + json.message + '</div>'; return; }
+      const list = json.data || [];
+      document.getElementById('completedCount').textContent = '（' + list.length + '）';
+      if (list.length === 0) { document.getElementById('completedList').innerHTML = '<div class="history-item">暂无已完成工单</div>'; return; }
+      document.getElementById('completedList').innerHTML = list.map(wo =>
+        '<div class="accept-item">' +
+        '<span class="no">工单#' + wo.id + '</span> ' + (wo.title || '') +
+        '<br><span style="color:#7f8c8d;">签字人：' + (wo.signedBy || '未填写') + ' · ' + ((wo.signedAt || '').replace('T',' ').slice(0,16)) + '</span>' +
+        '<br><button class="sign-btn" onclick="openCompletedDetail(' + wo.id + ')">查看详情</button>' +
+        '</div>'
+      ).join('');
+    } catch (e) {
+      document.getElementById('completedList').innerHTML = '<div class="history-item">加载失败</div>';
+    }
+  }
+
+  async function openCompletedDetail(woId) {
+    const info = document.getElementById('detailInfo');
+    info.innerHTML = '加载中...';
+    document.getElementById('detailModal').classList.add('show');
+    try {
+      const [woRes, consRes] = await Promise.all([
+        fetch('/api/work-orders/' + woId + '?deviceCode=' + encodeURIComponent(deviceCode)),
+        fetch('/api/work-orders/' + woId + '/consumables?deviceCode=' + encodeURIComponent(deviceCode))
+      ]);
+      const woJson = await woRes.json();
+      if (woJson.code !== 0) { info.innerHTML = woJson.message; return; }
+      const wo = woJson.data;
+      const consJson = await consRes.json();
+      const consumables = (consJson.data || []);
+      const consHtml = consumables.length ? consumables.map(cn => cn.name + '×' + (cn.quantity || 1)).join('、') : '无';
+      const sigImg = wo.signatureUrl
+        ? '<div style="margin-top:8px;"><img src="' + wo.signatureUrl + '" onclick="window.open(this.src)" style="max-width:100%;border:1px solid #ecf0f1;border-radius:6px;cursor:zoom-in;" alt="手写签名"></div>'
+        : '<div style="color:#95a5a6;">无签名图片</div>';
+      info.innerHTML =
+        '<b>工单#' + wo.id + '</b> ' + (wo.title || '') +
+        '<br><br><b>维修记录：</b>' + (wo.repairRecord || '未填写') +
+        '<br><b>耗材：</b>' + consHtml +
+        '<br><b>签字状态：</b>' + (wo.signStatus === 'SIGNED' ? '已签字' : '待签字') +
+        '<br><b>签字人：</b>' + (wo.signedBy || '未填写') +
+        '<br><b>签字时间：</b>' + ((wo.signedAt || '').replace('T',' ').slice(0,16) || '未填写') +
+        '<br><b>手写签名：</b>' + sigImg;
+    } catch (e) {
+      info.innerHTML = '加载失败：' + e.message;
+    }
+  }
+
+  document.getElementById('closeDetail').addEventListener('click', () => {
+    document.getElementById('detailModal').classList.remove('show');
+  });
 
   // ---------- 签字 ----------
   const signModal = document.getElementById('signModal');

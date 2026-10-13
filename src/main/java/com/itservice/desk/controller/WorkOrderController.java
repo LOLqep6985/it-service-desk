@@ -71,6 +71,15 @@ public class WorkOrderController {
         return ApiResponse.ok(list);
     }
 
+    @GetMapping("/by-department")
+    public ApiResponse byDepartment(@RequestParam String deviceCode,
+                                    @RequestParam(required = false) String status) {
+        DepartmentBinding b = findActiveBinding(deviceCode);
+        if (b == null) {
+            return ApiResponse.error(401, "设备码未绑定科室");
+        }
+        return ApiResponse.ok(workOrderService.listByDepartment(b.getDepartmentId(), status));
+    }
     @GetMapping("/pending-accept")
     public ApiResponse pendingAccept(@RequestParam String deviceCode) {
         DepartmentBinding b = findActiveBinding(deviceCode);
