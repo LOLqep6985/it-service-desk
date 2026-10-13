@@ -179,3 +179,9 @@
 - 状态机：ASSIGNED → IN_PROGRESS → PENDING_ACCEPT（维修工提交）→ COMPLETED（签字后）
 - 欠条字段（is_iou/iou_no）保留在表，但 UI 不再展示（符合「第一版不做欠条」）
 - 测试注意：科室端待验收按工单 department_id 过滤，必须用绑定同一科室的报修单测试（DEV001=科室1）
+### 2026-10-13：uploads 路径踩坑
+
+- 现象：沙箱上传的图片，IDEA 运行（不同工作目录）时 /uploads/xxx 404
+- 根因：file.upload-dir 相对路径依赖进程工作目录（user.dir）
+- 解法：改为绝对路径 ，环境变量可覆盖，保证跨运行环境一致
+- uploads/ 已在 .gitignore，不污染仓库
