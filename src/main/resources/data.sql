@@ -11,3 +11,5 @@ INSERT IGNORE INTO department (id, name, campus, building) VALUES
 (3, '信息科机房', 'XIYUAN', '西院信息楼二层'),
 (4, '门诊楼-二层', 'DONGYUAN', '东院门诊楼二层'),
 (5, '检验科', 'DONGYUAN', '东院检验楼一层');
+INSERT IGNORE INTO department_binding (id, department_id, device_code, bind_at, active) VALUES
+(1, 1, 'DEV001', NOW(), 1);
