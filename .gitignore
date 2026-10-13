@@ -10,3 +10,4 @@ __pycache__/
 .m2repo/
 
 uploads/
+.rdoc_inspect/
