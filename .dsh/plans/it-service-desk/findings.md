@@ -70,3 +70,13 @@
 - 决策：主项目使用 MyBatis-Plus（mybatis-plus-boot-starter 3.5.7），不用 Spring Data JPA
 - 理由：用户偏好 + 与简历技能栈匹配；依赖问题已解决，不再需要 JPA 降级
 - 后果：pom 添加 mybatis-plus-boot-starter 依赖；M0 内存存储将替换为 MyBatis-Plus 数据访问层
+### 2026-10-13：IDEA 环境确认（Maven + JDK17 + 项目名/包名）
+
+- 状态：accepted
+- 来源：用户确认 + 上传的 Maven 位置描述
+- 决策：
+  - 项目名保留 it-service-desk；包名保留 com.itservice.desk
+  - IDEA Maven：home D:/DevTools/Maven（3.9.16）、User settings C:\Users\DELL\.m2\settings.xml、Local repository D:\Maven\repository（由 settings.xml 决定，IDEA 不勾 Override，正确）
+  - Use settings from .mvn/maven.config：已勾选（本项目无 .mvn/maven.config，无影响）
+  - JDK 17 已选为 SDK
+- 备注：沙箱内 CLI 构建继续用项目内 .m2repo（沙箱无权限写 D:\Maven\repository）；IDEA 构建用 D:\Maven\repository，二者互不冲突

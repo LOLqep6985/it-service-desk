@@ -31,3 +31,8 @@
 | 日期 | 提交 | 内容 |
 |---|---|---|
 | 2026-10-13 | （待提交） | feat: M0 最小验证 - 工单闭环垂直切片 |
+### 2026-10-13：IDEA 工程就绪
+
+- 完成：用户在 IDEA 中加载 Maven（阿里云镜像 + 系统仓库 D:\Maven\repository）、选择 JDK17 作为 SDK；确认项目名/包名保留
+- 结果/输出：项目可在 IDEA 中导入、编译；等待 Day 1 MyBatis-Plus 持久层开发
+- 下一步：Day 1 实体/Mapper/Service + MySQL 就绪验证
