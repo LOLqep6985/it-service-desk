@@ -210,3 +210,32 @@
 - 决策：此后 AI 不再直接执行 git commit / git push；每次完成代码变更并落盘项目记忆后，AI 只提供「修改摘要 + 建议提交信息（Conventional Commits）」，由用户在 VSCode（Git Graph 扩展）中手动 commit 并 push 到云端仓库
 - 理由：用户希望在 VSCode 中直观查看变更（Git Graph），自己掌控版本历史与推送时机
 - 影响：AGENTS.md「强制规则」已同步更新；AI 侧仍负责更新 .dsh/plans 下的进度文档，但提交动作留给用户
+
+### 2026-10-13：PWA 化与科室端首次绑定优化（体验优化）
+
+- 状态：accepted（用户选定方案 A：PWA，不做 APK）
+- 决策：科室端与维修端采用 PWA「添加到主屏幕」，不引入 Android 工程/APK（避免过度设计与版本分发负担）
+- 实现：
+  - 新增 `manifest-report.json`（科室报修，绿色 #27ae60）与 `manifest-repairer.json`（维修工作台，蓝色 #1d6fe0），`start_url` 分别指向 `/report.html` 与 `/today.html`
+  - 新增 `service-worker.js`：导航网络优先、失败回退缓存；静态资源缓存优先；`/api/` 与 `/uploads/` 不缓存
+  - 图标：PowerShell + System.Drawing 生成 `icons/report-{192,512}.png`（绿底「报」）与 `icons/repair-{192,512}.png`（蓝底「修」）
+  - report/today/detail/login 四页接入 manifest + theme-color + apple-touch-icon + SW 注册
+  - 科室端绑定优化：`?deviceCode=` URL 参数自动绑定（为扫码入口预留）、「重新绑定」按钮、绑定成功直接展示全部卡片
+- 踩坑：Spring Boot 把 `.webmanifest` 以 `application/octet-stream` 返回，浏览器可能拒绝 → 改名为 `.json` 后正确返回 `application/json`
+- 注意：Service Worker 只在 HTTPS 或 localhost 下生效；局域网 http 部署时页面仍可正常使用，仅离线/安装能力不可用（后续 Day7 部署建议上 HTTPS）
+
+### 2026-10-13：需求变更——去掉设备码，科室端改为「院区→科室」两级下拉
+
+- 状态：accepted（用户明确要求）
+- 决策：
+  - 废弃科室工作机的「设备码绑定」模式，改为**下拉选择科室**绑定（先选院区，再选该院区下的科室）
+  - 科室数据源使用用户提供的《医院科室楼层索引.md》（河南省人民医院豫东分院：东区/老院/西院，共 68 个科室）
+- 实现：
+  - department 表导入 68 个真实科室（name 唯一键 + INSERT IGNORE 幂等）；命名规则「建筑-楼层-科室」，如「门诊楼-三层-五官科诊室」
+  - 后端接口全面支持 `departmentId`（匿名报修/报修历史/待验收/已完成/详情/耗材/签字/报销单），保留 `deviceCode` 兼容旧方式
+  - report.html 绑定页改为两级下拉：院区（东区院区/老院区/西院区）→ 科室；绑定后存 localStorage（itsdDepartmentId/itsdDepartmentName）并刷新，显示「当前科室：XXX」
+  - 错误提示改为「请选择科室」；科室负责人有默认值时只读，无默认值时可手动填写
+- 踩坑/注意：
+  - MySQL 不支持 ALTER ADD COLUMN IF NOT EXISTS，但支持 ADD UNIQUE KEY；已手动对现有库执行 `ALTER TABLE department ADD UNIQUE KEY uk_dept_name (name)`，并清理旧演示科室数据
+  - 旧演示数据（work_order/report）仍引用已删除的旧科室 id，但表内已有科室名快照，展示不受影响；新科室 id 从 6 开始（AUTO_INCREMENT 未重置）
+  - `/api/reimbursements/by-department` 新增为语义化端点，`/by-device` 保留兼容

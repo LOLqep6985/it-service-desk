@@ -190,3 +190,32 @@
 - 用户要求：以后每次变更代码并保存进度后，AI 只告知修改内容与建议提交信息，由用户在 VSCode 中手动 commit + push
 - 已更新：AGENTS.md 强制规则、findings.md 决策记录
 - 当前未提交变更：AGENTS.md、findings.md、progress.md（等待用户手动 commit）
+
+### 2026-10-13：体验优化——PWA 化 + 科室端首次绑定（待用户 commit）
+
+- 完成：
+  - PWA 资源：manifest-report.json（科室报修/绿）+ manifest-repairer.json（维修工作台/蓝）+ service-worker.js（导航网络优先/静态缓存优先/API 不缓存）
+  - 图标：icons/report-192/512.png（绿底「报」）、icons/repair-192/512.png（蓝底「修」）
+  - 4 页接入：report/today/detail/login 增加 manifest/theme-color/apple-touch-icon + SW 注册
+  - 科室端绑定优化：首次使用引导页（设备码输入 + 说明）、?deviceCode= 自动绑定（扫码预留）、「重新绑定」按钮、绑定成功展示全部卡片
+- 验证：
+  - 构建成功；manifest 以 application/json、SW 以 application/javascript、图标以 image/png 返回
+  - report/today/detail/login 均 HTTP 200；登录接口正常；bindings/info?deviceCode=DEV001 返回科室1
+- 踩坑：`.webmanifest` 被 Spring 以 application/octet-stream 返回 → 改名 `.json` 解决
+- 说明：SW 仅在 HTTPS/localhost 生效；局域网 http 不影响正常使用
+- 待办：用户在 VSCode 手动 commit + push（本次所有改动尚未提交）
+
+### 2026-10-13：需求变更——去掉设备码，科室端两级下拉选科室（待用户 commit）
+
+- 完成：
+  - 科室表导入《医院科室楼层索引.md》68 个真实科室（东区39 / 老院23 / 西院6），命名「建筑-楼层-科室」，name 唯一键幂等
+  - 后端所有科室端接口支持 departmentId（匿名报修/报修历史/待验收/已完成/详情/耗材/签字/报销单），保留 deviceCode 兼容
+  - report.html 绑定页改为「院区→科室」两级下拉；绑定后存 localStorage（itsdDepartmentId/itsdDepartmentName）并刷新，显示「当前科室：XXX」
+  - 提示文案「这是本科室专用工作机。请下拉选择您所在的科室…」；错误提示「请选择科室」
+  - 科室负责人：有默认值只读，无默认值可手动填写
+- 验证（全链路通过）：
+  - /api/departments 返回 68 个科室；页面/manifest/SW 均 200
+  - 科室「门诊楼-三层-五官科诊室」(id=13)：匿名报修 R000023 → 历史查询 → 派单 #16 → 接单 → 维修+耗材 → 待验收 → departmentId 签字 → 已完成，全部通过
+  - 测试数据已清理（保留历史演示数据）
+- 说明：旧演示数据引用已删除的旧科室 id，但表内有科室名快照，展示不受影响
+- 待办：用户在 VSCode 手动 commit + push（本次所有改动尚未提交）

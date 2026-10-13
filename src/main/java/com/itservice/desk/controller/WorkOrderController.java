@@ -72,32 +72,35 @@ public class WorkOrderController {
     }
 
     @GetMapping("/by-department")
-    public ApiResponse byDepartment(@RequestParam String deviceCode,
+    public ApiResponse byDepartment(@RequestParam(required = false) Long departmentId,
+                                    @RequestParam(required = false) String deviceCode,
                                     @RequestParam(required = false) String status) {
-        DepartmentBinding b = findActiveBinding(deviceCode);
-        if (b == null) {
-            return ApiResponse.error(401, "设备码未绑定科室");
+        Long deptId = resolveDepartmentId(departmentId, deviceCode);
+        if (deptId == null) {
+            return ApiResponse.error(401, "请选择有效的科室");
         }
-        return ApiResponse.ok(workOrderService.listByDepartment(b.getDepartmentId(), status));
+        return ApiResponse.ok(workOrderService.listByDepartment(deptId, status));
     }
     @GetMapping("/pending-accept")
-    public ApiResponse pendingAccept(@RequestParam String deviceCode) {
-        DepartmentBinding b = findActiveBinding(deviceCode);
-        if (b == null) {
-            return ApiResponse.error(401, "设备码未绑定科室");
+    public ApiResponse pendingAccept(@RequestParam(required = false) Long departmentId,
+                                     @RequestParam(required = false) String deviceCode) {
+        Long deptId = resolveDepartmentId(departmentId, deviceCode);
+        if (deptId == null) {
+            return ApiResponse.error(401, "请选择有效的科室");
         }
-        return ApiResponse.ok(workOrderService.listPendingAcceptByDepartment(b.getDepartmentId()));
+        return ApiResponse.ok(workOrderService.listPendingAcceptByDepartment(deptId));
     }
 
     @GetMapping("/{id}")
     public ApiResponse detail(@PathVariable Long id,
                               @RequestHeader(value = "X-Token", required = false) String token,
+                              @RequestParam(required = false) Long departmentId,
                               @RequestParam(required = false) String deviceCode) {
         WorkOrder wo = workOrderService.getById(id);
-        // 科室端免登录：设备码必须匹配工单科室
-        if (deviceCode != null && !deviceCode.isBlank()) {
-            DepartmentBinding b = findActiveBinding(deviceCode);
-            if (b == null || !b.getDepartmentId().equals(wo.getDepartmentId())) {
+        // 科室端免登录：科室必须匹配
+        Long deptId = resolveDepartmentId(departmentId, deviceCode);
+        if (deptId != null) {
+            if (!deptId.equals(wo.getDepartmentId())) {
                 return ApiResponse.error(403, "无权查看该工单");
             }
             return ApiResponse.ok(wo);
@@ -112,12 +115,13 @@ public class WorkOrderController {
 
     @GetMapping("/{id}/consumables")
     public ApiResponse consumables(@PathVariable Long id,
-                                   @RequestHeader(value = "X-Token", required = false) String token,
-                                   @RequestParam(required = false) String deviceCode) {
+                                     @RequestHeader(value = "X-Token", required = false) String token,
+                                     @RequestParam(required = false) Long departmentId,
+                                     @RequestParam(required = false) String deviceCode) {
         WorkOrder wo = workOrderService.getById(id);
-        if (deviceCode != null && !deviceCode.isBlank()) {
-            DepartmentBinding b = findActiveBinding(deviceCode);
-            if (b == null || !b.getDepartmentId().equals(wo.getDepartmentId())) {
+        Long deptId = resolveDepartmentId(departmentId, deviceCode);
+        if (deptId != null) {
+            if (!deptId.equals(wo.getDepartmentId())) {
                 return ApiResponse.error(403, "无权查看该工单的耗材记录");
             }
             return ApiResponse.ok(workOrderService.listConsumables(id));
@@ -181,12 +185,12 @@ public class WorkOrderController {
 
     @PostMapping("/{id}/sign")
     public ApiResponse sign(@PathVariable Long id, @RequestBody SignRequest req) {
-        DepartmentBinding b = findActiveBinding(req.getDeviceCode());
-        if (b == null) {
-            return ApiResponse.error(401, "设备码未绑定科室");
+        Long deptId = resolveDepartmentId(req.getDepartmentId(), req.getDeviceCode());
+        if (deptId == null) {
+            return ApiResponse.error(401, "请选择有效的科室");
         }
         WorkOrder wo = workOrderService.getById(id);
-        if (!b.getDepartmentId().equals(wo.getDepartmentId())) {
+        if (!deptId.equals(wo.getDepartmentId())) {
             return ApiResponse.error(403, "无权操作该工单");
         }
         try {
@@ -228,6 +232,15 @@ public class WorkOrderController {
         return bindingMapper.selectOne(new LambdaQueryWrapper<DepartmentBinding>()
                 .eq(DepartmentBinding::getDeviceCode, deviceCode)
                 .eq(DepartmentBinding::getActive, true));
+    }
+
+    /** 新方式优先 departmentId；旧方式 deviceCode 兼容 */
+    private Long resolveDepartmentId(Long departmentId, String deviceCode) {
+        if (departmentId != null) {
+            return departmentId;
+        }
+        DepartmentBinding b = findActiveBinding(deviceCode);
+        return b == null ? null : b.getDepartmentId();
     }
 
     private User resolveUserByToken(String token) {

@@ -1,0 +1,15 @@
+{
+  "name": "维修工作台 - IT运维工单系统",
+  "short_name": "维修工作台",
+  "description": "维修人员手机工作台：今日任务、接单、维修记录与耗材登记",
+  "start_url": "/today.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f2f4f7",
+  "theme_color": "#1d6fe0",
+  "icons": [
+    { "src": "/icons/repair-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/repair-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

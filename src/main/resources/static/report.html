@@ -3,6 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#27ae60">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="科室报修">
+  <link rel="manifest" href="/manifest-report.json">
+  <link rel="icon" href="/icons/report-192.png">
+  <link rel="apple-touch-icon" href="/icons/report-192.png">
   <title>科室报修 - IT运维工单系统</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -49,15 +56,21 @@
   </style>
 </head>
 <body>
-<div class="header"><span class="t">科室报修（免登录）</span></div>
+<div class="header">
+  <span class="t">科室报修（免登录）</span>
+  <button id="rebindBtn" style="margin-left:auto;background:rgba(255,255,255,.2);border:none;color:#fff;padding:6px 12px;border-radius:6px;font-size:13px;display:none;">重新绑定</button>
+</div>
 <div class="container">
   <div class="card" id="bindCard">
-    <h2>设备绑定</h2>
-    <p style="font-size:13px;color:#95a5a6;">请使用科室专用工作手机，输入管理员分配的设备码。</p>
-    <div class="bind-row" style="margin-top:10px;">
-      <input id="deviceCode" placeholder="输入设备码">
-      <button id="bindBtn">进入</button>
-    </div>
+    <h2>📱 首次使用 · 绑定科室</h2>
+    <p style="font-size:13px;color:#95a5a6;line-height:1.7;">
+      这是本科室专用工作机。请下拉选择您所在的科室，绑定一次后，本机之后报修<b>无需再选择科室</b>。
+    </p>
+    <label>院区 *</label>
+    <select id="campusSelect"><option value="">请选择院区</option></select>
+    <label>科室 *</label>
+    <select id="deptSelect"><option value="">请先选择院区</option></select>
+    <button class="primary" id="bindBtn" style="margin-top:14px;">绑定</button>
     <div class="msg" id="bindMsg"></div>
   </div>
 
@@ -86,7 +99,7 @@
     <div class="tags" id="tags">
       <span class="tag">卡纸</span><span class="tag">缺墨</span><span class="tag">不亮</span><span class="tag">打不开机</span><span class="tag">网络不通</span>
     </div>
-    <label>科室负责人 *（自动带出）</label>
+    <label>科室负责人 *</label>
     <input id="departmentHead" readonly>
     <button class="primary" id="submitBtn">提交报修单</button>
     <div class="msg" id="submitMsg"></div>
@@ -155,10 +168,11 @@
   const REPORT_STATUS = { PENDING:'待受理', ACCEPTED:'已受理', DISPATCHED:'已派单', CANCELLED:'已取消' };
   const WO_STATUS = { ASSIGNED:'已派单', IN_PROGRESS:'处理中', PENDING_ACCEPT:'待验收', COMPLETED:'已完成' };
   const REIMB_STATUS = { PENDING_SIGN:'待签字', PENDING_REIMBURSE:'待报销', REIMBURSED:'已报销' };
-  const CAMPUS_LABEL = { LAOYUAN:'老院', XIYUAN:'西院', DONGYUAN:'东院' };
+  const CAMPUS_LABEL = { LAOYUAN:'老院区', XIYUAN:'西院区', DONGYUAN:'东区院区' };
   const bindCard = document.getElementById('bindCard');
   const formCard = document.getElementById('formCard');
   const acceptCard = document.getElementById('acceptCard');
+  const completedCard = document.getElementById('completedCard');
   const historyCard = document.getElementById('historyCard');
   const reimbCard = document.getElementById('reimbCard');
   const bindMsg = document.getElementById('bindMsg');
@@ -166,58 +180,112 @@
   const submitBtn = document.getElementById('submitBtn');
   const DUPLICATE_MINUTES = 10;
   let countdownTimer = null;
-  let deviceCode = localStorage.getItem('itsdDeviceCode') || '';
+  let departmentId = Number(localStorage.getItem('itsdDepartmentId')) || null;
+  let departmentName = localStorage.getItem('itsdDepartmentName') || '';
+  let departments = [];
   let currentSignWoId = null;
   let currentReimbId = null;
 
   function esc(s) { return (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-  document.getElementById('bindBtn').addEventListener('click', async () => {
-    deviceCode = document.getElementById('deviceCode').value.trim();
-    if (!deviceCode) { bindMsg.textContent = '请输入设备码'; return; }
-    bindMsg.textContent = '验证中...';
+  function showBound(deptName, campus, deptHead) {
+    bindCard.style.display = 'none';
+    formCard.style.display = 'block';
+    acceptCard.style.display = 'block';
+    completedCard.style.display = 'block';
+    reimbCard.style.display = 'block';
+    historyCard.style.display = 'block';
+    document.getElementById('rebindBtn').style.display = 'block';
+    document.getElementById('deptBox').textContent = '当前科室：' + deptName + '（' + (CAMPUS_LABEL[campus] || campus) + '）';
+    const headInput = document.getElementById('departmentHead');
+    headInput.value = deptHead || '';
+    headInput.readOnly = !!deptHead;
+  }
+
+  async function loadDepartments() {
     try {
-      const res = await fetch('/api/bindings/info?deviceCode=' + encodeURIComponent(deviceCode));
+      const res = await fetch('/api/departments');
       const json = await res.json();
-      if (json.code !== 0) { bindMsg.textContent = json.message; return; }
-      localStorage.setItem('itsdDeviceCode', deviceCode);
-      bindCard.style.display = 'none';
-      formCard.style.display = 'block';
-      acceptCard.style.display = 'block';
-      completedCard.style.display = 'block';
-      reimbCard.style.display = 'block';
-      historyCard.style.display = 'block';
-      document.getElementById('deptBox').textContent = '科室：' + json.data.departmentName + '（' + (CAMPUS_LABEL[json.data.campus] || json.data.campus) + '）';
-      document.getElementById('departmentHead').value = json.data.departmentHead || '';
-      loadAccept();
-      loadCompleted();
-      loadReimbursements();
-      loadHistory();
+      return (json.code === 0 && json.data) ? json.data : [];
     } catch (e) {
-      bindMsg.textContent = '网络错误：' + e.message;
+      return [];
     }
+  }
+
+  function renderCampusSelect() {
+    const campusSel = document.getElementById('campusSelect');
+    const campusSet = {};
+    departments.forEach(d => { if (d.campus) campusSet[d.campus] = CAMPUS_LABEL[d.campus] || d.campus; });
+    const campusList = Object.keys(campusSet);
+    campusSel.innerHTML = '<option value="">请选择院区</option>' + campusList.map(c => '<option value="' + c + '">' + campusSet[c] + '</option>').join('');
+  }
+
+  function renderDeptSelect(campus) {
+    const deptSel = document.getElementById('deptSelect');
+    const list = departments.filter(d => d.campus === campus);
+    deptSel.innerHTML = '<option value="">请选择科室</option>' + list.map(d => '<option value="' + d.id + '">' + esc(d.name) + '</option>').join('');
+  }
+
+  function doBind() {
+    const deptSel = document.getElementById('deptSelect');
+    const selected = deptSel.options[deptSel.selectedIndex];
+    if (!selected || !selected.value) { bindMsg.textContent = '请选择科室'; return; }
+    const dept = departments.find(d => d.id === Number(selected.value));
+    if (!dept) { bindMsg.textContent = '请选择科室'; return; }
+    localStorage.setItem('itsdDepartmentId', String(dept.id));
+    localStorage.setItem('itsdDepartmentName', dept.name);
+    location.reload();
+  }
+
+  document.getElementById('bindBtn').addEventListener('click', doBind);
+
+  document.getElementById('rebindBtn').addEventListener('click', () => {
+    if (!confirm('重新绑定后，本机将切换到新科室，确定继续？')) return;
+    localStorage.removeItem('itsdDepartmentId');
+    localStorage.removeItem('itsdDepartmentName');
+    location.href = 'report.html';
   });
 
-  if (deviceCode) {
-    (async () => {
-      const res = await fetch('/api/bindings/info?deviceCode=' + encodeURIComponent(deviceCode));
-      const json = await res.json();
-      if (json.code === 0) {
-        bindCard.style.display = 'none';
-        formCard.style.display = 'block';
-        acceptCard.style.display = 'block';
-        completedCard.style.display = 'block';
-        reimbCard.style.display = 'block';
-        historyCard.style.display = 'block';
-        document.getElementById('deptBox').textContent = '科室：' + json.data.departmentName + '（' + (CAMPUS_LABEL[json.data.campus] || json.data.campus) + '）';
-        document.getElementById('departmentHead').value = json.data.departmentHead || '';
+  // 初始化：加载科室列表 → 恢复本地绑定；支持 ?departmentId= 快捷绑定（扫码入口预留）
+  (async function init() {
+    departments = await loadDepartments();
+    renderCampusSelect();
+    const campusSel = document.getElementById('campusSelect');
+    campusSel.addEventListener('change', () => {
+      renderDeptSelect(campusSel.value);
+      bindMsg.textContent = '';
+    });
+
+    const urlDeptId = new URLSearchParams(location.search).get('departmentId');
+    if (urlDeptId) {
+      const dept = departments.find(d => d.id === Number(urlDeptId));
+      if (dept) {
+        localStorage.setItem('itsdDepartmentId', String(dept.id));
+        localStorage.setItem('itsdDepartmentName', dept.name);
+        departmentId = dept.id;
+        departmentName = dept.name;
+        showBound(dept.name, dept.campus, dept.departmentHead);
         loadAccept();
         loadCompleted();
         loadReimbursements();
         loadHistory();
+        return;
       }
-    })();
-  }
+    }
+    if (departmentId) {
+      const dept = departments.find(d => d.id === departmentId);
+      if (dept) {
+        showBound(dept.name, dept.campus, dept.departmentHead);
+        loadAccept();
+        loadCompleted();
+        loadReimbursements();
+        loadHistory();
+      } else {
+        localStorage.removeItem('itsdDepartmentId');
+        localStorage.removeItem('itsdDepartmentName');
+      }
+    }
+  })();
 
   document.querySelectorAll('.tag').forEach(tag => {
     tag.addEventListener('click', () => {
@@ -262,7 +330,7 @@
       const res = await fetch('/api/reports/anonymous', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceCode, reporterName, deviceName, devicePhoto, problemDesc, departmentHead })
+        body: JSON.stringify({ departmentId, reporterName, deviceName, devicePhoto, problemDesc, departmentHead })
       });
       const json = await res.json();
       if (json.code !== 0) {
@@ -314,7 +382,7 @@
   // ---------- 待验收列表 ----------
   async function loadAccept() {
     try {
-      const res = await fetch('/api/work-orders/pending-accept?deviceCode=' + encodeURIComponent(deviceCode));
+      const res = await fetch('/api/work-orders/pending-accept?departmentId=' + departmentId);
       const json = await res.json();
       if (json.code !== 0) { document.getElementById('acceptList').innerHTML = '<div class="history-item">' + json.message + '</div>'; return; }
       const list = json.data || [];
@@ -335,7 +403,7 @@
   // ---------- 已完成工单 ----------
   async function loadCompleted() {
     try {
-      const res = await fetch('/api/work-orders/by-department?deviceCode=' + encodeURIComponent(deviceCode) + '&status=COMPLETED');
+      const res = await fetch('/api/work-orders/by-department?departmentId=' + departmentId + '&status=COMPLETED');
       const json = await res.json();
       if (json.code !== 0) { document.getElementById('completedList').innerHTML = '<div class="history-item">' + json.message + '</div>'; return; }
       const list = json.data || [];
@@ -359,8 +427,8 @@
     document.getElementById('detailModal').classList.add('show');
     try {
       const [woRes, consRes] = await Promise.all([
-        fetch('/api/work-orders/' + woId + '?deviceCode=' + encodeURIComponent(deviceCode)),
-        fetch('/api/work-orders/' + woId + '/consumables?deviceCode=' + encodeURIComponent(deviceCode))
+        fetch('/api/work-orders/' + woId + '?departmentId=' + departmentId),
+        fetch('/api/work-orders/' + woId + '/consumables?departmentId=' + departmentId)
       ]);
       const woJson = await woRes.json();
       if (woJson.code !== 0) { info.innerHTML = woJson.message; return; }
@@ -387,7 +455,7 @@
   // ---------- 月度报销单 ----------
   async function loadReimbursements() {
     try {
-      const res = await fetch('/api/reimbursements/by-device?deviceCode=' + encodeURIComponent(deviceCode));
+      const res = await fetch('/api/reimbursements/by-department?departmentId=' + departmentId);
       const json = await res.json();
       if (json.code !== 0) { document.getElementById('reimbList').innerHTML = '<div class="history-item">' + json.message + '</div>'; return; }
       const list = json.data || [];
@@ -412,7 +480,7 @@
     info.innerHTML = '加载中...';
     document.getElementById('detailModal').classList.add('show');
     try {
-      const res = await fetch('/api/reimbursements/' + reimbId + '?deviceCode=' + encodeURIComponent(deviceCode));
+      const res = await fetch('/api/reimbursements/' + reimbId + '?departmentId=' + departmentId);
       const json = await res.json();
       if (json.code !== 0) { info.innerHTML = json.message; return; }
       const d = json.data;
@@ -448,7 +516,7 @@
     document.getElementById('delegateRowWrap').style.display = 'none';
     signModal.classList.add('show');
     try {
-      const res = await fetch('/api/reimbursements/' + reimbId + '?deviceCode=' + encodeURIComponent(deviceCode));
+      const res = await fetch('/api/reimbursements/' + reimbId + '?departmentId=' + departmentId);
       const json = await res.json();
       if (json.code === 0) {
         const r = json.data.reimbursement || {};
@@ -502,7 +570,7 @@
     document.getElementById('delegatedName').value = '';
     signModal.classList.add('show');
     try {
-      const res = await fetch('/api/work-orders/' + woId + '?deviceCode=' + encodeURIComponent(deviceCode));
+      const res = await fetch('/api/work-orders/' + woId + '?departmentId=' + departmentId);
       const json = await res.json();
       if (json.code === 0) {
         const wo = json.data;
@@ -543,7 +611,7 @@
         const res = await fetch('/api/reimbursements/' + currentReimbId + '/sign', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ deviceCode, signerName, signatureUrl })
+          body: JSON.stringify({ departmentId, signerName, signatureUrl })
         });
         json = await res.json();
       } else {
@@ -551,7 +619,7 @@
         const res = await fetch('/api/work-orders/' + currentSignWoId + '/sign', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ deviceCode, signerName, isDelegate, delegatedName, signatureUrl })
+          body: JSON.stringify({ departmentId, signerName, isDelegate, delegatedName, signatureUrl })
         });
         json = await res.json();
       }
@@ -575,7 +643,7 @@
   // ---------- 历史列表 ----------
   async function loadHistory() {
     try {
-      const res = await fetch('/api/reports/by-device?deviceCode=' + encodeURIComponent(deviceCode));
+      const res = await fetch('/api/reports/by-department?departmentId=' + departmentId);
       const json = await res.json();
       if (json.code !== 0) { document.getElementById('historyList').innerHTML = '<div class="history-item">' + json.message + '</div>'; return; }
       const list = json.data || [];
@@ -588,6 +656,14 @@
     } catch (e) {
       document.getElementById('historyList').innerHTML = '<div class="history-item">加载失败</div>';
     }
+  }
+</script>
+<script>
+  // PWA：注册 Service Worker（HTTPS 或 localhost 下生效；局域网 http 不影响正常使用）
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('/service-worker.js').catch(function () {});
+    });
   }
 </script>
 </body>

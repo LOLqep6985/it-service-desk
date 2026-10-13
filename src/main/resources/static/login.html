@@ -3,6 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#1d6fe0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="IT运维工单">
+  <link rel="manifest" href="/manifest-repairer.json">
+  <link rel="icon" href="/icons/repair-192.png">
+  <link rel="apple-touch-icon" href="/icons/repair-192.png">
   <title>登录 - IT运维工单系统</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -65,6 +72,14 @@ if (roleCode === 'REPORTER') {
       msg.textContent = '网络错误：' + e.message;
     }
   });
+</script>
+<script>
+  // PWA：注册 Service Worker（HTTPS 或 localhost 下生效）
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('/service-worker.js').catch(function () {});
+    });
+  }
 </script>
 </body>
 </html>

@@ -64,27 +64,35 @@ public class ReimbursementController {
     }
 
     /** 科室端免登录：本科室报销单列表 */
-    @GetMapping("/by-device")
-    public ApiResponse listByDevice(@RequestParam String deviceCode) {
-        DepartmentBinding b = findActiveBinding(deviceCode);
-        if (b == null) {
-            return ApiResponse.error(401, "设备码未绑定科室");
+    @GetMapping("/by-department")
+    public ApiResponse listByDepartment(@RequestParam Long departmentId) {
+        if (departmentId == null) {
+            return ApiResponse.error("缺少科室参数");
         }
-        return ApiResponse.ok(reimbursementService.listByDepartment(b.getDepartmentId()));
+        return ApiResponse.ok(reimbursementService.listByDepartment(departmentId));
     }
 
-    /** 报销单详情（管理员 token 或 科室端 deviceCode） */
+    /** 兼容旧设备码方式 */
+    @GetMapping("/by-device")
+    public ApiResponse listByDevice(@RequestParam(required = false) Long departmentId,
+                                    @RequestParam(required = false) String deviceCode) {
+        Long deptId = resolveDepartmentId(departmentId, deviceCode);
+        if (deptId == null) {
+            return ApiResponse.error(401, "请选择有效的科室");
+        }
+        return ApiResponse.ok(reimbursementService.listByDepartment(deptId));
+    }
+
+    /** 报销单详情（管理员 token 或 科室端 departmentId/deviceCode） */
     @GetMapping("/{id}")
     public ApiResponse detail(@PathVariable Long id,
                               @RequestHeader(value = "X-Token", required = false) String token,
+                              @RequestParam(required = false) Long departmentId,
                               @RequestParam(required = false) String deviceCode) {
-        if (deviceCode != null && !deviceCode.isBlank()) {
-            DepartmentBinding b = findActiveBinding(deviceCode);
-            if (b == null) {
-                return ApiResponse.error(401, "设备码未绑定科室");
-            }
+        Long deptId = resolveDepartmentId(departmentId, deviceCode);
+        if (deptId != null) {
             Reimbursement r = reimbursementService.getById(id);
-            if (!b.getDepartmentId().equals(r.getDepartmentId())) {
+            if (!deptId.equals(r.getDepartmentId())) {
                 return ApiResponse.error(403, "无权查看该报销单");
             }
             return ApiResponse.ok(reimbursementService.getDetail(id));
@@ -106,12 +114,12 @@ public class ReimbursementController {
     /** 科室端免登录：护士长/主任签字确认报销单 */
     @PostMapping("/{id}/sign")
     public ApiResponse sign(@PathVariable Long id, @RequestBody ReimbursementSignRequest req) {
-        DepartmentBinding b = findActiveBinding(req.getDeviceCode());
-        if (b == null) {
-            return ApiResponse.error(401, "设备码未绑定科室");
+        Long deptId = resolveDepartmentId(req.getDepartmentId(), req.getDeviceCode());
+        if (deptId == null) {
+            return ApiResponse.error(401, "请选择有效的科室");
         }
         Reimbursement r = reimbursementService.getById(id);
-        if (!b.getDepartmentId().equals(r.getDepartmentId())) {
+        if (!deptId.equals(r.getDepartmentId())) {
             return ApiResponse.error(403, "无权操作该报销单");
         }
         try {
@@ -146,6 +154,15 @@ public class ReimbursementController {
         return bindingMapper.selectOne(new LambdaQueryWrapper<DepartmentBinding>()
                 .eq(DepartmentBinding::getDeviceCode, deviceCode)
                 .eq(DepartmentBinding::getActive, true));
+    }
+
+    /** 新方式优先 departmentId；旧方式 deviceCode 兼容 */
+    private Long resolveDepartmentId(Long departmentId, String deviceCode) {
+        if (departmentId != null) {
+            return departmentId;
+        }
+        DepartmentBinding b = findActiveBinding(deviceCode);
+        return b == null ? null : b.getDepartmentId();
     }
 
     private User resolveUser(String token) {

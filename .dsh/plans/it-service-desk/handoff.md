@@ -5,9 +5,9 @@
 ## 当前状态
 
 - 计划：it-service-desk
-- 阶段：Day 1-6 全部完成；待办：Day 7 部署/README/简历 + 最终演示
+- 阶段：Day 1-6 全部完成；已加「体验优化：PWA + 科室端首次绑定」；待办：Day 7 部署/README完善/简历 + 最终演示
 - 里程碑：M0-M4 ✅；M5 签字+报销闭环 ✅，待「部署+简历」收尾
-- 状态：全流程（报修→派单→维修→签字→核价→报销）已联调通过
+- 状态：**最新一批改动（PWA + 科室端两级下拉选科室 + 68 真实科室数据）已写入磁盘，尚未 commit/push，等待用户在 VSCode 手动提交**
 
 ## 项目全貌（一句话）
 
@@ -21,6 +21,10 @@
 - 状态机：ASSIGNED → IN_PROGRESS → PENDING_ACCEPT（维修工提交）→ COMPLETED（签字后）；报销单：PENDING_SIGN → PENDING_REIMBURSE → REIMBURSED
 - 10 分钟防重复报修；科室负责人默认带出；手写签名图片留痕；uploads 绝对路径
 - 月度报销：按月汇总已签字工单+耗材金额（reimbursement + reimbursement_item），同科室同月幂等
+- PWA：manifest-report.json / manifest-repairer.json + service-worker.js + 图标；report/today/detail/login 已接入；SW 仅 HTTPS/localhost 生效
+- 科室端首次绑定：~~设备码~~ 已改为「院区→科室」两级下拉；绑定后存 localStorage（itsdDepartmentId/itsdDepartmentName）并刷新显示「当前科室：XXX」
+- 科室数据：department 表已导入《医院科室楼层索引.md》68 个真实科室（东区39/老院23/西院6），命名「建筑-楼层-科室」，name 唯一键
+- 后端接口：科室端接口支持 departmentId（匿名报修/历史/待验收/已完成/详情/耗材/签字/报销单），保留 deviceCode 兼容
 
 ## 关键环境/事实（重要）
 

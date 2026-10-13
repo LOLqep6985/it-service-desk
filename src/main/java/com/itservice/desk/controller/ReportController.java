@@ -57,13 +57,9 @@ public class ReportController {
 
     @PostMapping("/anonymous")
     public ApiResponse createAnonymous(@RequestBody AnonymousReportRequest req) {
-        DepartmentBinding b = findActiveBinding(req.getDeviceCode());
-        if (b == null) {
-            return ApiResponse.error(401, "设备码未绑定科室，无法免登录报修");
-        }
-        Department dept = departmentMapper.selectById(b.getDepartmentId());
+        Department dept = resolveDepartment(req.getDepartmentId(), req.getDeviceCode());
         if (dept == null) {
-            return ApiResponse.error("绑定的科室不存在");
+            return ApiResponse.error(401, "请选择有效的科室");
         }
         Report recent = reportService.findRecentReport(dept.getId(), req.getDeviceName(), 10);
         if (recent != null && recent.getStatus() != ReportStatus.CANCELLED) {
@@ -79,7 +75,7 @@ public class ReportController {
         r.setDepartmentHead(req.getDepartmentHead() == null || req.getDepartmentHead().isBlank()
                 ? dept.getDepartmentHead() : req.getDepartmentHead());
         r.setStatus(ReportStatus.PENDING);
-        r.setBindingId(b.getId());
+        r.setBindingId(null);
         r.setCreatedAt(LocalDateTime.now());
         reportService.insertReport(r);
         return ApiResponse.ok(r);
@@ -124,6 +120,14 @@ public class ReportController {
         return ApiResponse.ok(list);
     }
 
+    @GetMapping("/by-department")
+    public ApiResponse listByDepartment(@RequestParam Long departmentId) {
+        if (departmentId == null) {
+            return ApiResponse.error("缺少科室参数");
+        }
+        return ApiResponse.ok(reportService.listReportsByDepartment(departmentId));
+    }
+
     @PostMapping("/{id}/dispatch")
     public ApiResponse dispatch(@PathVariable Long id,
                                 @RequestParam Long assigneeId,
@@ -149,6 +153,15 @@ public class ReportController {
         return bindingMapper.selectOne(new LambdaQueryWrapper<DepartmentBinding>()
                 .eq(DepartmentBinding::getDeviceCode, deviceCode)
                 .eq(DepartmentBinding::getActive, true));
+    }
+
+    /** 新方式优先 departmentId；旧方式 deviceCode 兼容 */
+    private Department resolveDepartment(Long departmentId, String deviceCode) {
+        if (departmentId != null) {
+            return departmentMapper.selectById(departmentId);
+        }
+        DepartmentBinding b = findActiveBinding(deviceCode);
+        return b == null ? null : departmentMapper.selectById(b.getDepartmentId());
     }
 
     private User resolveUser(String token) {
