@@ -29,5 +29,54 @@ CREATE TABLE IF NOT EXISTS work_order (
     creator_id    BIGINT,
     created_at    DATETIME,
     completed_at  DATETIME,
-    repair_record TEXT
+    repair_record TEXT,
+    report_id     BIGINT,
+    sign_status   VARCHAR(20) DEFAULT 'UNSIGNED',
+    signed_by     VARCHAR(50),
+    signed_at     DATETIME
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS department_binding (
+    id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+    department_id BIGINT NOT NULL,
+    device_code   VARCHAR(100) NOT NULL UNIQUE,
+    bind_at       DATETIME,
+    active        TINYINT DEFAULT 1
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS report (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    report_no       VARCHAR(32),
+    department_id   BIGINT NOT NULL,
+    department_name VARCHAR(100),
+    reporter_name   VARCHAR(50) NOT NULL,
+    device_name     VARCHAR(100) NOT NULL,
+    device_photo    VARCHAR(255),
+    problem_desc    VARCHAR(500),
+    department_head VARCHAR(50),
+    status          VARCHAR(20) DEFAULT 'PENDING',
+    creator_id      BIGINT,
+    binding_id      BIGINT,
+    created_at      DATETIME
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS consumable (
+    id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+    work_order_id BIGINT NOT NULL,
+    name          VARCHAR(100),
+    quantity      INT,
+    unit_price    DECIMAL(10,2),
+    is_iou        TINYINT DEFAULT 0,
+    iou_no        VARCHAR(50)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS reimbursement (
+    id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+    month         VARCHAR(7) NOT NULL,
+    department_id BIGINT,
+    total_amount  DECIMAL(12,2),
+    status        VARCHAR(20) DEFAULT 'PENDING_SIGN',
+    signed_by     VARCHAR(50),
+    signed_at     DATETIME,
+    created_at    DATETIME
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
