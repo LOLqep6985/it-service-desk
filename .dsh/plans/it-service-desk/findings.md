@@ -97,3 +97,16 @@
 - spring.sql.init.mode=always 每次启动执行 CREATE TABLE IF NOT EXISTS + INSERT IGNORE，幂等安全
 - mysql 命令行客户端显示中文乱码是 Windows 控制台代码页问题（GBK），数据本身为 utf8mb4 正确
 - 遗留：暂未加唯一约束之外的索引；Day 2 将补 JWT 鉴权与 RBAC
+### 2026-10-13 修复：中文乱码（寮犲伐=张工）
+
+- 现象：IDEA 中登录后界面显示「寮犲伐（维修工）」（UTF-8 字节被按 GBK 读取后入库导致）
+- 根因：Spring Boot spring.sql.init 在中文 Windows 上默认用平台编码（GBK）读取 UTF-8 的 data.sql，种子数据中文被错误解码后写入 MySQL
+- 修复：application.yml 增加 spring.sql.init.encoding: UTF-8；并 DROP 旧表让 schema.sql/data.sql 重新初始化
+- 验证：应用接口与 MySQL 中中文均正确（系统管理员/张工/王护士等）
+
+### 2026-10-13 修复：IDEA 启动失败 Error starting ApplicationContext
+
+- 现象：用户 IDEA 启动报 Error starting ApplicationContext / LoggingFailureAnalysisReporter
+- 根因：沙箱后台启动的 java 进程残留占用 8080 端口（job_kill 只取消 job 包装，未强制杀 java）
+- 修复：强制结束残留 java 进程；后续沙箱验证完应用务必 Stop-Process 清理
+- 教训：后台跑 java -jar 后，结束任务要用 Get-Process java + Stop-Process -Force 兜底
