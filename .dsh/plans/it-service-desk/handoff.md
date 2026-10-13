@@ -5,33 +5,35 @@
 ## 当前状态
 
 - 计划：it-service-desk
-- 阶段：M0 最小验证已通过，准备进入 Day 1（完整数据库设计）
+- 阶段：Day 1 完成，准备进入 Day 2（数据模型重构，三端流程）
 - 里程碑：M0 complete；M1 pending
-- 状态：等待用户确认 Day 1 开始 + 解决数据库驱动依赖问题
+- 状态：等待用户确认开始 Day 2
 
 ## 已完成
 
-- M0 垂直切片：Spring Boot 2.7.18 工程 + 内存数据 + 手机端三页面（登录/今日任务/工单详情），工单闭环测试通过
-- 构建环境踩坑全部解决（JDK17 / 离线 Maven / lombok 版本）
-- 应用在 8080 端口可运行：mvn -o 打包后 java -jar target\desk-0.1.0.jar
+- M0 最小验证（内存版闭环）✅
+- Day 1：MyBatis-Plus + MySQL 真实持久层，schema.sql/data.sql 自动建表+种子数据，闭环落库验证通过 ✅
+- 修复中文乱码（spring.sql.init.encoding=UTF-8）与 IDEA 启动端口占用问题 ✅
+- 新增 科室列表 API、报修页 create.html、登录按角色跳转、报修按钮仅报修人可见 ✅
+- 项目记忆纳入三端系统流程（报修单/工单分离、免登录、签字确认、月度报销）✅
 
 ## 未完成与阻塞点
 
-- Day 1 完整数据库设计未开始
-- **阻塞**：mysql-connector-j 与 MyBatis-Plus 依赖无法下载（Maven 中央仓库/阿里云镜像 HTTP 000）
-  - 候选解法：找可用镜像（腾讯/华为/其他）/ 手机热点网络 / 手动下载 jar 并 mvn install:install-file
+- Day 2 数据模型重构未开始（报修单/工单分离 + 科室绑定 + 签字/耗材/报销表）
+- 无阻塞
+- 注意：用户 IDEA 中若有旧运行实例，需停止并重新 Run 才能加载最新代码（roleCode/科室接口/报修页/按钮权限）
 
 ## 关键约束与决策
 
-- 技术栈：Java 17 / Spring Boot / MyBatis-Plus / MySQL / Redis(可降级) / Vue3
-- M0 用内存存储；完整开发阶段必须接 MySQL
-- Maven 本地仓库：D:\Maven\repository；构建需 JAVA_HOME=D:\DevTools\Java\jdk17
-- 移动端优先 / 双端同后端 / 网络异常处理 / AI 后置（详见 findings.md 与 AGENTS.md）
+- 三端：科室报修端（免登录）/ 管理员后台 / 维修人员端
+- 科室字段极简：科室自动带出 + 报修人姓名 + 设备名称 + 照片 + 简单描述；不填具体地点/优先级
+- 签字闭环：维修完成需护士长/指定人签字；月度报销单需护士长签字
+- 维修/耗材每次记录 + 欠条；月度汇总报销
+- Maven 双仓库：IDEA 用 D:\Maven\repository；沙箱 CLI 用 .m2repo（详见 findings.md）
 
 ## 下一步
 
-- 用户确认后进入 Day 1：先解决 MySQL 驱动依赖，再做完整数据库设计（建表 SQL + 实体）
-- 详细阶段见 task_plan.md
+- 用户确认后执行 Day 2：数据模型重构（详见 task_plan.md）
 
 ## 建议技能
 
