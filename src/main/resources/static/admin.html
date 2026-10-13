@@ -51,7 +51,7 @@
 <div class="toast" id="toast"></div>
 <div class="container">
   <div class="section">
-    <h2>待受理报修单</h2>
+    <h2>待受理报修单 <span id="pendingCount" style="font-size:12px;color:#1d6fe0;"></span></h2>
     <table id="pendingTable">
       <thead><tr><th>报修单号</th><th>科室</th><th>设备</th><th>报修人</th><th>描述</th><th>负责人</th><th>提交时间</th><th>操作</th></tr></thead>
       <tbody id="pendingBody"><tr><td colspan="8" class="empty">加载中...</td></tr></tbody>
@@ -99,6 +99,10 @@
   const toast = document.getElementById('toast');
   const saved = localStorage.getItem('itsdUser');
   const user = saved ? JSON.parse(saved) : {};
+  if (user.roleCode !== 'ADMIN' && user.roleCode !== 'DISPATCHER') {
+    alert('请以管理员或调度员身份登录');
+    location.href = 'login.html';
+  }
   let repairers = [];
   let dispatchingReportId = null;
 
@@ -135,6 +139,7 @@
     const pending = list.filter(r => r.status === 'PENDING');
     const history = list.filter(r => r.status !== 'PENDING');
 
+    document.getElementById('pendingCount').textContent = '（' + pending.length + '）';
     document.getElementById('pendingBody').innerHTML = pending.length ? pending.map(r =>
       '<tr><td><b>' + (r.reportNo || r.id) + '</b></td><td>' + esc(r.departmentName) + '</td><td>' + esc(r.deviceName) + '</td><td>' + esc(r.reporterName) + '</td><td>' + esc(r.problemDesc || '') + '</td><td>' + esc(r.departmentHead || '') + '</td><td>' + fmtTime(r.createdAt) + '</td><td><button class="btn btn-primary btn-sm" onclick="openDispatch(' + r.id + ')">派单</button></td></tr>'
     ).join('') : '<tr><td colspan="8" class="empty">暂无待受理报修单</td></tr>';
@@ -204,6 +209,8 @@
   });
 
   load();
+  // 自动刷新：每 15 秒拉取一次最新报修单/工单
+  setInterval(load, 15000);
 </script>
 </body>
 </html>
