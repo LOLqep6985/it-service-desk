@@ -177,3 +177,10 @@
   - 页面：admin.html / report.html 等 6 个页面均 HTTP 200
 - 里程碑进展：M5 签字+报销闭环完成（待 Day7 部署/简历）
 - 下一步：Day 7 部署配置 + README + 简历项目描述
+
+### 2026-10-13：推送云端前准备（Day 6-5）
+
+- application.yml 数据库连接改为环境变量占位符：DB_URL / DB_USERNAME / DB_PASSWORD（保留本地默认值，行为不变）
+- 新增 README.md：项目简介、技术栈、流程状态机、快速启动、演示账号、目录结构
+- 检查确认：无远程仓库、分支 master、.gitignore 已排除 target/.m2repo/uploads/.idea/.rdoc_inspect，跟踪文件仅源码+文档
+- 下一步：用户在 Gitee 创建空仓库 → git remote add origin + git push -u origin master

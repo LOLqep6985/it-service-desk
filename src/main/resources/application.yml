@@ -5,9 +5,9 @@ spring:
   application:
     name: it-service-desk
   datasource:
-    url: jdbc:mysql://localhost:3306/it_service_desk?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-    username: itsd
-    password: itsd123456
+    url: ${DB_URL:jdbc:mysql://localhost:3306/it_service_desk?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:itsd}
+    password: ${DB_PASSWORD:itsd123456}
     driver-class-name: com.mysql.cj.jdbc.Driver
   sql:
     init:

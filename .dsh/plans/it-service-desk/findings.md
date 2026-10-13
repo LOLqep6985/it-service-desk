@@ -196,3 +196,10 @@
 - 前端：admin.html 新增「月度报销单」区块（月份选择/生成/列表/详情抽屉/财务回填）；report.html 新增报销单卡片（签字确认/查看明细）
 - 测试注意：同一月份生成后，新增签字工单不会自动加入已生成报销单（快照语义）；如需补录需调整逻辑
 - MySQL 不支持 ALTER TABLE ADD COLUMN IF NOT EXISTS：新增列采用「DROP 空表重建 + CREATE TABLE IF NOT EXISTS」方案（reimbursement 原为空表，无数据风险）
+
+### 2026-10-13：推送云端前安全处理
+
+- 状态：accepted（用户明确要求）
+- 决策：推送 Gitee 前，把 application.yml 的数据库连接改为环境变量占位符 `${DB_URL:...}` / `${DB_USERNAME:itsd}` / `${DB_PASSWORD:itsd123456}`
+- 理由：本地默认值不变（clone 即跑），云端/生产可通过环境变量注入，避免硬编码敏感信息
+- 补充：仓库仍含演示账号密码（admin123 等）与本地数据库默认密码，属演示数据，公开仓库可接受；如需更严格可后续再清理
