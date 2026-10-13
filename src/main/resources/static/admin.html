@@ -58,6 +58,14 @@
     </table>
   </div>
   <div class="section">
+    <h2>工单管理（派单后生成）</h2>
+    <table id="workOrderTable">
+      <thead><tr><th>工单ID</th><th>报修单号</th><th>设备/标题</th><th>科室</th><th>维修工</th><th>状态</th><th>签字</th><th>创建时间</th><th>完成时间</th></tr></thead>
+      <tbody id="workOrderBody"><tr><td colspan="9" class="empty">加载中...</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="section">
     <h2>报修单历史</h2>
     <table id="historyTable">
       <thead><tr><th>报修单号</th><th>科室</th><th>设备</th><th>报修人</th><th>状态</th><th>提交时间</th></tr></thead>
@@ -86,6 +94,7 @@
 
 <script>
   const REPORT_STATUS = { PENDING:'待受理', ACCEPTED:'已受理', DISPATCHED:'已派单', CANCELLED:'已取消' };
+  const WO_STATUS = { PENDING:'待派单', ASSIGNED:'已派单', IN_PROGRESS:'处理中', COMPLETED:'已完成' };
   const ROLE_LABEL = { ADMIN:'管理员', DISPATCHER:'调度员', REPAIRER:'维修工', REPORTER:'报修人' };
   const toast = document.getElementById('toast');
   const saved = localStorage.getItem('itsdUser');
@@ -144,6 +153,28 @@
     document.getElementById('baseDataBody').innerHTML =
       '<tr><td>科室（' + depts.length + '）</td><td>' + depts.map(d => esc(d.name)).join('、') + '</td></tr>' +
       '<tr><td>用户（' + users.length + '）</td><td>' + users.map(u => esc(u.name) + '(' + (ROLE_LABEL[u.role] || u.role) + ')').join('、') + '</td></tr>';
+
+    await loadWorkOrders();
+  }
+
+  async function loadWorkOrders() {
+    try {
+      const [woRes, userRes] = await Promise.all([
+        fetch('/api/work-orders', { headers: { 'X-Token': user.token } }),
+        fetch('/api/users?role=REPAIRER', { headers: { 'X-Token': user.token } })
+      ]);
+      const woJson = await woRes.json();
+      if (woJson.code !== 0) { document.getElementById('workOrderBody').innerHTML = '<tr><td colspan="9" class="empty">' + woJson.message + '</td></tr>'; return; }
+      const repairers = (await userRes.json()).data || [];
+      const nameMap = {};
+      repairers.forEach(u => { nameMap[u.id] = u.name; });
+      const list = woJson.data || [];
+      document.getElementById('workOrderBody').innerHTML = list.length ? list.map(wo =>
+        '<tr><td>' + wo.id + '</td><td>' + (wo.reportId ? ('R' + String(wo.reportId).padStart(6, '0')) : '-') + '</td><td>' + esc(wo.title) + '</td><td>' + esc(wo.departmentName) + '</td><td>' + esc(nameMap[wo.assigneeId] || wo.assigneeId) + '</td><td><span class="badge ' + (WO_STATUS[wo.status] ? wo.status.toLowerCase() : 'other') + '">' + (WO_STATUS[wo.status] || wo.status) + '</span></td><td>' + (wo.signStatus === 'SIGNED' ? '已签字' : '待签字') + '</td><td>' + fmtTime(wo.createdAt) + '</td><td>' + fmtTime(wo.completedAt) + '</td></tr>'
+      ).join('') : '<tr><td colspan="9" class="empty">暂无工单</td></tr>';
+    } catch (e) {
+      document.getElementById('workOrderBody').innerHTML = '<tr><td colspan="9" class="empty">加载失败</td></tr>';
+    }
   }
 
   async function openDispatch(reportId) {

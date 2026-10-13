@@ -161,3 +161,8 @@
 - RepairRequest 扩展 List<ConsumableItem>，前端动态行收集耗材/欠条
 - 工单完成后 sign_status 保持 UNSIGNED（待签字），等待 Day 6 签字闭环
 - consumable 表启用：记录耗材名/数量/单价/是否欠条/欠条编号，作为月度报销数据源
+### 2026-10-13：管理员后台工单展示补全
+
+- 教训：管理员后台不仅要有报修单管理，还要有工单管理（派单后的执行状态）
+- 实现：WorkOrderController 增加 GET /api/work-orders（listAll），WorkOrderService.listAll(status) 支持按状态过滤
+- admin.html 增加工单管理表，维修工姓名通过 users 接口映射（assigneeId → name）
