@@ -28,7 +28,7 @@
 <body>
 <div class="header">
   <span class="user" id="userName">加载中...</span>
-  <button class="logout" id="logoutBtn">退出</button>
+  <button class="logout" id="reportBtn" style="background:#f39c12;margin-right:8px;">＋ 报修</button><button class="logout" id="logoutBtn">退出</button>
 </div>
 <div class="container">
   <div class="summary" id="summary"></div>
@@ -42,7 +42,16 @@
   if (!userId && user.userId) window.location.href = 'today.html?userId=' + user.userId;
   document.getElementById('userName').textContent = user.name + '（' + (user.role || '') + '）';
 
-  document.getElementById('logoutBtn').addEventListener('click', () => {
+  // 只有报修人显示「+ 报修」按钮
+  const reportBtn = document.getElementById('reportBtn');
+  if (user.roleCode !== 'REPORTER') {
+    reportBtn.style.display = 'none';
+  }
+
+  document.getElementById('reportBtn').addEventListener('click', () => {
+  window.location.href = 'create.html?userId=' + userId;
+});
+document.getElementById('logoutBtn').addEventListener('click', () => {
     localStorage.removeItem('itsdUser');
     window.location.href = 'login.html';
   });
