@@ -37,6 +37,10 @@ public class ReportService {
         if (dept == null) {
             throw new IllegalArgumentException("科室不存在");
         }
+        Report recent = findRecentReport(dept.getId(), req.getDeviceName(), 10);
+        if (recent != null && recent.getStatus() != ReportStatus.CANCELLED) {
+            throw new IllegalArgumentException("该设备报修已提交，请勿重复提交");
+        }
         Report r = new Report();
         r.setDepartmentId(dept.getId());
         r.setDepartmentName(dept.getName());
@@ -44,7 +48,8 @@ public class ReportService {
         r.setDeviceName(req.getDeviceName());
         r.setDevicePhoto(req.getDevicePhoto());
         r.setProblemDesc(req.getProblemDesc());
-        r.setDepartmentHead(req.getDepartmentHead());
+        r.setDepartmentHead(req.getDepartmentHead() == null || req.getDepartmentHead().isBlank()
+                ? dept.getDepartmentHead() : req.getDepartmentHead());
         r.setStatus(ReportStatus.PENDING);
         r.setCreatorId(creatorId);
         r.setCreatedAt(LocalDateTime.now());
@@ -52,6 +57,19 @@ public class ReportService {
         r.setReportNo("R" + String.format("%06d", r.getId()));
         reportMapper.updateById(r);
         return r;
+    }
+
+    public Report findRecentReport(Long departmentId, String deviceName, int minutes) {
+        if (deviceName == null || deviceName.isBlank()) {
+            return null;
+        }
+        LocalDateTime since = LocalDateTime.now().minusMinutes(minutes);
+        return reportMapper.selectOne(new LambdaQueryWrapper<Report>()
+                .eq(Report::getDepartmentId, departmentId)
+                .eq(Report::getDeviceName, deviceName)
+                .ge(Report::getCreatedAt, since)
+                .orderByDesc(Report::getCreatedAt)
+                .last("LIMIT 1"));
     }
 
     public List<Report> listReportsByDepartment(Long departmentId) {

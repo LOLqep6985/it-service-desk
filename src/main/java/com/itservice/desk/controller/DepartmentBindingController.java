@@ -80,6 +80,7 @@ public class DepartmentBindingController {
         data.put("departmentId", dept.getId());
         data.put("departmentName", dept.getName());
         data.put("campus", dept.getCampus());
+        data.put("departmentHead", dept.getDepartmentHead());
         return ApiResponse.ok(data);
     }
 

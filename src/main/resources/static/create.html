@@ -48,6 +48,7 @@
   </div>
 </div>
 <script>
+  const CAMPUS_LABEL = { LAOYUAN:'老院', XIYUAN:'西院', DONGYUAN:'东院' };
   const params = new URLSearchParams(location.search);
   const saved = localStorage.getItem('itsdUser');
   const user = saved ? JSON.parse(saved) : {};
@@ -69,7 +70,7 @@
       (json.data || []).forEach(d => {
         const opt = document.createElement('option');
         opt.value = d.id;
-        opt.textContent = d.name + '（' + d.campus.label + '）';
+        opt.textContent = d.name + '（' + (CAMPUS_LABEL[d.campus] || d.campus) + '）';
         sel.appendChild(opt);
       });
     } catch (e) {

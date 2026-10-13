@@ -16,6 +16,7 @@
     label { display: block; font-size: 13px; color: #7f8c8d; margin: 10px 0 6px; }
     input, select, textarea { width: 100%; padding: 11px; border: 1px solid #d0d5dd; border-radius: 8px; font-size: 15px; }
     textarea { min-height: 60px; line-height: 1.5; }
+    input[readonly] { background: #f0f3f5; color: #555; }
     .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
     .tag { border: 1px solid #d0d5dd; background: #fff; border-radius: 14px; padding: 4px 10px; font-size: 12px; color: #555; cursor: pointer; }
     .tag.active { background: #27ae60; color: #fff; border-color: #27ae60; }
@@ -29,9 +30,15 @@
     .bind-row { display: flex; gap: 8px; }
     .bind-row input { flex: 1; }
     .bind-row button { width: 90px; background: #27ae60; color: #fff; border: none; border-radius: 8px; font-size: 14px; }
+    /* 顶部 Toast */
+    .toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 999; background: #2c3e50; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,.2); opacity: 0; transition: opacity .3s; pointer-events: none; max-width: 90%; text-align: center; }
+    .toast.show { opacity: 1; }
+    .toast.success { background: #27ae60; }
+    .toast.error { background: #e74c3c; }
   </style>
 </head>
 <body>
+<div class="toast" id="toast"></div>
 <div class="header"><span class="t">科室报修（免登录）</span></div>
 <div class="container">
   <div class="card" id="bindCard">
@@ -69,8 +76,8 @@
     <div class="tags" id="tags">
       <span class="tag">卡纸</span><span class="tag">缺墨</span><span class="tag">不亮</span><span class="tag">打不开机</span><span class="tag">网络不通</span>
     </div>
-    <label>科室负责人</label>
-    <input id="departmentHead" placeholder="如：护士长张某某">
+    <label>科室负责人 *（自动带出）</label>
+    <input id="departmentHead" readonly>
     <button class="primary" id="submitBtn">提交报修单</button>
     <div class="msg" id="submitMsg"></div>
   </div>
@@ -81,12 +88,53 @@
   </div>
 </div>
 <script>
+  const REPORT_STATUS = { PENDING:'待受理', ACCEPTED:'已受理', DISPATCHED:'已派单', CANCELLED:'已取消' };
+  const CAMPUS_LABEL = { LAOYUAN:'老院', XIYUAN:'西院', DONGYUAN:'东院' };
   const bindCard = document.getElementById('bindCard');
   const formCard = document.getElementById('formCard');
   const historyCard = document.getElementById('historyCard');
   const bindMsg = document.getElementById('bindMsg');
   const submitMsg = document.getElementById('submitMsg');
+  const submitBtn = document.getElementById('submitBtn');
+  const toast = document.getElementById('toast');
+  const DUPLICATE_MINUTES = 10;
+  let countdownTimer = null;
   let deviceCode = localStorage.getItem('itsdDeviceCode') || '';
+
+  function showToast(text, type) {
+    toast.textContent = text;
+    toast.className = 'toast show ' + (type || '');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => toast.className = 'toast', 3000);
+  }
+
+  function resetForm() {
+    document.getElementById('reporterName').value = '';
+    document.getElementById('deviceName').value = '';
+    document.getElementById('problemDesc').value = '';
+    document.getElementById('devicePhoto').value = '';
+    document.getElementById('photoPreview').src = '';
+    document.getElementById('photoPreview').style.display = 'none';
+    document.getElementById('photoInput').value = '';
+    document.querySelectorAll('.tag').forEach(t => t.classList.remove('active'));
+  }
+
+  function startCountdown(seconds) {
+    if (countdownTimer) clearInterval(countdownTimer);
+    submitBtn.disabled = true;
+    countdownTimer = setInterval(() => {
+      seconds--;
+      if (seconds <= 0) {
+        clearInterval(countdownTimer);
+        submitBtn.disabled = false;
+        submitBtn.textContent = '提交报修单';
+        return;
+      }
+      const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+      const s = String(seconds % 60).padStart(2, '0');
+      submitBtn.textContent = '请勿重复提交（' + m + ':' + s + '）';
+    }, 1000);
+  }
 
   document.getElementById('bindBtn').addEventListener('click', async () => {
     deviceCode = document.getElementById('deviceCode').value.trim();
@@ -100,7 +148,8 @@
       bindCard.style.display = 'none';
       formCard.style.display = 'block';
       historyCard.style.display = 'block';
-      document.getElementById('deptBox').textContent = '科室：' + json.data.departmentName + '（' + json.data.campus.label + '）';
+      document.getElementById('deptBox').textContent = '科室：' + json.data.departmentName + '（' + (CAMPUS_LABEL[json.data.campus] || json.data.campus) + '）';
+      document.getElementById('departmentHead').value = json.data.departmentHead || '';
       loadHistory();
     } catch (e) {
       bindMsg.textContent = '网络错误：' + e.message;
@@ -115,13 +164,13 @@
         bindCard.style.display = 'none';
         formCard.style.display = 'block';
         historyCard.style.display = 'block';
-        document.getElementById('deptBox').textContent = '科室：' + json.data.departmentName + '（' + json.data.campus.label + '）';
+        document.getElementById('deptBox').textContent = '科室：' + json.data.departmentName + '（' + (CAMPUS_LABEL[json.data.campus] || json.data.campus) + '）';
+        document.getElementById('departmentHead').value = json.data.departmentHead || '';
         loadHistory();
       }
     })();
   }
 
-  // 快捷标签
   document.querySelectorAll('.tag').forEach(tag => {
     tag.addEventListener('click', () => {
       tag.classList.toggle('active');
@@ -135,7 +184,6 @@
     });
   });
 
-  // 照片上传
   document.getElementById('photoInput').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -144,18 +192,17 @@
     try {
       const res = await fetch('/api/files/upload', { method: 'POST', body: fd });
       const json = await res.json();
-      if (json.code !== 0) { submitMsg.textContent = json.message; return; }
+      if (json.code !== 0) { showToast(json.message, 'error'); return; }
       document.getElementById('devicePhoto').value = json.data.url;
       const img = document.getElementById('photoPreview');
       img.src = json.data.url;
       img.style.display = 'block';
-      submitMsg.textContent = '照片已上传 ✓';
     } catch (err) {
-      submitMsg.textContent = '照片上传失败：' + err.message;
+      showToast('照片上传失败：' + err.message, 'error');
     }
   });
 
-  document.getElementById('submitBtn').addEventListener('click', async () => {
+  submitBtn.addEventListener('click', async () => {
     const reporterName = document.getElementById('reporterName').value.trim();
     const deviceName = document.getElementById('deviceName').value;
     const devicePhoto = document.getElementById('devicePhoto').value;
@@ -163,7 +210,8 @@
     const departmentHead = document.getElementById('departmentHead').value.trim();
     if (!reporterName || !deviceName) { submitMsg.textContent = '请填写报修人姓名和设备名称'; return; }
     submitMsg.textContent = '';
-    document.getElementById('submitBtn').disabled = true;
+    submitBtn.disabled = true;
+    submitBtn.textContent = '提交中...';
     try {
       const res = await fetch('/api/reports/anonymous', {
         method: 'POST',
@@ -171,14 +219,21 @@
         body: JSON.stringify({ deviceCode, reporterName, deviceName, devicePhoto, problemDesc, departmentHead })
       });
       const json = await res.json();
-      if (json.code !== 0) { submitMsg.textContent = json.message; document.getElementById('submitBtn').disabled = false; return; }
-      submitMsg.style.color = '#27ae60';
-      submitMsg.textContent = '报修单 ' + json.data.reportNo + ' 已提交，待管理员受理 ✓';
-      document.getElementById('submitBtn').disabled = false;
+      if (json.code !== 0) {
+        submitMsg.textContent = json.message;
+        submitBtn.disabled = false;
+        submitBtn.textContent = '提交报修单';
+        if (json.message.indexOf('请勿重复提交') >= 0) showToast(json.message, 'error');
+        return;
+      }
+      resetForm();
+      showToast('报修单 ' + json.data.reportNo + ' 已提交，待管理员受理', 'success');
+      startCountdown(DUPLICATE_MINUTES * 60);
       loadHistory();
     } catch (err) {
       submitMsg.textContent = '网络错误：' + err.message;
-      document.getElementById('submitBtn').disabled = false;
+      submitBtn.disabled = false;
+      submitBtn.textContent = '提交报修单';
     }
   });
 
@@ -190,8 +245,9 @@
       const list = json.data || [];
       if (list.length === 0) { document.getElementById('historyList').innerHTML = '<div class="history-item">暂无报修记录</div>'; return; }
       document.getElementById('historyList').innerHTML = list.map(r =>
-        '<div class="history-item"><span class="no">' + (r.reportNo || r.id) + '</span> ' + r.deviceName +
-        ' · ' + (r.status ? r.status.label : r.status) + ' · ' + (r.createdAt || '').replace('T', ' ').slice(0, 16) + '</div>'
+        '<div class="history-item"><span class="no">' + (r.reportNo || r.id) + '</span> ' + (r.deviceName || '') +
+        ' · ' + (REPORT_STATUS[r.status] || r.status || '') +
+        ' · ' + ((r.createdAt || '').replace('T', ' ').slice(0, 16)) + '</div>'
       ).join('');
     } catch (e) {
       document.getElementById('historyList').innerHTML = '<div class="history-item">加载失败</div>';

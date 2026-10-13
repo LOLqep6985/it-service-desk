@@ -65,6 +65,10 @@ public class ReportController {
         if (dept == null) {
             return ApiResponse.error("绑定的科室不存在");
         }
+        Report recent = reportService.findRecentReport(dept.getId(), req.getDeviceName(), 10);
+        if (recent != null && recent.getStatus() != ReportStatus.CANCELLED) {
+            return ApiResponse.error("该设备报修已提交，请勿重复提交");
+        }
         Report r = new Report();
         r.setDepartmentId(dept.getId());
         r.setDepartmentName(dept.getName());
@@ -72,7 +76,8 @@ public class ReportController {
         r.setDeviceName(req.getDeviceName());
         r.setDevicePhoto(req.getDevicePhoto());
         r.setProblemDesc(req.getProblemDesc());
-        r.setDepartmentHead(req.getDepartmentHead());
+        r.setDepartmentHead(req.getDepartmentHead() == null || req.getDepartmentHead().isBlank()
+                ? dept.getDepartmentHead() : req.getDepartmentHead());
         r.setStatus(ReportStatus.PENDING);
         r.setBindingId(b.getId());
         r.setCreatedAt(LocalDateTime.now());
