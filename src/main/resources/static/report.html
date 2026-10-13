@@ -7,7 +7,7 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f2f4f7; color: #2c3e50; }
-    .header { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #27ae60; color: #fff; position: sticky; top: 0; }
+    .header { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #27ae60; color: #fff; position: sticky; top: 0; z-index: 10; }
     .header .t { font-size: 16px; font-weight: 600; }
     .container { max-width: 480px; margin: 0 auto; padding: 16px; }
     .card { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.06); margin-bottom: 14px; }
@@ -16,7 +16,6 @@
     label { display: block; font-size: 13px; color: #7f8c8d; margin: 10px 0 6px; }
     input, select, textarea { width: 100%; padding: 11px; border: 1px solid #d0d5dd; border-radius: 8px; font-size: 15px; }
     textarea { min-height: 60px; line-height: 1.5; }
-    input[readonly] { background: #f0f3f5; color: #555; }
     .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
     .tag { border: 1px solid #d0d5dd; background: #fff; border-radius: 14px; padding: 4px 10px; font-size: 12px; color: #555; cursor: pointer; }
     .tag.active { background: #27ae60; color: #fff; border-color: #27ae60; }
@@ -25,20 +24,31 @@
     button.primary { width: 100%; padding: 14px; background: #27ae60; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; margin-top: 14px; }
     button.primary:disabled { background: #b0b8c1; }
     .msg { margin-top: 10px; text-align: center; font-size: 14px; color: #d63031; min-height: 18px; }
-    .history-item { border-bottom: 1px dashed #ecf0f1; padding: 8px 0; font-size: 13px; }
-    .history-item .no { font-weight: 600; color: #27ae60; }
+    .history-item, .accept-item { border-bottom: 1px dashed #ecf0f1; padding: 10px 0; font-size: 13px; }
+    .history-item .no, .accept-item .no { font-weight: 600; color: #27ae60; }
+    .accept-item .sign-btn { margin-top: 6px; background: #1d6fe0; color: #fff; border: none; border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
     .bind-row { display: flex; gap: 8px; }
     .bind-row input { flex: 1; }
     .bind-row button { width: 90px; background: #27ae60; color: #fff; border: none; border-radius: 8px; font-size: 14px; }
-    /* 顶部 Toast */
-    .toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 999; background: #2c3e50; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,.2); opacity: 0; transition: opacity .3s; pointer-events: none; max-width: 90%; text-align: center; }
-    .toast.show { opacity: 1; }
-    .toast.success { background: #27ae60; }
-    .toast.error { background: #e74c3c; }
+    /* 签字弹窗 */
+    .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; align-items: center; justify-content: center; z-index: 100; }
+    .modal-mask.show { display: flex; }
+    .modal { background: #fff; border-radius: 12px; padding: 18px; width: 94vw; max-width: 440px; max-height: 90vh; overflow-y: auto; }
+    .modal h3 { font-size: 16px; margin-bottom: 8px; }
+    .modal .info { font-size: 13px; color: #555; background: #f8fafc; border-radius: 8px; padding: 10px; margin-bottom: 10px; line-height: 1.6; }
+    .canvas-box { border: 1px dashed #1d6fe0; border-radius: 8px; background: #fff; margin-top: 6px; }
+    canvas { width: 100%; height: 140px; display: block; touch-action: none; }
+    .modal .actions { display: flex; gap: 8px; margin-top: 12px; }
+    .modal .actions button { flex: 1; padding: 12px; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; }
+    .btn-clear { background: #ecf0f1; color: #555; }
+    .btn-confirm { background: #27ae60; color: #fff; }
+    .btn-cancel { background: #e0e0e0; color: #555; }
+    .modal .msg { font-size: 13px; }
+    .delegate-row { display: none; }
+    .delegate-row.show { display: block; }
   </style>
 </head>
 <body>
-<div class="toast" id="toast"></div>
 <div class="header"><span class="t">科室报修（免登录）</span></div>
 <div class="container">
   <div class="card" id="bindCard">
@@ -82,31 +92,161 @@
     <div class="msg" id="submitMsg"></div>
   </div>
 
+  <div class="card" id="acceptCard" style="display:none;">
+    <h2>待验收工单 <span id="acceptCount" style="font-size:12px;color:#27ae60;"></span></h2>
+    <div id="acceptList"><div class="history-item">加载中...</div></div>
+  </div>
+
   <div class="card" id="historyCard" style="display:none;">
     <h2>本科室报修历史</h2>
     <div id="historyList"><div class="history-item">加载中...</div></div>
   </div>
 </div>
+
+<!-- 签字弹窗 -->
+<div class="modal-mask" id="signModal">
+  <div class="modal">
+    <h3>签字验收</h3>
+    <div class="info" id="signInfo">加载中...</div>
+    <label>签字人姓名 *</label>
+    <input id="signerName" placeholder="护士长/科室主任姓名">
+    <label style="display:flex;align-items:center;gap:6px;margin-top:10px;">
+      <input type="checkbox" id="delegateChk" style="width:auto;"> 代签（本人不在，他人代签）
+    </label>
+    <div class="delegate-row" id="delegateRow">
+      <label>被代签人姓名 *</label>
+      <input id="delegatedName" placeholder="本应签字的护士长/主任姓名">
+    </div>
+    <label>手写签名</label>
+    <div class="canvas-box">
+      <canvas id="signCanvas" width="780" height="260"></canvas>
+    </div>
+    <div class="actions">
+      <button class="btn-clear" id="clearSign">清除</button>
+      <button class="btn-cancel" id="cancelSign">取消</button>
+      <button class="btn-confirm" id="confirmSign">确认验收</button>
+    </div>
+    <div class="msg" id="signMsg"></div>
+  </div>
+</div>
+
 <script>
   const REPORT_STATUS = { PENDING:'待受理', ACCEPTED:'已受理', DISPATCHED:'已派单', CANCELLED:'已取消' };
+  const WO_STATUS = { ASSIGNED:'已派单', IN_PROGRESS:'处理中', PENDING_ACCEPT:'待验收', COMPLETED:'已完成' };
   const CAMPUS_LABEL = { LAOYUAN:'老院', XIYUAN:'西院', DONGYUAN:'东院' };
   const bindCard = document.getElementById('bindCard');
   const formCard = document.getElementById('formCard');
+  const acceptCard = document.getElementById('acceptCard');
   const historyCard = document.getElementById('historyCard');
   const bindMsg = document.getElementById('bindMsg');
   const submitMsg = document.getElementById('submitMsg');
   const submitBtn = document.getElementById('submitBtn');
-  const toast = document.getElementById('toast');
   const DUPLICATE_MINUTES = 10;
   let countdownTimer = null;
   let deviceCode = localStorage.getItem('itsdDeviceCode') || '';
+  let currentSignWoId = null;
 
-  function showToast(text, type) {
-    toast.textContent = text;
-    toast.className = 'toast show ' + (type || '');
-    clearTimeout(toast._t);
-    toast._t = setTimeout(() => toast.className = 'toast', 3000);
+  document.getElementById('bindBtn').addEventListener('click', async () => {
+    deviceCode = document.getElementById('deviceCode').value.trim();
+    if (!deviceCode) { bindMsg.textContent = '请输入设备码'; return; }
+    bindMsg.textContent = '验证中...';
+    try {
+      const res = await fetch('/api/bindings/info?deviceCode=' + encodeURIComponent(deviceCode));
+      const json = await res.json();
+      if (json.code !== 0) { bindMsg.textContent = json.message; return; }
+      localStorage.setItem('itsdDeviceCode', deviceCode);
+      bindCard.style.display = 'none';
+      formCard.style.display = 'block';
+      acceptCard.style.display = 'block';
+      historyCard.style.display = 'block';
+      document.getElementById('deptBox').textContent = '科室：' + json.data.departmentName + '（' + (CAMPUS_LABEL[json.data.campus] || json.data.campus) + '）';
+      document.getElementById('departmentHead').value = json.data.departmentHead || '';
+      loadAccept();
+      loadHistory();
+    } catch (e) {
+      bindMsg.textContent = '网络错误：' + e.message;
+    }
+  });
+
+  if (deviceCode) {
+    (async () => {
+      const res = await fetch('/api/bindings/info?deviceCode=' + encodeURIComponent(deviceCode));
+      const json = await res.json();
+      if (json.code === 0) {
+        bindCard.style.display = 'none';
+        formCard.style.display = 'block';
+        acceptCard.style.display = 'block';
+        historyCard.style.display = 'block';
+        document.getElementById('deptBox').textContent = '科室：' + json.data.departmentName + '（' + (CAMPUS_LABEL[json.data.campus] || json.data.campus) + '）';
+        document.getElementById('departmentHead').value = json.data.departmentHead || '';
+        loadAccept();
+        loadHistory();
+      }
+    })();
   }
+
+  document.querySelectorAll('.tag').forEach(tag => {
+    tag.addEventListener('click', () => {
+      tag.classList.toggle('active');
+      const textarea = document.getElementById('problemDesc');
+      const tagText = tag.textContent;
+      if (tag.classList.contains('active')) {
+        textarea.value = textarea.value ? textarea.value + '，' + tagText : tagText;
+      } else {
+        textarea.value = textarea.value.replace(new RegExp('(，?' + tagText + ')'), '');
+      }
+    });
+  });
+
+  document.getElementById('photoInput').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const res = await fetch('/api/files/upload', { method: 'POST', body: fd });
+      const json = await res.json();
+      if (json.code !== 0) { return; }
+      document.getElementById('devicePhoto').value = json.data.url;
+      const img = document.getElementById('photoPreview');
+      img.src = json.data.url;
+      img.style.display = 'block';
+    } catch (err) {}
+  });
+
+  submitBtn.addEventListener('click', async () => {
+    const reporterName = document.getElementById('reporterName').value.trim();
+    const deviceName = document.getElementById('deviceName').value;
+    const devicePhoto = document.getElementById('devicePhoto').value;
+    const problemDesc = document.getElementById('problemDesc').value.trim();
+    const departmentHead = document.getElementById('departmentHead').value.trim();
+    if (!reporterName || !deviceName) { submitMsg.textContent = '请填写报修人姓名和设备名称'; return; }
+    submitMsg.textContent = '';
+    submitBtn.disabled = true;
+    submitBtn.textContent = '提交中...';
+    try {
+      const res = await fetch('/api/reports/anonymous', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceCode, reporterName, deviceName, devicePhoto, problemDesc, departmentHead })
+      });
+      const json = await res.json();
+      if (json.code !== 0) {
+        submitMsg.textContent = json.message;
+        submitBtn.disabled = false;
+        submitBtn.textContent = '提交报修单';
+        return;
+      }
+      resetForm();
+      startCountdown(DUPLICATE_MINUTES * 60);
+      loadAccept();
+      loadHistory();
+    } catch (err) {
+      submitMsg.textContent = '网络错误：' + err.message;
+      submitBtn.disabled = false;
+      submitBtn.textContent = '提交报修单';
+    }
+  });
 
   function resetForm() {
     document.getElementById('reporterName').value = '';
@@ -136,107 +276,112 @@
     }, 1000);
   }
 
-  document.getElementById('bindBtn').addEventListener('click', async () => {
-    deviceCode = document.getElementById('deviceCode').value.trim();
-    if (!deviceCode) { bindMsg.textContent = '请输入设备码'; return; }
-    bindMsg.textContent = '验证中...';
+  // ---------- 待验收列表 ----------
+  async function loadAccept() {
     try {
-      const res = await fetch('/api/bindings/info?deviceCode=' + encodeURIComponent(deviceCode));
+      const res = await fetch('/api/work-orders/pending-accept?deviceCode=' + encodeURIComponent(deviceCode));
       const json = await res.json();
-      if (json.code !== 0) { bindMsg.textContent = json.message; return; }
-      localStorage.setItem('itsdDeviceCode', deviceCode);
-      bindCard.style.display = 'none';
-      formCard.style.display = 'block';
-      historyCard.style.display = 'block';
-      document.getElementById('deptBox').textContent = '科室：' + json.data.departmentName + '（' + (CAMPUS_LABEL[json.data.campus] || json.data.campus) + '）';
-      document.getElementById('departmentHead').value = json.data.departmentHead || '';
-      loadHistory();
+      if (json.code !== 0) { document.getElementById('acceptList').innerHTML = '<div class="history-item">' + json.message + '</div>'; return; }
+      const list = json.data || [];
+      document.getElementById('acceptCount').textContent = '（' + list.length + '）';
+      if (list.length === 0) { document.getElementById('acceptList').innerHTML = '<div class="history-item">暂无待验收工单</div>'; return; }
+      document.getElementById('acceptList').innerHTML = list.map(wo =>
+        '<div class="accept-item">' +
+        '<span class="no">工单#' + wo.id + '</span> ' + (wo.title || '') + ' · ' + (WO_STATUS[wo.status] || wo.status) +
+        '<br><span style="color:#7f8c8d;">' + (wo.description || '') + '</span>' +
+        '<br><button class="sign-btn" onclick="openSign(' + wo.id + ')">签字验收</button>' +
+        '</div>'
+      ).join('');
     } catch (e) {
-      bindMsg.textContent = '网络错误：' + e.message;
+      document.getElementById('acceptList').innerHTML = '<div class="history-item">加载失败</div>';
     }
-  });
-
-  if (deviceCode) {
-    (async () => {
-      const res = await fetch('/api/bindings/info?deviceCode=' + encodeURIComponent(deviceCode));
-      const json = await res.json();
-      if (json.code === 0) {
-        bindCard.style.display = 'none';
-        formCard.style.display = 'block';
-        historyCard.style.display = 'block';
-        document.getElementById('deptBox').textContent = '科室：' + json.data.departmentName + '（' + (CAMPUS_LABEL[json.data.campus] || json.data.campus) + '）';
-        document.getElementById('departmentHead').value = json.data.departmentHead || '';
-        loadHistory();
-      }
-    })();
   }
 
-  document.querySelectorAll('.tag').forEach(tag => {
-    tag.addEventListener('click', () => {
-      tag.classList.toggle('active');
-      const textarea = document.getElementById('problemDesc');
-      const tagText = tag.textContent;
-      if (tag.classList.contains('active')) {
-        textarea.value = textarea.value ? textarea.value + '，' + tagText : tagText;
-      } else {
-        textarea.value = textarea.value.replace(new RegExp('(，?' + tagText + ')'), '');
-      }
-    });
+  // ---------- 签字 ----------
+  const signModal = document.getElementById('signModal');
+  const canvas = document.getElementById('signCanvas');
+  const ctx = canvas.getContext('2d');
+  let drawing = false;
+
+  canvas.addEventListener('pointerdown', e => { drawing = true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY); });
+  canvas.addEventListener('pointermove', e => { if (!drawing) return; ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke(); });
+  canvas.addEventListener('pointerup', () => { drawing = false; });
+  canvas.addEventListener('pointerleave', () => { drawing = false; });
+
+  document.getElementById('delegateChk').addEventListener('change', (e) => {
+    document.getElementById('delegateRow').classList.toggle('show', e.target.checked);
   });
 
-  document.getElementById('photoInput').addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const fd = new FormData();
-    fd.append('file', file);
+  document.getElementById('clearSign').addEventListener('click', () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  });
+
+  document.getElementById('cancelSign').addEventListener('click', () => {
+    signModal.classList.remove('show');
+  });
+
+  async function openSign(woId) {
+    currentSignWoId = woId;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    document.getElementById('signMsg').textContent = '';
+    document.getElementById('delegateChk').checked = false;
+    document.getElementById('delegateRow').classList.remove('show');
+    document.getElementById('signerName').value = '';
+    document.getElementById('delegatedName').value = '';
+    signModal.classList.add('show');
     try {
-      const res = await fetch('/api/files/upload', { method: 'POST', body: fd });
+      const res = await fetch('/api/work-orders/' + woId + '?deviceCode=' + encodeURIComponent(deviceCode));
       const json = await res.json();
-      if (json.code !== 0) { showToast(json.message, 'error'); return; }
-      document.getElementById('devicePhoto').value = json.data.url;
-      const img = document.getElementById('photoPreview');
-      img.src = json.data.url;
-      img.style.display = 'block';
-    } catch (err) {
-      showToast('照片上传失败：' + err.message, 'error');
-    }
-  });
+      if (json.code === 0) {
+        const wo = json.data;
+        document.getElementById('signInfo').innerHTML =
+          '工单#' + wo.id + ' · ' + (wo.title || '') +
+          '<br>维修记录：' + (wo.repairRecord || '未填写');
+      }
+    } catch (e) {}
+  }
 
-  submitBtn.addEventListener('click', async () => {
-    const reporterName = document.getElementById('reporterName').value.trim();
-    const deviceName = document.getElementById('deviceName').value;
-    const devicePhoto = document.getElementById('devicePhoto').value;
-    const problemDesc = document.getElementById('problemDesc').value.trim();
-    const departmentHead = document.getElementById('departmentHead').value.trim();
-    if (!reporterName || !deviceName) { submitMsg.textContent = '请填写报修人姓名和设备名称'; return; }
-    submitMsg.textContent = '';
-    submitBtn.disabled = true;
-    submitBtn.textContent = '提交中...';
+  document.getElementById('confirmSign').addEventListener('click', async () => {
+    const signerName = document.getElementById('signerName').value.trim();
+    const isDelegate = document.getElementById('delegateChk').checked;
+    const delegatedName = document.getElementById('delegatedName').value.trim();
+    if (!signerName) { document.getElementById('signMsg').textContent = '请填写签字人姓名'; return; }
+    if (isDelegate && !delegatedName) { document.getElementById('signMsg').textContent = '请填写被代签人姓名'; return; }
+    // 判断是否画了签名
+    const hasSign = (() => {
+      const d = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      for (let i = 3; i < d.length; i += 4) { if (d[i] !== 0) return true; }
+      return false;
+    })();
+    if (!hasSign) { document.getElementById('signMsg').textContent = '请先手写签名'; return; }
+
+    document.getElementById('signMsg').textContent = '提交中...';
+    document.getElementById('confirmSign').disabled = true;
     try {
-      const res = await fetch('/api/reports/anonymous', {
+      // 签名图片导出上传
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      const fd = new FormData();
+      fd.append('file', blob, 'signature.png');
+      const up = await (await fetch('/api/files/upload', { method: 'POST', body: fd })).json();
+      if (up.code !== 0) { document.getElementById('signMsg').textContent = up.message; document.getElementById('confirmSign').disabled = false; return; }
+      const signatureUrl = up.data.url;
+      const res = await fetch('/api/work-orders/' + currentSignWoId + '/sign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceCode, reporterName, deviceName, devicePhoto, problemDesc, departmentHead })
+        body: JSON.stringify({ deviceCode, signerName, isDelegate, delegatedName, signatureUrl })
       });
       const json = await res.json();
-      if (json.code !== 0) {
-        submitMsg.textContent = json.message;
-        submitBtn.disabled = false;
-        submitBtn.textContent = '提交报修单';
-        if (json.message.indexOf('请勿重复提交') >= 0) showToast(json.message, 'error');
-        return;
-      }
-      resetForm();
-      showToast('报修单 ' + json.data.reportNo + ' 已提交，待管理员受理', 'success');
-      startCountdown(DUPLICATE_MINUTES * 60);
-      loadHistory();
-    } catch (err) {
-      submitMsg.textContent = '网络错误：' + err.message;
-      submitBtn.disabled = false;
-      submitBtn.textContent = '提交报修单';
+      if (json.code !== 0) { document.getElementById('signMsg').textContent = json.message; document.getElementById('confirmSign').disabled = false; return; }
+      document.getElementById('signMsg').style.color = '#27ae60';
+      document.getElementById('signMsg').textContent = '验收签字成功 ✓';
+      setTimeout(() => { signModal.classList.remove('show'); document.getElementById('confirmSign').disabled = false; loadAccept(); }, 1000);
+    } catch (e) {
+      document.getElementById('signMsg').textContent = '网络错误：' + e.message;
+      document.getElementById('confirmSign').disabled = false;
     }
   });
 
+  // ---------- 历史列表 ----------
   async function loadHistory() {
     try {
       const res = await fetch('/api/reports/by-device?deviceCode=' + encodeURIComponent(deviceCode));

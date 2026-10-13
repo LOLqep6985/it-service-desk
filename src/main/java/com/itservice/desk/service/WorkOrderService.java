@@ -101,6 +101,31 @@ public class WorkOrderService {
         return wo;
     }
 
+    public List<WorkOrder> listPendingAcceptByDepartment(Long departmentId) {
+        return workOrderMapper.selectList(new LambdaQueryWrapper<WorkOrder>()
+                .eq(WorkOrder::getDepartmentId, departmentId)
+                .eq(WorkOrder::getStatus, WorkOrderStatus.PENDING_ACCEPT)
+                .orderByDesc(WorkOrder::getCreatedAt));
+    }
+
+    public WorkOrder sign(Long id, String signerName, boolean isDelegate, String delegatedName, String signatureUrl) {
+        WorkOrder wo = getById(id);
+        if (wo.getStatus() != WorkOrderStatus.PENDING_ACCEPT) {
+            throw new IllegalArgumentException("该工单不在待验收状态");
+        }
+        wo.setStatus(WorkOrderStatus.COMPLETED);
+        wo.setCompletedAt(LocalDateTime.now());
+        wo.setSignStatus(SignStatus.SIGNED);
+        if (isDelegate && delegatedName != null && !delegatedName.isBlank()) {
+            wo.setSignedBy(delegatedName + "(由" + signerName + "代签)");
+        } else {
+            wo.setSignedBy(signerName);
+        }
+        wo.setSignedAt(LocalDateTime.now());
+        wo.setSignatureUrl(signatureUrl);
+        workOrderMapper.updateById(wo);
+        return wo;
+    }
     public List<Consumable> listConsumables(Long workOrderId) {
         return consumableMapper.selectList(new LambdaQueryWrapper<Consumable>()
                 .eq(Consumable::getWorkOrderId, workOrderId)
@@ -108,9 +133,8 @@ public class WorkOrderService {
     }
     public WorkOrder submitRepair(Long id, String record, List<ConsumableItem> consumables) {
         WorkOrder wo = getById(id);
-        wo.setStatus(WorkOrderStatus.COMPLETED);
+        wo.setStatus(WorkOrderStatus.PENDING_ACCEPT);
         wo.setRepairRecord(record);
-        wo.setCompletedAt(LocalDateTime.now());
         workOrderMapper.updateById(wo);
         if (consumables != null) {
             for (ConsumableItem item : consumables) {

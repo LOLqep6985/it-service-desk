@@ -34,7 +34,8 @@ CREATE TABLE IF NOT EXISTS work_order (
     report_id     BIGINT,
     sign_status   VARCHAR(20) DEFAULT 'UNSIGNED',
     signed_by     VARCHAR(50),
-    signed_at     DATETIME
+    signed_at     DATETIME,
+    signature_url VARCHAR(255)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS department_binding (
