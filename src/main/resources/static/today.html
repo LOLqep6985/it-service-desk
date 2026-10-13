@@ -39,6 +39,7 @@
   const userId = params.get('userId');
   const saved = localStorage.getItem('itsdUser');
   const user = saved ? JSON.parse(saved) : {};
+  const token = user.token || '';
   if (!userId && user.userId) window.location.href = 'today.html?userId=' + user.userId;
   document.getElementById('userName').textContent = user.name + '（' + (user.role || '') + '）';
 
@@ -57,7 +58,7 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
   });
 
   async function load() {
-    const res = await fetch('/api/work-orders/today?assigneeId=' + userId);
+    const res = await fetch('/api/work-orders/today', { headers: { 'X-Token': token } });
     const json = await res.json();
     if (json.code !== 0) { alert(json.message); return; }
     const list = json.data || [];

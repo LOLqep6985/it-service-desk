@@ -51,7 +51,13 @@
       const json = await res.json();
       if (json.code !== 0) { msg.textContent = json.message; return; }
       localStorage.setItem('itsdUser', JSON.stringify(json.data));
-      window.location.href = 'today.html?userId=' + json.data.userId;
+      const roleCode = json.data.roleCode;
+const uid = json.data.userId;
+if (roleCode === 'REPORTER') {
+  window.location.href = 'create.html?userId=' + uid;
+} else {
+  window.location.href = 'today.html?userId=' + uid;
+}
     } catch (e) {
       msg.textContent = '网络错误：' + e.message;
     }
