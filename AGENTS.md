@@ -36,7 +36,7 @@
 ## 强制规则
 - Maven 双仓库：IDEA 用 D:\Maven\repository；沙箱内 CLI 用项目内 .m2repo（代理 127.0.0.1:7890 + -Dmaven.repo.local=.m2repo），不要混淆。
 
-- 每完成一个 Step/天，更新 task_plan 的 Next Step 并提交 git。
+- 每完成一个 Step/天，更新 task_plan 的 Next Step；git commit 与 push 由用户手动在 VSCode（Git Graph）完成，AI 只提供修改摘要与建议提交信息。
 - 重要决策记入 findings.md。
 - 不向文档写入密钥/密码。
 - AI 是辅助，不是项目卖点；核心功能不依赖外部 AI API。

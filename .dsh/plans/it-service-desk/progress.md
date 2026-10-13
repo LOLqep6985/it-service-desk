@@ -184,3 +184,9 @@
 - 新增 README.md：项目简介、技术栈、流程状态机、快速启动、演示账号、目录结构
 - 检查确认：无远程仓库、分支 master、.gitignore 已排除 target/.m2repo/uploads/.idea/.rdoc_inspect，跟踪文件仅源码+文档
 - 下一步：用户在 Gitee 创建空仓库 → git remote add origin + git push -u origin master
+
+### 2026-10-13：Git 工作流切换为「用户手动 commit/push」（VSCode Git Graph）
+
+- 用户要求：以后每次变更代码并保存进度后，AI 只告知修改内容与建议提交信息，由用户在 VSCode 中手动 commit + push
+- 已更新：AGENTS.md 强制规则、findings.md 决策记录
+- 当前未提交变更：AGENTS.md、findings.md、progress.md（等待用户手动 commit）

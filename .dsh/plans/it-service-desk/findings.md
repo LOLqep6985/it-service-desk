@@ -203,3 +203,10 @@
 - 决策：推送 Gitee 前，把 application.yml 的数据库连接改为环境变量占位符 `${DB_URL:...}` / `${DB_USERNAME:itsd}` / `${DB_PASSWORD:itsd123456}`
 - 理由：本地默认值不变（clone 即跑），云端/生产可通过环境变量注入，避免硬编码敏感信息
 - 补充：仓库仍含演示账号密码（admin123 等）与本地数据库默认密码，属演示数据，公开仓库可接受；如需更严格可后续再清理
+
+### 2026-10-13：Git 工作流变更——由用户手动 commit/push
+
+- 状态：accepted（用户明确要求）
+- 决策：此后 AI 不再直接执行 git commit / git push；每次完成代码变更并落盘项目记忆后，AI 只提供「修改摘要 + 建议提交信息（Conventional Commits）」，由用户在 VSCode（Git Graph 扩展）中手动 commit 并 push 到云端仓库
+- 理由：用户希望在 VSCode 中直观查看变更（Git Graph），自己掌控版本历史与推送时机
+- 影响：AGENTS.md「强制规则」已同步更新；AI 侧仍负责更新 .dsh/plans 下的进度文档，但提交动作留给用户
