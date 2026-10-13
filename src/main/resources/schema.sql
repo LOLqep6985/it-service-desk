@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS department (
     id       BIGINT AUTO_INCREMENT PRIMARY KEY,
     name     VARCHAR(100) NOT NULL,
     campus   VARCHAR(20)  NOT NULL,
-    building VARCHAR(100)
+    building VARCHAR(100),
+    department_head VARCHAR(50)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS work_order (

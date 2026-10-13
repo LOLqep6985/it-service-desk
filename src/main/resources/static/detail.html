@@ -42,6 +42,8 @@
   </div>
 </div>
 <script>
+  const WORK_ORDER_STATUS = { PENDING:'待派单', ASSIGNED:'已派单', IN_PROGRESS:'处理中', COMPLETED:'已完成' };
+  const CAMPUS_LABEL = { LAOYUAN:'老院', XIYUAN:'西院', DONGYUAN:'东院' };
   const params = new URLSearchParams(location.search);
   const id = params.get('id');
   const userId = params.get('userId');
@@ -67,10 +69,10 @@
     if (json.code !== 0) { card.innerHTML = json.message; return; }
     const wo = json.data;
     const rows = [
-      ['状态', '<span class="badge">' + esc(wo.status.label) + '</span>'],
+      ['状态', '<span class="badge">' + esc(WORK_ORDER_STATUS[wo.status] || wo.status) + '</span>'],
       ['标题', esc(wo.title)],
       ['描述', esc(wo.description)],
-      ['院区', esc(wo.campus.label)],
+      ['院区', esc(CAMPUS_LABEL[wo.campus] || wo.campus)],
       ['科室', esc(wo.departmentName)],
       ['地点', esc(wo.location)],
       ['联系人', esc(wo.contactPerson)],
@@ -78,7 +80,7 @@
       ['优先级', esc(wo.priority)],
       ['创建时间', esc(wo.createdAt || '')]
     ];
-    if (wo.status.label === '已完成') {
+    if (WORK_ORDER_STATUS[wo.status] === '已完成') {
       rows.push(['维修记录', esc(wo.repairRecord)]);
       rows.push(['完成时间', esc(wo.completedAt || '')]);
       formBox.style.display = 'none';

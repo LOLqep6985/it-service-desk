@@ -35,6 +35,8 @@
   <div id="groups"></div>
 </div>
 <script>
+  const WORK_ORDER_STATUS = { PENDING:'待派单', ASSIGNED:'已派单', IN_PROGRESS:'处理中', COMPLETED:'已完成' };
+  const CAMPUS_LABEL = { LAOYUAN:'老院', XIYUAN:'西院', DONGYUAN:'东院' };
   const params = new URLSearchParams(location.search);
   const userId = params.get('userId');
   const saved = localStorage.getItem('itsdUser');
@@ -66,7 +68,7 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
     const groups = {};
     const campusOrder = ['老院', '西院', '东院'];
     list.forEach(wo => {
-      const key = wo.campus ? wo.campus.label : '其他';
+      const key = CAMPUS_LABEL[wo.campus] || '其他';
       (groups[key] = groups[key] || []).push(wo);
     });
     const root = document.getElementById('groups');
@@ -86,7 +88,7 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
         div.innerHTML += '<div class="card" onclick="openDetail(' + wo.id + ')">'
           + '<div class="title">' + wo.title + urgent + '</div>'
           + '<div class="meta">' + wo.location + ' · ' + wo.contactPerson + '</div>'
-          + '<div class="meta">' + wo.departmentName + ' · ' + (wo.status ? wo.status.label : '') + '</div>'
+          + '<div class="meta">' + wo.departmentName + ' · ' + (WORK_ORDER_STATUS[wo.status] || '') + '</div>'
           + '</div>';
       });
       root.appendChild(div);

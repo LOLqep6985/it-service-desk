@@ -143,3 +143,9 @@
 - 文件上传：保存到 uploads/（gitignore）；访问用控制器 @GetMapping /uploads/{filename:.+} 而非 WebMvcConfigurer 资源映射（后者在本环境 404）
 - 权限：绑定设备仅 ADMIN/DISPATCHER；免登录报修/历史查询以 device_code 为凭据（设备码即弱凭证，Day6 可加 PIN）
 - 报修单历史按 department_id 查询，非严格按设备，便于科室共用
+### 2026-10-13：科室报修页 Bug 修复要点
+
+- Jackson 默认把枚举序列化为名字符串（如 "PENDING"），前端不能用 .label；需前端维护 label 映射或后端返回对象
+- 防重复提交：report 表按 department_id + device_name + created_at >= now-10min 查询最近记录，非 CANCELLED 即拒绝（登录式与免登录式都加）
+- department 表新增 department_head 字段（默认科室负责人），免登录报修自动带出并只读
+- report.html 提交成功按钮禁用 10 分钟倒计时，防手抖

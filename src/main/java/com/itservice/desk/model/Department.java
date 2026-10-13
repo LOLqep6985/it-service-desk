@@ -13,4 +13,5 @@ public class Department {
     private String name;
     private Campus campus;
     private String building;
+    private String departmentHead;
 }
