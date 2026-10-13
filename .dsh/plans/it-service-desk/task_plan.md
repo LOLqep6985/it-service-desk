@@ -48,7 +48,7 @@ M0 已完成并验证通过；准备进入 Day 1（完整数据库设计）。
 
 ## Next Step
 
-（待确认）Day 1：接入真实 MySQL（需先解决 MySQL JDBC 驱动离线不可用的问题），完成建表 SQL 与实体映射。
+Day 1：接入真实 MySQL（等用户完成 MySQL 服务启动 + 建库），pom 添加 MyBatis-Plus + MySQL 驱动，完成建表 SQL 与实体映射。
 
 ## 已完成
 
@@ -60,7 +60,6 @@ M0 已完成并验证通过；准备进入 Day 1（完整数据库设计）。
 
 ## 待办/阻塞
 
-- 阻塞：MySQL JDBC 驱动（mysql-connector-j）未缓存且 Maven 中央仓库/阿里云镜像网络不可达（HTTP 000）
-  - 候选解法：找可用镜像源 / 手机热点 / 手动下载驱动 jar 安装到本地仓库
-- 阻塞：MyBatis-Plus 未缓存，完整开发阶段需解决依赖获取
-- 备注：Maven 实际本地仓库为 D:\Maven\repository（settings.xml 指定），JAVA_HOME 需指向 D:\DevTools\Java\jdk17
+- 已解决：Clash 代理（127.0.0.1:7890）+ 项目内本地仓库（.m2repo）可正常从阿里云下载依赖（含 MySQL 驱动、MyBatis-Plus）
+- 已解决：mybatis-plus-boot-starter 3.5.7 已下载到 .m2repo
+- 备注：沙箱内构建需代理环境变量 + -Dmaven.repo.local=.m2repo；JAVA_HOME 指向 D:\DevTools\Java\jdk17

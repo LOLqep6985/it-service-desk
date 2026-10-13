@@ -36,3 +36,37 @@
 | 2026-10-13 | 无效的目标发行版:17 | JAVA_HOME 指向 jdk8 | 构建时设 JAVA_HOME=D:\DevTools\Java\jdk17 |
 | 2026-10-13 | lombok 1.18.30 缺失 | 缓存版本为 1.18.46 | pom 覆盖 lombok.version=1.18.46 |
 | 2026-10-13 | MySQL/MyBatis-Plus 依赖不可用 | 网络封锁 maven 仓库 | 待 Day 1 解决（找镜像/热点/手动安装 jar） |
+### 2026-10-13：ORM 改用 Spring Data JPA（替代 MyBatis-Plus）
+
+- 状态：accepted
+- 来源：开发环境限制 + 工程决策
+- 决策：Day 1 起使用 Spring Data JPA（spring-boot-starter-data-jpa 2.7.18 已缓存）作为 ORM，弃用 MyBatis-Plus
+- 理由：
+  - 本地 Maven 仓库已缓存完整 JPA 依赖树（Hibernate 5.6.15 + HikariCP 4.0.3 + mysql-connector-j 9.7.0）
+  - MyBatis-Plus 未缓存，且 Maven 中央仓库/阿里云镜像网络不可达，无法下载
+  - JPA 是 Java 企业级标准 ORM，简历上同样有说服力，面试可解释「为什么选 JPA：声明式查询、实体映射规范、跨实现可移植」
+- 后果：pom 需覆盖 mysql.version=9.7.0（Spring Boot 2.7.18 默认管理 8.0.33，本地缓存为 9.7.0）
+
+### 2026-10-13：MySQL 本机环境状态
+
+- 状态：进行中
+- MySQL80 服务当前为停止状态；沙箱无权限启动（需管理员）
+- 待用户：以管理员启动 MySQL80，并准备数据库 it_service_desk 及账号
+### 2026-10-13：Maven 网络问题彻底解决（Clash 代理 + 项目内本地仓库）
+
+- 状态：accepted
+- 来源：排查发现
+- 根因：沙箱禁止写入 D:\Maven\repository（AccessDeniedException），并非代理/镜像配置问题
+- 解法：
+  - 构建时设置代理环境变量：HTTP_PROXY / HTTPS_PROXY = http://127.0.0.1:7890（Clash）
+  - 使用项目内本地仓库：-Dmaven.repo.local=.m2repo（已 gitignore）
+  - Maven 即可通过 aliyunmaven 镜像正常下载依赖（已验证 mybatis-plus-boot-starter 3.5.7 下载成功）
+- 注意：用户自己的终端/IDE 仍可用系统仓库 D:\Maven\repository（沙箱外无写限制）
+
+### 2026-10-13：ORM 决策回退为 MyBatis-Plus（弃用 JPA 方案）
+
+- 状态：accepted（用户明确要求）
+- 来源：用户要求「先解决 MyBatis-Plus 依赖，再用 MyBatis-Plus 完成主项目」
+- 决策：主项目使用 MyBatis-Plus（mybatis-plus-boot-starter 3.5.7），不用 Spring Data JPA
+- 理由：用户偏好 + 与简历技能栈匹配；依赖问题已解决，不再需要 JPA 降级
+- 后果：pom 添加 mybatis-plus-boot-starter 依赖；M0 内存存储将替换为 MyBatis-Plus 数据访问层
