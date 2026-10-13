@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>工单详情 - IT运维工单系统</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f2f4f7; color: #2c3e50; }
+    .header { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #1d6fe0; color: #fff; position: sticky; top: 0; }
+    .header .back { background: rgba(255,255,255,.2); border: none; color: #fff; padding: 6px 14px; border-radius: 6px; font-size: 14px; }
+    .header .t { font-size: 16px; font-weight: 600; }
+    .container { max-width: 480px; margin: 0 auto; padding: 16px; }
+    .card { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    .card h2 { font-size: 18px; margin-bottom: 10px; }
+    .row { display: flex; justify-content: space-between; padding: 7px 0; font-size: 14px; border-bottom: 1px dashed #ecf0f1; }
+    .row:last-child { border-bottom: none; }
+    .row .k { color: #7f8c8d; }
+    .row .v { text-align: right; max-width: 65%; }
+    .badge { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 4px; background: #e8f4fd; color: #1d6fe0; }
+    .form { background: #fff; border-radius: 10px; padding: 16px; margin-top: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    .form h3 { font-size: 16px; margin-bottom: 10px; }
+    textarea { width: 100%; min-height: 120px; padding: 12px; border: 1px solid #d0d5dd; border-radius: 8px; font-size: 15px; line-height: 1.6; }
+    button.submit { width: 100%; padding: 16px; background: #27ae60; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; margin-top: 12px; }
+    button.submit:disabled { background: #b0b8c1; }
+    .msg { margin-top: 12px; text-align: center; font-size: 14px; color: #d63031; min-height: 20px; }
+    .done { text-align: center; color: #27ae60; font-size: 15px; padding: 8px 0; }
+  </style>
+</head>
+<body>
+<div class="header">
+  <button class="back" id="backBtn">‹ 返回</button>
+  <span class="t">工单详情</span>
+</div>
+<div class="container">
+  <div class="card" id="card">加载中...</div>
+  <div class="form" id="formBox">
+    <h3>维修记录</h3>
+    <textarea id="record" placeholder="填写维修处理过程、更换配件、处理结果等"></textarea>
+    <button class="submit" id="submitBtn">提交并关闭工单</button>
+    <div class="msg" id="msg"></div>
+  </div>
+</div>
+<script>
+  const params = new URLSearchParams(location.search);
+  const id = params.get('id');
+  const userId = params.get('userId');
+  const card = document.getElementById('card');
+  const formBox = document.getElementById('formBox');
+  const msg = document.getElementById('msg');
+  const submitBtn = document.getElementById('submitBtn');
+
+  document.getElementById('backBtn').addEventListener('click', () => {
+    window.location.href = 'today.html?userId=' + userId;
+  });
+
+  function esc(s) {
+    return (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  async function load() {
+    const res = await fetch('/api/work-orders/' + id);
+    const json = await res.json();
+    if (json.code !== 0) { card.innerHTML = json.message; return; }
+    const wo = json.data;
+    const rows = [
+      ['状态', '<span class="badge">' + esc(wo.status.label) + '</span>'],
+      ['标题', esc(wo.title)],
+      ['描述', esc(wo.description)],
+      ['院区', esc(wo.campus.label)],
+      ['科室', esc(wo.departmentName)],
+      ['地点', esc(wo.location)],
+      ['联系人', esc(wo.contactPerson)],
+      ['联系电话', esc(wo.contactPhone)],
+      ['优先级', esc(wo.priority)],
+      ['创建时间', esc(wo.createdAt || '')]
+    ];
+    if (wo.status.label === '已完成') {
+      rows.push(['维修记录', esc(wo.repairRecord)]);
+      rows.push(['完成时间', esc(wo.completedAt || '')]);
+      formBox.style.display = 'none';
+      card.innerHTML = '<h2>工单已完成 ✅</h2>' + rows.map(r => '<div class="row"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></div>').join('');
+    } else {
+      card.innerHTML = '<h2>' + esc(wo.title) + '</h2>' + rows.slice(1).map(r => '<div class="row"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></div>').join('');
+    }
+  }
+
+  submitBtn.addEventListener('click', async () => {
+    const record = document.getElementById('record').value.trim();
+    if (!record) { msg.textContent = '请填写维修记录'; return; }
+    submitBtn.disabled = true;
+    msg.textContent = '提交中...';
+    try {
+      const res = await fetch('/api/work-orders/' + id + '/repair', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ record })
+      });
+      const json = await res.json();
+      if (json.code !== 0) { msg.textContent = json.message; submitBtn.disabled = false; return; }
+      msg.style.color = '#27ae60';
+      msg.textContent = '工单已关闭 ✓';
+      setTimeout(() => { window.location.href = 'today.html?userId=' + userId; }, 800);
+    } catch (e) {
+      msg.textContent = '网络错误：' + e.message + '（内容已保留，请重试）';
+      submitBtn.disabled = false;
+    }
+  });
+
+  load();
+</script>
+</body>
+</html>

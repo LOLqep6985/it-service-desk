@@ -1,0 +1,32 @@
+# 多院区现场 IT 运维工单与调度系统 项目入口
+
+## 项目概览
+
+- 目标：把企业/医院的"微信群报修"升级为「PC 管理调度后台 + 手机端现场维修工作台」的移动优先 Web 应用。
+- 定位：报修信息集中化 → 维修任务可追踪 → 现场人员快速找到地点和联系人。
+- 技术栈：Java 17 / Spring Boot / MyBatis-Plus / MySQL 8 / Redis(可降级) / Vue3(Vant + Element Plus)。
+- 简历级工程化项目（真实痛点来源：电脑店/医院驻场 IT 维护经历）。
+
+## 关键业务约束
+
+- 多维修人员（含用户共 2 人）管理/调度。
+- 移动端优先：维修人员拿手机在现场工作（老院/西院/东院，骑电动车往返）。
+- 双端同后端：PC 管理后台 + 手机 H5 共用同一套 Spring Boot 后端、数据库、权限体系。
+- 第一版核心闭环：创建工单 → 手机今日任务 → 查看地点/联系科室负责人 → 提交维修记录并关闭工单。
+- 网络异常处理：超时提示、失败重试、防重复提交、维修记录草稿（不做离线同步）。
+- 统计看板/二维码/AI 辅助 → 后置扩展。
+- 技术选型服务业务问题，不为显高级而加技术。
+
+## 文档导航
+
+- .dsh/plans/it-service-desk/task_plan.md：目标、里程碑（M0 最小验证 + 7 天开发）、Next Step
+- .dsh/plans/it-service-desk/findings.md：决策与踩坑记录
+- .dsh/plans/it-service-desk/progress.md：进度日志
+- .dsh/plans/it-service-desk/handoff.md：最近交接摘要
+
+## 强制规则
+
+- 每完成一个 Step/天，更新 task_plan 的 Next Step 并提交 git。
+- 重要决策记入 findings.md。
+- 不向文档写入密钥/密码。
+- AI 是辅助，不是项目卖点；核心功能不依赖外部 AI API。
