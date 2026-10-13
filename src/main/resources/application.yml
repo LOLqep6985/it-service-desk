@@ -16,6 +16,9 @@ spring:
       schema-locations: classpath:schema.sql
       data-locations: classpath:data.sql
 
+file:
+  upload-dir: uploads
+
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true

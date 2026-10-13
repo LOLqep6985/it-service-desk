@@ -1,12 +1,23 @@
 package com.itservice.desk.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.itservice.desk.dto.AnonymousReportRequest;
 import com.itservice.desk.dto.ApiResponse;
 import com.itservice.desk.dto.ReportCreateRequest;
+import com.itservice.desk.mapper.DepartmentBindingMapper;
+import com.itservice.desk.mapper.DepartmentMapper;
 import com.itservice.desk.mapper.UserMapper;
+import com.itservice.desk.model.Department;
+import com.itservice.desk.model.DepartmentBinding;
+import com.itservice.desk.model.Report;
+import com.itservice.desk.model.ReportStatus;
 import com.itservice.desk.model.User;
 import com.itservice.desk.model.UserRole;
 import com.itservice.desk.service.ReportService;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/reports")
@@ -14,10 +25,17 @@ public class ReportController {
 
     private final ReportService reportService;
     private final UserMapper userMapper;
+    private final DepartmentBindingMapper bindingMapper;
+    private final DepartmentMapper departmentMapper;
 
-    public ReportController(ReportService reportService, UserMapper userMapper) {
+    public ReportController(ReportService reportService,
+                            UserMapper userMapper,
+                            DepartmentBindingMapper bindingMapper,
+                            DepartmentMapper departmentMapper) {
         this.reportService = reportService;
         this.userMapper = userMapper;
+        this.bindingMapper = bindingMapper;
+        this.departmentMapper = departmentMapper;
     }
 
     @PostMapping
@@ -37,6 +55,31 @@ public class ReportController {
         }
     }
 
+    @PostMapping("/anonymous")
+    public ApiResponse createAnonymous(@RequestBody AnonymousReportRequest req) {
+        DepartmentBinding b = findActiveBinding(req.getDeviceCode());
+        if (b == null) {
+            return ApiResponse.error(401, "设备码未绑定科室，无法免登录报修");
+        }
+        Department dept = departmentMapper.selectById(b.getDepartmentId());
+        if (dept == null) {
+            return ApiResponse.error("绑定的科室不存在");
+        }
+        Report r = new Report();
+        r.setDepartmentId(dept.getId());
+        r.setDepartmentName(dept.getName());
+        r.setReporterName(req.getReporterName());
+        r.setDeviceName(req.getDeviceName());
+        r.setDevicePhoto(req.getDevicePhoto());
+        r.setProblemDesc(req.getProblemDesc());
+        r.setDepartmentHead(req.getDepartmentHead());
+        r.setStatus(ReportStatus.PENDING);
+        r.setBindingId(b.getId());
+        r.setCreatedAt(LocalDateTime.now());
+        reportService.insertReport(r);
+        return ApiResponse.ok(r);
+    }
+
     @GetMapping
     public ApiResponse list(@RequestHeader(value = "X-Token", required = false) String token,
                             @RequestParam(required = false) String status) {
@@ -48,6 +91,16 @@ public class ReportController {
             return ApiResponse.error(403, "无权限：只有管理员或调度员可以查看报修单列表");
         }
         return ApiResponse.ok(reportService.listReports(status));
+    }
+
+    @GetMapping("/by-device")
+    public ApiResponse listByDevice(@RequestParam String deviceCode) {
+        DepartmentBinding b = findActiveBinding(deviceCode);
+        if (b == null) {
+            return ApiResponse.error(401, "设备码未绑定科室");
+        }
+        List<Report> list = reportService.listReportsByDepartment(b.getDepartmentId());
+        return ApiResponse.ok(list);
     }
 
     @PostMapping("/{id}/dispatch")
@@ -66,6 +119,15 @@ public class ReportController {
         } catch (IllegalArgumentException e) {
             return ApiResponse.error(e.getMessage());
         }
+    }
+
+    private DepartmentBinding findActiveBinding(String deviceCode) {
+        if (deviceCode == null || deviceCode.isBlank()) {
+            return null;
+        }
+        return bindingMapper.selectOne(new LambdaQueryWrapper<DepartmentBinding>()
+                .eq(DepartmentBinding::getDeviceCode, deviceCode)
+                .eq(DepartmentBinding::getActive, true));
     }
 
     private User resolveUser(String token) {

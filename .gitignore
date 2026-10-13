@@ -8,3 +8,5 @@ target/
 __pycache__/
 *.pyc
 .m2repo/
+
+uploads/

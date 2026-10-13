@@ -26,6 +26,12 @@ public class ReportService {
         this.workOrderMapper = workOrderMapper;
     }
 
+    public void insertReport(Report r) {
+        reportMapper.insert(r);
+        r.setReportNo("R" + String.format("%06d", r.getId()));
+        reportMapper.updateById(r);
+    }
+
     public Report createReport(ReportCreateRequest req, Long creatorId) {
         Department dept = departmentMapper.selectById(req.getDepartmentId());
         if (dept == null) {
@@ -46,6 +52,12 @@ public class ReportService {
         r.setReportNo("R" + String.format("%06d", r.getId()));
         reportMapper.updateById(r);
         return r;
+    }
+
+    public List<Report> listReportsByDepartment(Long departmentId) {
+        return reportMapper.selectList(new LambdaQueryWrapper<Report>()
+                .eq(Report::getDepartmentId, departmentId)
+                .orderByDesc(Report::getCreatedAt));
     }
 
     public List<Report> listReports(String status) {
