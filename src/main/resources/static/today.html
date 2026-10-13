@@ -43,6 +43,13 @@
   const saved = localStorage.getItem('itsdUser');
   const user = saved ? JSON.parse(saved) : {};
   const token = user.token || '';
+
+  // 角色兜底：非维修工不应停留在今日任务页
+  if (user.roleCode === 'ADMIN' || user.roleCode === 'DISPATCHER') {
+    window.location.href = 'admin.html?userId=' + (userId || user.userId);
+  } else if (user.roleCode === 'REPORTER') {
+    window.location.href = 'create.html?userId=' + (userId || user.userId);
+  }
   if (!userId && user.userId) window.location.href = 'today.html?userId=' + user.userId;
   document.getElementById('userName').textContent = user.name + '（' + (user.role || '') + '）';
 

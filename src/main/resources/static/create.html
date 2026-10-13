@@ -58,7 +58,7 @@
   const submitBtn = document.getElementById('submitBtn');
 
   document.getElementById('backBtn').addEventListener('click', () => {
-    window.location.href = 'today.html?userId=' + userId;
+    window.location.href = 'login.html';
   });
 
   async function loadDepartments() {
@@ -101,7 +101,7 @@
       if (json.code !== 0) { msg.textContent = json.message; submitBtn.disabled = false; return; }
       msg.style.color = '#27ae60';
       msg.textContent = '报修单已提交，待管理员受理 ✓';
-      setTimeout(() => { window.location.href = 'today.html?userId=' + userId; }, 1200);
+      // 报修人停留本页，可继续报修其他设备
     } catch (e) {
       msg.textContent = '网络错误：' + e.message + '（内容已保留，请重试）';
       submitBtn.disabled = false;
