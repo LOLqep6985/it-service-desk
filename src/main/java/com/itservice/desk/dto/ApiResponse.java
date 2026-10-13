@@ -17,8 +17,12 @@ public class ApiResponse {
     }
 
     public static ApiResponse error(String message) {
+        return error(500, message);
+    }
+
+    public static ApiResponse error(int code, String message) {
         ApiResponse r = new ApiResponse();
-        r.code = 500;
+        r.code = code;
         r.message = message;
         return r;
     }

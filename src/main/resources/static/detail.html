@@ -45,6 +45,9 @@
   const params = new URLSearchParams(location.search);
   const id = params.get('id');
   const userId = params.get('userId');
+  const saved = localStorage.getItem('itsdUser');
+  const user = saved ? JSON.parse(saved) : {};
+  const token = user.token || '';
   const card = document.getElementById('card');
   const formBox = document.getElementById('formBox');
   const msg = document.getElementById('msg');
@@ -59,7 +62,7 @@
   }
 
   async function load() {
-    const res = await fetch('/api/work-orders/' + id);
+    const res = await fetch('/api/work-orders/' + id, { headers: { 'X-Token': token } });
     const json = await res.json();
     if (json.code !== 0) { card.innerHTML = json.message; return; }
     const wo = json.data;
@@ -93,7 +96,7 @@
     try {
       const res = await fetch('/api/work-orders/' + id + '/repair', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Token': token },
         body: JSON.stringify({ record })
       });
       const json = await res.json();

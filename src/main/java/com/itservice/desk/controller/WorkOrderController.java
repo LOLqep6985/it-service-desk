@@ -3,6 +3,9 @@ package com.itservice.desk.controller;
 import com.itservice.desk.dto.ApiResponse;
 import com.itservice.desk.dto.RepairRequest;
 import com.itservice.desk.dto.WorkOrderCreateRequest;
+import com.itservice.desk.mapper.UserMapper;
+import com.itservice.desk.model.User;
+import com.itservice.desk.model.UserRole;
 import com.itservice.desk.model.WorkOrder;
 import com.itservice.desk.service.WorkOrderService;
 import org.springframework.web.bind.annotation.*;
@@ -14,16 +17,25 @@ import java.util.List;
 public class WorkOrderController {
 
     private final WorkOrderService workOrderService;
+    private final UserMapper userMapper;
 
-    public WorkOrderController(WorkOrderService workOrderService) {
+    public WorkOrderController(WorkOrderService workOrderService, UserMapper userMapper) {
         this.workOrderService = workOrderService;
+        this.userMapper = userMapper;
     }
 
     @PostMapping
     public ApiResponse create(@RequestBody WorkOrderCreateRequest req,
-                              @RequestParam Long creatorId) {
+                              @RequestHeader(value = "X-Token", required = false) String token) {
+        User user = resolveUserByToken(token);
+        if (user == null) {
+            return ApiResponse.error(401, "未登录或登录已过期");
+        }
+        if (user.getRole() != UserRole.REPORTER) {
+            return ApiResponse.error(403, "无权限：只有报修人可以发起报修");
+        }
         try {
-            WorkOrder wo = workOrderService.createWorkOrder(req, creatorId);
+            WorkOrder wo = workOrderService.createWorkOrder(req, user.getId());
             return ApiResponse.ok(wo);
         } catch (IllegalArgumentException e) {
             return ApiResponse.error(e.getMessage());
@@ -31,13 +43,22 @@ public class WorkOrderController {
     }
 
     @GetMapping("/today")
-    public ApiResponse today(@RequestParam Long assigneeId) {
-        List<WorkOrder> list = workOrderService.listTodayTasks(assigneeId);
+    public ApiResponse today(@RequestHeader(value = "X-Token", required = false) String token) {
+        User user = resolveUserByToken(token);
+        if (user == null) {
+            return ApiResponse.error(401, "未登录或登录已过期");
+        }
+        List<WorkOrder> list = workOrderService.listTodayTasks(user.getId());
         return ApiResponse.ok(list);
     }
 
     @GetMapping("/{id}")
-    public ApiResponse detail(@PathVariable Long id) {
+    public ApiResponse detail(@PathVariable Long id,
+                               @RequestHeader(value = "X-Token", required = false) String token) {
+        User user = resolveUserByToken(token);
+        if (user == null) {
+            return ApiResponse.error(401, "未登录或登录已过期");
+        }
         try {
             return ApiResponse.ok(workOrderService.getById(id));
         } catch (IllegalArgumentException e) {
@@ -46,12 +67,33 @@ public class WorkOrderController {
     }
 
     @PostMapping("/{id}/repair")
-    public ApiResponse repair(@PathVariable Long id, @RequestBody RepairRequest req) {
+    public ApiResponse repair(@PathVariable Long id,
+                              @RequestBody RepairRequest req,
+                              @RequestHeader(value = "X-Token", required = false) String token) {
+        User user = resolveUserByToken(token);
+        if (user == null) {
+            return ApiResponse.error(401, "未登录或登录已过期");
+        }
+        if (user.getRole() != UserRole.REPAIRER) {
+            return ApiResponse.error(403, "无权限：只有维修人员可以提交维修记录");
+        }
         try {
             WorkOrder wo = workOrderService.submitRepair(id, req.getRecord());
             return ApiResponse.ok(wo);
         } catch (IllegalArgumentException e) {
             return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    private User resolveUserByToken(String token) {
+        if (token == null || !token.startsWith("token-")) {
+            return null;
+        }
+        try {
+            Long userId = Long.valueOf(token.substring("token-".length()));
+            return userMapper.selectById(userId);
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 }

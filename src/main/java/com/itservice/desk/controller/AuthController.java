@@ -34,6 +34,7 @@ public class AuthController {
         data.put("userId", user.getId());
         data.put("name", user.getName());
         data.put("role", user.getRole().getLabel());
+        data.put("roleCode", user.getRole().name());
         data.put("token", "token-" + user.getId());
         return ApiResponse.ok(data);
     }
