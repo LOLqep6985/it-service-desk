@@ -311,6 +311,8 @@
         '<div class="detail-row"><span class="k">签字状态</span><span class="v">' + signStatusText + '</span></div>' +
         '<div class="detail-row"><span class="k">签字人</span><span class="v">' + esc(signedBy) + '</span></div>' +
         '<div class="detail-row"><span class="k">签字时间</span><span class="v">' + signedTime + '</span></div>' +
+        '<div class="detail-row"><span class="k">签字图片</span></div>' +
+        (wo.signatureUrl ? '<div class="detail-photo"><img src="' + wo.signatureUrl + '" onclick="window.open(this.src)" alt="手写签名"></div>' : '<div style="color:#95a5a6;font-size:13px;">无签名图片</div>') +
         '</div>';
     } catch (e) {
       body.innerHTML = '加载失败：' + e.message;

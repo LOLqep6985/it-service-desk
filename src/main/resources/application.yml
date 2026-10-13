@@ -17,7 +17,7 @@ spring:
       data-locations: classpath:data.sql
 
 file:
-  upload-dir: uploads
+  upload-dir: ${FILE_UPLOAD_DIR:D:/DeepSeek_data/gradaute_space/it-service-desk/uploads}
 
 mybatis-plus:
   configuration:

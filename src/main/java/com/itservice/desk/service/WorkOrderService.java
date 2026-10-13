@@ -101,6 +101,15 @@ public class WorkOrderService {
         return wo;
     }
 
+    public List<WorkOrder> listByDepartment(Long departmentId, String status) {
+        LambdaQueryWrapper<WorkOrder> qw = new LambdaQueryWrapper<WorkOrder>()
+                .eq(WorkOrder::getDepartmentId, departmentId)
+                .orderByDesc(WorkOrder::getCreatedAt);
+        if (status != null && !status.isBlank()) {
+            qw.eq(WorkOrder::getStatus, status);
+        }
+        return workOrderMapper.selectList(qw);
+    }
     public List<WorkOrder> listPendingAcceptByDepartment(Long departmentId) {
         return workOrderMapper.selectList(new LambdaQueryWrapper<WorkOrder>()
                 .eq(WorkOrder::getDepartmentId, departmentId)
