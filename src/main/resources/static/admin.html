@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>管理员后台 - IT运维工单系统</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f2f4f7; color: #2c3e50; font-size: 14px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; background: #1d6fe0; color: #fff; position: sticky; top: 0; z-index: 10; }
+    .header .title { font-size: 17px; font-weight: 600; }
+    .header .right { display: flex; align-items: center; gap: 12px; }
+    .header button { background: rgba(255,255,255,.2); border: none; color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+    .section { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.06); margin-bottom: 20px; }
+    .section h2 { font-size: 16px; margin-bottom: 12px; border-left: 4px solid #1d6fe0; padding-left: 10px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #ecf0f1; font-size: 13px; }
+    th { background: #f8fafc; color: #7f8c8d; font-weight: 600; }
+    tr:hover td { background: #f8fafc; }
+    .badge { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 4px; }
+    .badge.pending { background: #fff3cd; color: #856404; }
+    .badge.dispatched { background: #d1ecf1; color: #0c5460; }
+    .badge.cancelled { background: #f8d7da; color: #721c24; }
+    .badge.other { background: #e2e3e5; color: #383d41; }
+    .btn { border: none; border-radius: 6px; padding: 5px 12px; font-size: 13px; cursor: pointer; }
+    .btn-primary { background: #1d6fe0; color: #fff; }
+    .btn-primary:hover { background: #155bbf; }
+    .btn-sm { padding: 4px 10px; }
+    .empty { color: #95a5a6; text-align: center; padding: 30px 0; }
+    .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; align-items: center; justify-content: center; z-index: 100; }
+    .modal { background: #fff; border-radius: 10px; padding: 20px; width: 360px; }
+    .modal h3 { font-size: 15px; margin-bottom: 12px; }
+    .modal select { width: 100%; padding: 10px; border: 1px solid #d0d5dd; border-radius: 6px; font-size: 14px; margin-bottom: 12px; }
+    .modal .actions { display: flex; justify-content: flex-end; gap: 8px; }
+    .toast { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: 999; background: #2c3e50; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,.2); opacity: 0; transition: opacity .3s; pointer-events: none; }
+    .toast.show { opacity: 1; }
+    .toast.success { background: #27ae60; }
+    .toast.error { background: #e74c3c; }
+  </style>
+</head>
+<body>
+<div class="header">
+  <span class="title">IT 运维工单 · 管理员后台</span>
+  <div class="right">
+    <span id="userName">加载中...</span>
+    <button onclick="location.href='report.html'">科室报修端</button>
+    <button id="logoutBtn">退出</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<div class="container">
+  <div class="section">
+    <h2>待受理报修单</h2>
+    <table id="pendingTable">
+      <thead><tr><th>报修单号</th><th>科室</th><th>设备</th><th>报修人</th><th>描述</th><th>负责人</th><th>提交时间</th><th>操作</th></tr></thead>
+      <tbody id="pendingBody"><tr><td colspan="8" class="empty">加载中...</td></tr></tbody>
+    </table>
+  </div>
+  <div class="section">
+    <h2>报修单历史</h2>
+    <table id="historyTable">
+      <thead><tr><th>报修单号</th><th>科室</th><th>设备</th><th>报修人</th><th>状态</th><th>提交时间</th></tr></thead>
+      <tbody id="historyBody"><tr><td colspan="6" class="empty">加载中...</td></tr></tbody>
+    </table>
+  </div>
+  <div class="section">
+    <h2>基础数据</h2>
+    <table>
+      <thead><tr><th>类型</th><th>内容</th></tr></thead>
+      <tbody id="baseDataBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal-mask" id="modalMask">
+  <div class="modal">
+    <h3>派单给维修人员</h3>
+    <select id="repairerSelect"></select>
+    <div class="actions">
+      <button class="btn" style="background:#e0e0e0;" id="cancelDispatch">取消</button>
+      <button class="btn btn-primary" id="confirmDispatch">确认派单</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const REPORT_STATUS = { PENDING:'待受理', ACCEPTED:'已受理', DISPATCHED:'已派单', CANCELLED:'已取消' };
+  const ROLE_LABEL = { ADMIN:'管理员', DISPATCHER:'调度员', REPAIRER:'维修工', REPORTER:'报修人' };
+  const toast = document.getElementById('toast');
+  const saved = localStorage.getItem('itsdUser');
+  const user = saved ? JSON.parse(saved) : {};
+  let repairers = [];
+  let dispatchingReportId = null;
+
+  document.getElementById('userName').textContent = user.name + '（' + (user.role || '') + '）';
+  document.getElementById('logoutBtn').addEventListener('click', () => { localStorage.removeItem('itsdUser'); location.href = 'login.html'; });
+
+  function showToast(text, type) {
+    toast.textContent = text;
+    toast.className = 'toast show ' + (type || '');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => toast.className = 'toast', 2500);
+  }
+
+  function fmtTime(s) { return (s || '').replace('T', ' ').slice(0, 16); }
+  function esc(s) { return (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  async function load() {
+    // 报修单列表
+    const res = await fetch('/api/reports', { headers: { 'X-Token': user.token } });
+    const json = await res.json();
+    if (json.code !== 0) { showToast(json.message, 'error'); return; }
+    const list = json.data || [];
+    const pending = list.filter(r => r.status === 'PENDING');
+    const history = list.filter(r => r.status !== 'PENDING');
+
+    document.getElementById('pendingBody').innerHTML = pending.length ? pending.map(r =>
+      '<tr><td><b>' + (r.reportNo || r.id) + '</b></td><td>' + esc(r.departmentName) + '</td><td>' + esc(r.deviceName) + '</td><td>' + esc(r.reporterName) + '</td><td>' + esc(r.problemDesc || '') + '</td><td>' + esc(r.departmentHead || '') + '</td><td>' + fmtTime(r.createdAt) + '</td><td><button class="btn btn-primary btn-sm" onclick="openDispatch(' + r.id + ')">派单</button></td></tr>'
+    ).join('') : '<tr><td colspan="8" class="empty">暂无待受理报修单</td></tr>';
+
+    document.getElementById('historyBody').innerHTML = history.length ? history.map(r =>
+      '<tr><td>' + (r.reportNo || r.id) + '</td><td>' + esc(r.departmentName) + '</td><td>' + esc(r.deviceName) + '</td><td>' + esc(r.reporterName) + '</td><td><span class="badge ' + (REPORT_STATUS[r.status] ? r.status.toLowerCase() : 'other') + '">' + (REPORT_STATUS[r.status] || r.status) + '</span></td><td>' + fmtTime(r.createdAt) + '</td></tr>'
+    ).join('') : '<tr><td colspan="6" class="empty">暂无历史报修单</td></tr>';
+
+    // 基础数据
+    const [deptRes, userRes] = await Promise.all([
+      fetch('/api/departments', { headers: { 'X-Token': user.token } }),
+      fetch('/api/users', { headers: { 'X-Token': user.token } })
+    ]);
+    const depts = (await deptRes.json()).data || [];
+    const users = (await userRes.json()).data || [];
+    document.getElementById('baseDataBody').innerHTML =
+      '<tr><td>科室（' + depts.length + '）</td><td>' + depts.map(d => esc(d.name)).join('、') + '</td></tr>' +
+      '<tr><td>用户（' + users.length + '）</td><td>' + users.map(u => esc(u.name) + '(' + (ROLE_LABEL[u.role] || u.role) + ')').join('、') + '</td></tr>';
+  }
+
+  async function openDispatch(reportId) {
+    dispatchingReportId = reportId;
+    const res = await fetch('/api/users?role=REPAIRER', { headers: { 'X-Token': user.token } });
+    const json = await res.json();
+    if (json.code !== 0) { showToast(json.message, 'error'); return; }
+    repairers = json.data || [];
+    const sel = document.getElementById('repairerSelect');
+    sel.innerHTML = repairers.map(u => '<option value="' + u.id + '">' + esc(u.name) + '</option>').join('');
+    document.getElementById('modalMask').style.display = 'flex';
+  }
+
+  document.getElementById('cancelDispatch').addEventListener('click', () => {
+    document.getElementById('modalMask').style.display = 'none';
+  });
+
+  document.getElementById('confirmDispatch').addEventListener('click', async () => {
+    const assigneeId = document.getElementById('repairerSelect').value;
+    document.getElementById('modalMask').style.display = 'none';
+    const res = await fetch('/api/reports/' + dispatchingReportId + '/dispatch?assigneeId=' + assigneeId, {
+      method: 'POST', headers: { 'X-Token': user.token }
+    });
+    const json = await res.json();
+    if (json.code !== 0) { showToast(json.message, 'error'); } else { showToast('已派单：' + (json.data.title || ''), 'success'); }
+    load();
+  });
+
+  load();
+</script>
+</body>
+</html>

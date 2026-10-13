@@ -149,3 +149,9 @@
 - 防重复提交：report 表按 department_id + device_name + created_at >= now-10min 查询最近记录，非 CANCELLED 即拒绝（登录式与免登录式都加）
 - department 表新增 department_head 字段（默认科室负责人），免登录报修自动带出并只读
 - report.html 提交成功按钮禁用 10 分钟倒计时，防手抖
+### 2026-10-13：Day 4 技术要点
+
+- 用户列表接口不返回密码（置 null）
+- admin.html 用纯 HTML+JS 实现，无前端框架；派单通过弹窗选择维修工
+- 报修单历史中已派单/已取消用不同 badge 色
+- 基础数据只读展示科室与用户，管理编辑（增删改）留待后续
