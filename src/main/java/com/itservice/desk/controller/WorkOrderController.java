@@ -78,6 +78,26 @@ public class WorkOrderController {
         }
     }
 
+    @GetMapping("/{id}/consumables")
+    public ApiResponse consumables(@PathVariable Long id,
+                                   @RequestHeader(value = "X-Token", required = false) String token) {
+        User user = resolveUserByToken(token);
+        if (user == null) {
+            return ApiResponse.error(401, "未登录或登录已过期");
+        }
+        try {
+            WorkOrder wo = workOrderService.getById(id);
+            boolean allowed = user.getRole() == UserRole.ADMIN
+                    || user.getRole() == UserRole.DISPATCHER
+                    || (user.getRole() == UserRole.REPAIRER && user.getId().equals(wo.getAssigneeId()));
+            if (!allowed) {
+                return ApiResponse.error(403, "无权限查看该工单的耗材记录");
+            }
+            return ApiResponse.ok(workOrderService.listConsumables(id));
+        } catch (IllegalArgumentException e) {
+            return ApiResponse.error(e.getMessage());
+        }
+    }
     @PostMapping("/{id}/accept")
     public ApiResponse accept(@PathVariable Long id,
                               @RequestHeader(value = "X-Token", required = false) String token) {

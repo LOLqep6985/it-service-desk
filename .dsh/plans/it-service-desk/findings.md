@@ -166,3 +166,8 @@
 - 教训：管理员后台不仅要有报修单管理，还要有工单管理（派单后的执行状态）
 - 实现：WorkOrderController 增加 GET /api/work-orders（listAll），WorkOrderService.listAll(status) 支持按状态过滤
 - admin.html 增加工单管理表，维修工姓名通过 users 接口映射（assigneeId → name）
+### 2026-10-13：Day 6-1 技术要点
+
+- 工单详情通过多个接口组合：/api/work-orders/{id} + /api/reports/{reportId} + /api/work-orders/{id}/consumables
+- 前端用右侧 Drawer（transform translateX）避免打断列表；照片 window.open 放大
+- 空值统一兜底「未填写/暂无数据」，杜绝 undefined
