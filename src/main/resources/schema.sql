@@ -80,5 +80,13 @@ CREATE TABLE IF NOT EXISTS reimbursement (
     status        VARCHAR(20) DEFAULT 'PENDING_SIGN',
     signed_by     VARCHAR(50),
     signed_at     DATETIME,
+    reimbursed_at DATETIME,
     created_at    DATETIME
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS reimbursement_item (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    reimbursement_id BIGINT NOT NULL,
+    work_order_id   BIGINT NOT NULL,
+    created_at      DATETIME
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
