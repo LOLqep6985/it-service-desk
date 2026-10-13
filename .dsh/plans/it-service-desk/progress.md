@@ -36,3 +36,22 @@
 - 完成：用户在 IDEA 中加载 Maven（阿里云镜像 + 系统仓库 D:\Maven\repository）、选择 JDK17 作为 SDK；确认项目名/包名保留
 - 结果/输出：项目可在 IDEA 中导入、编译；等待 Day 1 MyBatis-Plus 持久层开发
 - 下一步：Day 1 实体/Mapper/Service + MySQL 就绪验证
+### 2026-10-13：Day 1 完成（MyBatis-Plus + MySQL 持久层）
+
+- 完成：
+  - 编写 schema.sql（建表：sys_user / department / work_order）与 data.sql（种子数据 5 用户 + 5 科室）
+  - 实体加 MyBatis-Plus 注解（@TableName/@TableId）
+  - 新增 mapper 包（UserMapper / DepartmentMapper / WorkOrderMapper 继承 BaseMapper）
+  - 主类加 @MapperScan；WorkOrderService / AuthController 改用 Mapper 访问真实数据库
+  - 删除 InMemoryStore（内存存储退役）
+  - application.yml 增加 spring.sql.init（每次启动自动建表+种子数据）
+- 结果/输出：闭环测试通过；MySQL 落库验证（work_order 有记录，sys_user=5，department=5）
+- 错误：无（mysql 命令行中文乱码仅为终端编码问题，数据 utf8mb4 正常）
+- 里程碑进展：M1 complete；Day 1 complete
+- 下一步：Day 2 JWT 登录 + RBAC + 全局异常处理
+
+## Git 提交记录
+
+| 日期 | 提交 | 内容 |
+|---|---|---|
+| 2026-10-13 | （待提交） | feat: Day1 MyBatis-Plus + MySQL 真实持久层 |

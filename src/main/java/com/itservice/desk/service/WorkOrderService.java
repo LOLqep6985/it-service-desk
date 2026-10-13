@@ -1,37 +1,43 @@
 package com.itservice.desk.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.itservice.desk.dto.WorkOrderCreateRequest;
+import com.itservice.desk.mapper.DepartmentMapper;
+import com.itservice.desk.mapper.UserMapper;
+import com.itservice.desk.mapper.WorkOrderMapper;
 import com.itservice.desk.model.Department;
 import com.itservice.desk.model.User;
 import com.itservice.desk.model.UserRole;
 import com.itservice.desk.model.WorkOrder;
 import com.itservice.desk.model.WorkOrderStatus;
-import com.itservice.desk.repository.InMemoryStore;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
 @Service
 public class WorkOrderService {
 
-    private final InMemoryStore store;
+    private final WorkOrderMapper workOrderMapper;
+    private final DepartmentMapper departmentMapper;
+    private final UserMapper userMapper;
     private final AtomicLong assignCursor = new AtomicLong(0);
 
-    public WorkOrderService(InMemoryStore store) {
-        this.store = store;
+    public WorkOrderService(WorkOrderMapper workOrderMapper,
+                            DepartmentMapper departmentMapper,
+                            UserMapper userMapper) {
+        this.workOrderMapper = workOrderMapper;
+        this.departmentMapper = departmentMapper;
+        this.userMapper = userMapper;
     }
 
     public WorkOrder createWorkOrder(WorkOrderCreateRequest req, Long creatorId) {
-        Department dept = store.departments.get(req.getDepartmentId());
+        Department dept = departmentMapper.selectById(req.getDepartmentId());
         if (dept == null) {
             throw new IllegalArgumentException("科室不存在");
         }
         WorkOrder wo = new WorkOrder();
-        wo.setId(store.orderIdSeq.getAndIncrement());
         wo.setTitle(req.getTitle());
         wo.setDescription(req.getDescription());
         wo.setDepartmentId(dept.getId());
@@ -45,15 +51,14 @@ public class WorkOrderService {
         wo.setAssigneeId(nextRepairerId());
         wo.setCreatorId(creatorId);
         wo.setCreatedAt(LocalDateTime.now());
-        store.workOrders.put(wo.getId(), wo);
+        workOrderMapper.insert(wo);
         return wo;
     }
 
     private Long nextRepairerId() {
-        List<User> repairers = store.users.values().stream()
-                .filter(u -> u.getRole() == UserRole.REPAIRER)
-                .sorted(Comparator.comparing(User::getId))
-                .collect(Collectors.toList());
+        List<User> repairers = userMapper.selectList(new LambdaQueryWrapper<User>()
+                .eq(User::getRole, UserRole.REPAIRER)
+                .orderByAsc(User::getId));
         if (repairers.isEmpty()) {
             throw new IllegalStateException("没有可用的维修人员");
         }
@@ -62,16 +67,14 @@ public class WorkOrderService {
     }
 
     public List<WorkOrder> listTodayTasks(Long assigneeId) {
-        return store.workOrders.values().stream()
-                .filter(wo -> assigneeId.equals(wo.getAssigneeId()))
-                .filter(wo -> wo.getStatus() == WorkOrderStatus.ASSIGNED
-                        || wo.getStatus() == WorkOrderStatus.IN_PROGRESS)
-                .sorted(Comparator.comparing(WorkOrder::getCreatedAt).reversed())
-                .collect(Collectors.toList());
+        return workOrderMapper.selectList(new LambdaQueryWrapper<WorkOrder>()
+                .eq(WorkOrder::getAssigneeId, assigneeId)
+                .in(WorkOrder::getStatus, WorkOrderStatus.ASSIGNED, WorkOrderStatus.IN_PROGRESS)
+                .orderByDesc(WorkOrder::getCreatedAt));
     }
 
     public WorkOrder getById(Long id) {
-        WorkOrder wo = store.workOrders.get(id);
+        WorkOrder wo = workOrderMapper.selectById(id);
         if (wo == null) {
             throw new IllegalArgumentException("工单不存在");
         }
@@ -83,6 +86,7 @@ public class WorkOrderService {
         wo.setStatus(WorkOrderStatus.COMPLETED);
         wo.setRepairRecord(record);
         wo.setCompletedAt(LocalDateTime.now());
+        workOrderMapper.updateById(wo);
         return wo;
     }
 }

@@ -89,3 +89,11 @@
 - **两者互不冲突**：.m2repo 已 gitignore；依赖版本一致（都从阿里云镜像解析）
 - 注意：如果后续想在沙箱里直接把依赖写到 D:\Maven\repository，需要每次构建时给「完整权限」授权，但没必要，保持现状最省事
 - 关联：IDEA 里项目可直接 Reload Maven；沙箱里构建命令见 task_plan 备注
+### 2026-10-13：Day 1 技术要点
+
+- MyBatis-Plus 3.5.7 + mysql-connector-j（Spring Boot 2.7.18 管理版本 8.0.33）在 MySQL 8.0.42 上运行正常
+- 表名：sys_user / department / work_order；字段驼峰↔下划线自动映射（map-underscore-to-camel-case）
+- 枚举（UserRole/Campus/WorkOrderStatus）默认按枚举名存储为 VARCHAR，与 data.sql 种子的英文值一致
+- spring.sql.init.mode=always 每次启动执行 CREATE TABLE IF NOT EXISTS + INSERT IGNORE，幂等安全
+- mysql 命令行客户端显示中文乱码是 Windows 控制台代码页问题（GBK），数据本身为 utf8mb4 正确
+- 遗留：暂未加唯一约束之外的索引；Day 2 将补 JWT 鉴权与 RBAC

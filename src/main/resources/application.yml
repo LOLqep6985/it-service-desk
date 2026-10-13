@@ -9,6 +9,11 @@ spring:
     username: itsd
     password: itsd123456
     driver-class-name: com.mysql.cj.jdbc.Driver
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+      data-locations: classpath:data.sql
 
 mybatis-plus:
   configuration:

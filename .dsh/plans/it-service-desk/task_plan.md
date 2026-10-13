@@ -24,7 +24,7 @@
 | 里程碑 | 目标 | 完成标准 | 状态 |
 |---|---|---|---|
 | M0 | 最小验证（垂直切片） | 手机端跑通「查看任务→找到报修人→处理并关闭工单」闭环 | **complete（2026-10-13 通过）** |
-| M1 | 项目骨架 + 数据库设计 | git 仓库 + Spring Boot 工程 + 完整建表 SQL | pending |
+| M1 | 项目骨架 + 数据库设计 | git 仓库 + Spring Boot 工程 + 完整建表 SQL | **complete（Day1 达成）** |
 | M2 | 用户权限 + 后端基础 | JWT 登录 + RBAC（管理员/调度/维修工/报修人）+ 统一返回/异常 | pending |
 | M3 | 工单核心 + 设备资产 | 创建/派单/处理/关闭/评价 + 状态流转 + 资产 CRUD | pending |
 | M4 | 移动端 H5 + PC 管理后台 | Vant 三核心页面 + Element Plus 后台 + 网络异常处理 | pending |
@@ -34,7 +34,7 @@
 
 | 天 | 内容 | 对应里程碑 | 状态 |
 |---|---|---|---|
-| Day 1 | 项目骨架 + 完整数据库设计 + Git 初始化 | M1 | pending |
+| Day 1 | 项目骨架 + 完整数据库设计 + Git 初始化 | M1 | **complete** |
 | Day 2 | 后端基础：统一返回/异常处理/JWT 登录 + RBAC | M2 | pending |
 | Day 3 | 工单核心模块 + 设备资产管理 | M3 | pending |
 | Day 4 | 移动端 H5（Vant）：今日任务/工单详情/维修记录 + 网络异常处理 | M4 | pending |
@@ -44,11 +44,11 @@
 
 ## 当前阶段
 
-M0 已完成并验证通过；准备进入 Day 1（完整数据库设计）。
+Day 1 已完成并验证通过（MyBatis-Plus + MySQL 真实落库闭环）；准备进入 Day 2（JWT 登录 + RBAC + 全局异常处理）。
 
 ## Next Step
 
-Day 1：接入真实 MySQL（等用户完成 MySQL 服务启动 + 建库），pom 添加 MyBatis-Plus + MySQL 驱动，完成建表 SQL 与实体映射。
+Day 2：实现 JWT 登录鉴权 + RBAC 权限（管理员/调度/维修工/报修人）+ 全局异常处理器。
 
 ## 已完成
 
