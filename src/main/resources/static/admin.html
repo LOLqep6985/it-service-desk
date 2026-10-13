@@ -352,6 +352,7 @@
   async function openWoDetail(woId) {
     const drawer = document.getElementById('drawer');
     const body = document.getElementById('drawerBody');
+    document.getElementById('drawerTitle').textContent = '工单详情';
     drawer.classList.add('show');
     document.getElementById('drawerMask').classList.add('show');
     body.innerHTML = '加载中...';
