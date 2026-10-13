@@ -102,6 +102,11 @@
     <div id="completedList"><div class="history-item">加载中...</div></div>
   </div>
 
+  <div class="card" id="reimbCard" style="display:none;">
+    <h2>月度报销单 <span id="reimbCount" style="font-size:12px;color:#27ae60;"></span></h2>
+    <div id="reimbList"><div class="history-item">加载中...</div></div>
+  </div>
+
   <div class="card" id="historyCard" style="display:none;">
     <h2>本科室报修历史</h2>
     <div id="historyList"><div class="history-item">加载中...</div></div>
@@ -111,11 +116,11 @@
 <!-- 签字弹窗 -->
 <div class="modal-mask" id="signModal">
   <div class="modal">
-    <h3>签字验收</h3>
+    <h3 id="signModalTitle">签字验收</h3>
     <div class="info" id="signInfo">加载中...</div>
     <label>签字人姓名 *</label>
     <input id="signerName" placeholder="护士长/科室主任姓名">
-    <label style="display:flex;align-items:center;gap:6px;margin-top:10px;">
+    <label id="delegateRowWrap" style="display:flex;align-items:center;gap:6px;margin-top:10px;">
       <input type="checkbox" id="delegateChk" style="width:auto;"> 代签（本人不在，他人代签）
     </label>
     <div class="delegate-row" id="delegateRow">
@@ -149,11 +154,13 @@
 <script>
   const REPORT_STATUS = { PENDING:'待受理', ACCEPTED:'已受理', DISPATCHED:'已派单', CANCELLED:'已取消' };
   const WO_STATUS = { ASSIGNED:'已派单', IN_PROGRESS:'处理中', PENDING_ACCEPT:'待验收', COMPLETED:'已完成' };
+  const REIMB_STATUS = { PENDING_SIGN:'待签字', PENDING_REIMBURSE:'待报销', REIMBURSED:'已报销' };
   const CAMPUS_LABEL = { LAOYUAN:'老院', XIYUAN:'西院', DONGYUAN:'东院' };
   const bindCard = document.getElementById('bindCard');
   const formCard = document.getElementById('formCard');
   const acceptCard = document.getElementById('acceptCard');
   const historyCard = document.getElementById('historyCard');
+  const reimbCard = document.getElementById('reimbCard');
   const bindMsg = document.getElementById('bindMsg');
   const submitMsg = document.getElementById('submitMsg');
   const submitBtn = document.getElementById('submitBtn');
@@ -161,6 +168,9 @@
   let countdownTimer = null;
   let deviceCode = localStorage.getItem('itsdDeviceCode') || '';
   let currentSignWoId = null;
+  let currentReimbId = null;
+
+  function esc(s) { return (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
   document.getElementById('bindBtn').addEventListener('click', async () => {
     deviceCode = document.getElementById('deviceCode').value.trim();
@@ -175,11 +185,13 @@
       formCard.style.display = 'block';
       acceptCard.style.display = 'block';
       completedCard.style.display = 'block';
+      reimbCard.style.display = 'block';
       historyCard.style.display = 'block';
       document.getElementById('deptBox').textContent = '科室：' + json.data.departmentName + '（' + (CAMPUS_LABEL[json.data.campus] || json.data.campus) + '）';
       document.getElementById('departmentHead').value = json.data.departmentHead || '';
       loadAccept();
       loadCompleted();
+      loadReimbursements();
       loadHistory();
     } catch (e) {
       bindMsg.textContent = '网络错误：' + e.message;
@@ -195,12 +207,13 @@
         formCard.style.display = 'block';
         acceptCard.style.display = 'block';
         completedCard.style.display = 'block';
-      completedCard.style.display = 'block';
+        reimbCard.style.display = 'block';
         historyCard.style.display = 'block';
         document.getElementById('deptBox').textContent = '科室：' + json.data.departmentName + '（' + (CAMPUS_LABEL[json.data.campus] || json.data.campus) + '）';
         document.getElementById('departmentHead').value = json.data.departmentHead || '';
         loadAccept();
         loadCompleted();
+        loadReimbursements();
         loadHistory();
       }
     })();
@@ -371,6 +384,82 @@
     }
   }
 
+  // ---------- 月度报销单 ----------
+  async function loadReimbursements() {
+    try {
+      const res = await fetch('/api/reimbursements/by-device?deviceCode=' + encodeURIComponent(deviceCode));
+      const json = await res.json();
+      if (json.code !== 0) { document.getElementById('reimbList').innerHTML = '<div class="history-item">' + json.message + '</div>'; return; }
+      const list = json.data || [];
+      document.getElementById('reimbCount').textContent = '（' + list.length + '）';
+      if (list.length === 0) { document.getElementById('reimbList').innerHTML = '<div class="history-item">暂无报销单</div>'; return; }
+      document.getElementById('reimbList').innerHTML = list.map(r =>
+        '<div class="accept-item">' +
+        '<span class="no">' + (r.month || '') + ' 报销单</span> 合计 <b>¥' + (r.totalAmount == null ? '0.00' : Number(r.totalAmount).toFixed(2)) + '</b>' +
+        ' · ' + (REIMB_STATUS[r.status] || r.status) +
+        (r.signedBy ? '<br><span style="color:#7f8c8d;">签字人：' + esc(r.signedBy) + ' · ' + ((r.signedAt || '').replace('T',' ').slice(0,16)) + '</span>' : '') +
+        (r.status === 'PENDING_SIGN' ? '<br><button class="sign-btn" onclick="openReimbSign(' + r.id + ')">签字确认</button>' : '') +
+        '<br><button class="sign-btn" style="background:#7f8c8d;" onclick="openReimbDetail(' + r.id + ')">查看明细</button>' +
+        '</div>'
+      ).join('');
+    } catch (e) {
+      document.getElementById('reimbList').innerHTML = '<div class="history-item">加载失败</div>';
+    }
+  }
+
+  async function openReimbDetail(reimbId) {
+    const info = document.getElementById('detailInfo');
+    info.innerHTML = '加载中...';
+    document.getElementById('detailModal').classList.add('show');
+    try {
+      const res = await fetch('/api/reimbursements/' + reimbId + '?deviceCode=' + encodeURIComponent(deviceCode));
+      const json = await res.json();
+      if (json.code !== 0) { info.innerHTML = json.message; return; }
+      const d = json.data;
+      const r = d.reimbursement || {};
+      const wos = d.workOrders || [];
+      const woHtml = wos.length ? wos.map(wo =>
+        '<div style="border-bottom:1px dashed #ecf0f1;padding:6px 0;">工单#' + wo.id + ' ' + esc(wo.title || '') +
+        '<br><span style="color:#7f8c8d;">签字人：' + esc(wo.signedBy || '-') + '</span></div>'
+      ).join('') : '<div style="color:#95a5a6;">暂无关联工单</div>';
+      info.innerHTML =
+        '<b>' + esc(r.month || '') + ' 报销单</b>（' + esc(d.departmentName || '') + '）' +
+        '<br><br><b>合计金额：</b>¥' + (r.totalAmount == null ? '0.00' : Number(r.totalAmount).toFixed(2)) +
+        '<br><b>状态：</b>' + (REIMB_STATUS[r.status] || r.status) +
+        (r.signedBy ? '<br><b>签字人：</b>' + esc(r.signedBy) + ' · ' + ((r.signedAt || '').replace('T',' ').slice(0,16)) : '') +
+        '<br><br><b>包含工单（' + wos.length + '）：</b>' + woHtml;
+    } catch (e) {
+      info.innerHTML = '加载失败：' + e.message;
+    }
+  }
+
+  async function openReimbSign(reimbId) {
+    currentReimbId = reimbId;
+    currentSignWoId = null;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    document.getElementById('signMsg').textContent = '';
+    document.getElementById('signMsg').style.color = '#d63031';
+    document.getElementById('delegateChk').checked = false;
+    document.getElementById('delegateRow').classList.remove('show');
+    document.getElementById('signerName').value = '';
+    document.getElementById('signerName').placeholder = '护士长/科室主任姓名';
+    document.getElementById('delegatedName').value = '';
+    document.getElementById('signModalTitle').textContent = '报销单签字确认';
+    document.getElementById('delegateRowWrap').style.display = 'none';
+    signModal.classList.add('show');
+    try {
+      const res = await fetch('/api/reimbursements/' + reimbId + '?deviceCode=' + encodeURIComponent(deviceCode));
+      const json = await res.json();
+      if (json.code === 0) {
+        const r = json.data.reimbursement || {};
+        document.getElementById('signInfo').innerHTML =
+          r.month + ' 月度报销单 · ' + (json.data.departmentName || '') +
+          '<br>合计金额：¥' + (r.totalAmount == null ? '0.00' : Number(r.totalAmount).toFixed(2)) +
+          '<br>签字后提交财务报销，请护士长/主任确认。';
+      }
+    } catch (e) {}
+  }
+
   document.getElementById('closeDetail').addEventListener('click', () => {
     document.getElementById('detailModal').classList.remove('show');
   });
@@ -400,11 +489,16 @@
 
   async function openSign(woId) {
     currentSignWoId = woId;
+    currentReimbId = null;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     document.getElementById('signMsg').textContent = '';
+    document.getElementById('signMsg').style.color = '#d63031';
     document.getElementById('delegateChk').checked = false;
     document.getElementById('delegateRow').classList.remove('show');
+    document.getElementById('delegateRowWrap').style.display = 'flex';
+    document.getElementById('signModalTitle').textContent = '签字验收';
     document.getElementById('signerName').value = '';
+    document.getElementById('signerName').placeholder = '护士长/科室主任姓名';
     document.getElementById('delegatedName').value = '';
     signModal.classList.add('show');
     try {
@@ -424,7 +518,7 @@
     const isDelegate = document.getElementById('delegateChk').checked;
     const delegatedName = document.getElementById('delegatedName').value.trim();
     if (!signerName) { document.getElementById('signMsg').textContent = '请填写签字人姓名'; return; }
-    if (isDelegate && !delegatedName) { document.getElementById('signMsg').textContent = '请填写被代签人姓名'; return; }
+    if (currentReimbId == null && isDelegate && !delegatedName) { document.getElementById('signMsg').textContent = '请填写被代签人姓名'; return; }
     // 判断是否画了签名
     const hasSign = (() => {
       const d = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
@@ -443,16 +537,35 @@
       const up = await (await fetch('/api/files/upload', { method: 'POST', body: fd })).json();
       if (up.code !== 0) { document.getElementById('signMsg').textContent = up.message; document.getElementById('confirmSign').disabled = false; return; }
       const signatureUrl = up.data.url;
-      const res = await fetch('/api/work-orders/' + currentSignWoId + '/sign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceCode, signerName, isDelegate, delegatedName, signatureUrl })
-      });
-      const json = await res.json();
+      let json;
+      if (currentReimbId != null) {
+        // 报销单签字：提交财务
+        const res = await fetch('/api/reimbursements/' + currentReimbId + '/sign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deviceCode, signerName, signatureUrl })
+        });
+        json = await res.json();
+      } else {
+        // 工单验收签字
+        const res = await fetch('/api/work-orders/' + currentSignWoId + '/sign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deviceCode, signerName, isDelegate, delegatedName, signatureUrl })
+        });
+        json = await res.json();
+      }
       if (json.code !== 0) { document.getElementById('signMsg').textContent = json.message; document.getElementById('confirmSign').disabled = false; return; }
       document.getElementById('signMsg').style.color = '#27ae60';
-      document.getElementById('signMsg').textContent = '验收签字成功 ✓';
-      setTimeout(() => { signModal.classList.remove('show'); document.getElementById('confirmSign').disabled = false; loadAccept(); }, 1000);
+      document.getElementById('signMsg').textContent = currentReimbId != null ? '报销单签字成功 ✓' : '验收签字成功 ✓';
+      setTimeout(() => {
+        signModal.classList.remove('show');
+        document.getElementById('confirmSign').disabled = false;
+        const savedReimbId = currentReimbId;
+        currentReimbId = null;
+        currentSignWoId = null;
+        if (savedReimbId != null) { loadReimbursements(); } else { loadAccept(); }
+      }, 1000);
     } catch (e) {
       document.getElementById('signMsg').textContent = '网络错误：' + e.message;
       document.getElementById('confirmSign').disabled = false;

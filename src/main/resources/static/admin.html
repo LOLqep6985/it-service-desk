@@ -66,6 +66,18 @@
   </div>
 
   <div class="section">
+    <h2>月度报销单 <span style="font-size:12px;color:#1d6fe0;" id="reimbCount"></span></h2>
+    <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <input type="month" id="reimbMonth" value="" style="padding:8px;border:1px solid #d0d5dd;border-radius:6px;font-size:13px;">
+      <button class="btn btn-primary" onclick="generateReimbursement()">生成报销单</button>
+      <span style="font-size:12px;color:#7f8c8d;">按已签字工单汇总（含耗材金额），生成前请先完成耗材核价；同一科室同一月份不重复生成</span>
+    </div>
+    <table id="reimbTable">
+      <thead><tr><th>ID</th><th>月份</th><th>科室</th><th>合计金额</th><th>状态</th><th>签字人</th><th>签字时间</th><th>操作</th></tr></thead>
+      <tbody id="reimbBody"><tr><td colspan="8" class="empty">加载中...</td></tr></tbody>
+    </table>
+  </div>
+  <div class="section">
     <h2>报修单历史</h2>
     <table id="historyTable">
       <thead><tr><th>报修单号</th><th>科室</th><th>设备</th><th>报修人</th><th>状态</th><th>提交时间</th></tr></thead>
@@ -94,7 +106,8 @@
 
 <script>
   const REPORT_STATUS = { PENDING:'待受理', ACCEPTED:'已受理', DISPATCHED:'已派单', CANCELLED:'已取消' };
-  const WO_STATUS = { PENDING:'待派单', ASSIGNED:'已派单', IN_PROGRESS:'处理中', COMPLETED:'已完成' };
+  const WO_STATUS = { PENDING:'待派单', ASSIGNED:'已派单', IN_PROGRESS:'处理中', PENDING_ACCEPT:'待验收', COMPLETED:'已完成' };
+  const REIMB_STATUS = { PENDING_SIGN:'待签字', PENDING_REIMBURSE:'待报销', REIMBURSED:'已报销' };
   const ROLE_LABEL = { ADMIN:'管理员', DISPATCHER:'调度员', REPAIRER:'维修工', REPORTER:'报修人' };
   const toast = document.getElementById('toast');
   const saved = localStorage.getItem('itsdUser');
@@ -105,6 +118,13 @@
   }
   let repairers = [];
   let dispatchingReportId = null;
+
+  // 默认选中当前月份
+  (function setDefaultMonth() {
+    const now = new Date();
+    const m = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    document.getElementById('reimbMonth').value = m;
+  })();
 
   document.getElementById('userName').textContent = user.name + '（' + (user.role || '') + '）';
   document.getElementById('logoutBtn').addEventListener('click', () => { localStorage.removeItem('itsdUser'); location.href = 'login.html'; });
@@ -160,6 +180,7 @@
       '<tr><td>用户（' + users.length + '）</td><td>' + users.map(u => esc(u.name) + '(' + (ROLE_LABEL[u.role] || u.role) + ')').join('、') + '</td></tr>';
 
     await loadWorkOrders();
+    await loadReimbursements();
   }
 
   async function loadWorkOrders() {
@@ -179,6 +200,101 @@
       ).join('') : '<tr><td colspan="10" class="empty">暂无工单</td></tr>';
     } catch (e) {
       document.getElementById('workOrderBody').innerHTML = '<tr><td colspan="10" class="empty">加载失败</td></tr>';
+    }
+  }
+
+  async function loadReimbursements() {
+    try {
+      const res = await fetch('/api/reimbursements', { headers: { 'X-Token': user.token } });
+      const json = await res.json();
+      if (json.code !== 0) {
+        document.getElementById('reimbBody').innerHTML = '<tr><td colspan="8" class="empty">' + json.message + '</td></tr>';
+        return;
+      }
+      const list = json.data || [];
+      document.getElementById('reimbCount').textContent = '（' + list.length + '）';
+      document.getElementById('reimbBody').innerHTML = list.length ? list.map(r =>
+        '<tr><td>' + r.id + '</td><td>' + esc(r.month) + '</td><td>' + esc(r.departmentName || r.departmentId) + '</td><td><b>¥' + (r.totalAmount == null ? '0.00' : Number(r.totalAmount).toFixed(2)) + '</b></td>' +
+        '<td><span class="badge ' + (REIMB_STATUS[r.status] ? (r.status === 'REIMBURSED' ? 'dispatched' : r.status === 'PENDING_REIMBURSE' ? 'other' : 'pending') : 'other') + '">' + (REIMB_STATUS[r.status] || r.status) + '</span></td>' +
+        '<td>' + esc(r.signedBy || '-') + '</td><td>' + (r.signedAt ? fmtTime(r.signedAt) : '-') + '</td>' +
+        '<td><button class="btn btn-primary btn-sm" onclick="openReimbDetail(' + r.id + ')">详情</button> ' +
+        (r.status === 'PENDING_REIMBURSE' ? '<button class="btn btn-sm" style="background:#27ae60;color:#fff;" onclick="reimburseReimb(' + r.id + ')">财务回填</button>' : '') +
+        '</td></tr>'
+      ).join('') : '<tr><td colspan="8" class="empty">暂无报销单，点击「生成报销单」按月汇总</td></tr>';
+    } catch (e) {
+      document.getElementById('reimbBody').innerHTML = '<tr><td colspan="8" class="empty">加载失败</td></tr>';
+    }
+  }
+
+  async function generateReimbursement() {
+    const month = document.getElementById('reimbMonth').value;
+    if (!month) { showToast('请选择月份', 'error'); return; }
+    showToast('生成中...');
+    try {
+      const res = await fetch('/api/reimbursements/generate?month=' + month, {
+        method: 'POST', headers: { 'X-Token': user.token }
+      });
+      const json = await res.json();
+      if (json.code !== 0) {
+        showToast(json.message, 'error');
+      } else {
+        const list = json.data || [];
+        showToast('已生成 ' + list.length + ' 个科室的报销单', 'success');
+      }
+      loadReimbursements();
+    } catch (e) {
+      showToast('网络错误：' + e.message, 'error');
+    }
+  }
+
+  async function reimburseReimb(id) {
+    if (!confirm('确认将该报销单标记为「已报销」（财务回填）？')) return;
+    try {
+      const res = await fetch('/api/reimbursements/' + id + '/reimburse', {
+        method: 'POST', headers: { 'X-Token': user.token }
+      });
+      const json = await res.json();
+      if (json.code !== 0) { showToast(json.message, 'error'); } else { showToast('已标记为已报销', 'success'); }
+      loadReimbursements();
+    } catch (e) {
+      showToast('网络错误：' + e.message, 'error');
+    }
+  }
+
+  async function openReimbDetail(id) {
+    const drawer = document.getElementById('drawer');
+    const body = document.getElementById('drawerBody');
+    document.getElementById('drawerTitle').textContent = '报销单详情';
+    drawer.classList.add('show');
+    document.getElementById('drawerMask').classList.add('show');
+    body.innerHTML = '加载中...';
+    try {
+      const res = await fetch('/api/reimbursements/' + id, { headers: { 'X-Token': user.token } });
+      const json = await res.json();
+      if (json.code !== 0) { body.innerHTML = json.message; return; }
+      const d = json.data;
+      const r = d.reimbursement || {};
+      const wos = d.workOrders || [];
+      const statusText = REIMB_STATUS[r.status] || r.status;
+      const woRows = wos.length ? wos.map(wo =>
+        '<tr><td>#' + wo.id + '</td><td>' + esc(wo.title || '') + '</td><td>' + esc(wo.signedBy || '-') + '</td><td>' + (wo.signedAt ? fmtTime(wo.signedAt) : '-') + '</td></tr>'
+      ).join('') : '<tr><td colspan="4" style="color:#95a5a6;">该报销单暂未关联工单</td></tr>';
+      body.innerHTML =
+        '<div class="detail-section"><h3>报销单信息</h3>' +
+        '<div class="detail-row"><span class="k">报销单ID</span><span class="v">' + r.id + '</span></div>' +
+        '<div class="detail-row"><span class="k">月份</span><span class="v">' + esc(r.month) + '</span></div>' +
+        '<div class="detail-row"><span class="k">科室</span><span class="v">' + esc(d.departmentName || '未填写') + '</span></div>' +
+        '<div class="detail-row"><span class="k">合计金额</span><span class="v"><b>¥' + (r.totalAmount == null ? '0.00' : Number(r.totalAmount).toFixed(2)) + '</b></span></div>' +
+        '<div class="detail-row"><span class="k">状态</span><span class="v">' + statusText + '</span></div>' +
+        '<div class="detail-row"><span class="k">签字人</span><span class="v">' + esc(r.signedBy || '未签字') + '</span></div>' +
+        '<div class="detail-row"><span class="k">签字时间</span><span class="v">' + (r.signedAt ? fmtTime(r.signedAt) : '未签字') + '</span></div>' +
+        (r.reimbursedAt ? '<div class="detail-row"><span class="k">报销时间</span><span class="v">' + fmtTime(r.reimbursedAt) + '</span></div>' : '') +
+        '</div>' +
+        '<div class="detail-section"><h3>包含工单（' + wos.length + '）</h3>' +
+        '<table class="consumable-table"><tr><th>工单</th><th>标题</th><th>签字人</th><th>签字时间</th></tr>' + woRows + '</table>' +
+        '</div>';
+    } catch (e) {
+      body.innerHTML = '加载失败：' + e.message;
     }
   }
 
@@ -327,7 +443,7 @@
 <!-- 工单详情抽屉 -->
 <div class="drawer-mask" id="drawerMask" onclick="closeDrawer()"></div>
 <div class="drawer" id="drawer">
-  <div class="drawer-header"><span>工单详情</span><button onclick="closeDrawer()" style="border:none;background:none;font-size:16px;cursor:pointer;">✕</button></div>
+  <div class="drawer-header"><span id="drawerTitle">工单详情</span><button onclick="closeDrawer()" style="border:none;background:none;font-size:16px;cursor:pointer;">✕</button></div>
   <div class="drawer-body" id="drawerBody">加载中...</div>
 </div>
 <style>

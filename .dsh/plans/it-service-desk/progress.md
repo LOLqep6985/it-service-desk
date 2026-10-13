@@ -160,3 +160,20 @@
 - 后端：GET /api/work-orders/by-department?deviceCode=&status=（科室端查本科室工单）
 - 修复：uploads 目录改为绝对路径（），解决 IDEA 与沙箱工作目录不同导致签名图 404
 - 验证：签名图片 HTTP 200；科室端详情返回 signatureUrl
+
+### 2026-10-13：Day 6-4 完成（月度报销单闭环 + 全流程联调）
+
+- 后端：
+  - schema：reimbursement 增加 reimbursed_at；新增 reimbursement_item 关联表（报销单↔工单）
+  - ReimbursementService：按月汇总 COMPLETED+SIGNED 工单 → 按科室分组 → 合计耗材金额 → 生成报销单（同科室同月幂等）
+  - ReimbursementController：生成/列表/详情/科室签字/财务回填；仅 ADMIN/DISPATCHER，科室端凭 deviceCode
+- 前端：
+  - admin.html：新增「月度报销单」区块（月份选择 + 生成按钮 + 列表 + 详情抽屉 + 财务回填按钮）
+  - report.html：科室端新增「月度报销单」卡片（待签字→签字确认复用 Canvas 签名；查看明细含关联工单）
+- 验证（全流程联调通过）：
+  - 科室1：已有 4 张签字工单 → 生成报销单 ¥70（电源线50 + 水龙头2×10）→ DEV001 科室端可见 → 王护士长签字 → 财务回填 REIMBURSED
+  - 科室2 全新流程：绑定 DEV002 → 报修 R000021 → 派单 #14 → 接单 → 维修+耗材(主板电池) → 核价 ¥120 → DEV002 签字 → 生成报销单 ¥120（科室1跳过）
+  - 权限：维修工生成/查看报销单 403；重复生成同月返回空；无签字月份返回空
+  - 页面：admin.html / report.html 等 6 个页面均 HTTP 200
+- 里程碑进展：M5 签字+报销闭环完成（待 Day7 部署/简历）
+- 下一步：Day 7 部署配置 + README + 简历项目描述

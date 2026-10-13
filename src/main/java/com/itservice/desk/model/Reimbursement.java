@@ -1,6 +1,7 @@
 package com.itservice.desk.model;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -19,5 +20,10 @@ public class Reimbursement {
     private ReimbursementStatus status;
     private String signedBy;
     private LocalDateTime signedAt;
+    private LocalDateTime reimbursedAt;
     private LocalDateTime createdAt;
+
+    /** 非表字段：用于列表展示科室名称 */
+    @TableField(exist = false)
+    private String departmentName;
 }

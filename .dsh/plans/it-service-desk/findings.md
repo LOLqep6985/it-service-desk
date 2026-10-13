@@ -185,3 +185,14 @@
 - 根因：file.upload-dir 相对路径依赖进程工作目录（user.dir）
 - 解法：改为绝对路径 ，环境变量可覆盖，保证跨运行环境一致
 - uploads/ 已在 .gitignore，不污染仓库
+
+### 2026-10-13：Day 6-4 月度报销单技术要点
+
+- 报销单模型：reimbursement（月份/科室/合计/状态/签字字段）+ reimbursement_item 关联工单（多对多快照）
+- 生成逻辑：按 signed_at 月份筛选 COMPLETED+SIGNED 工单 → 按科室分组 → 合计耗材金额（unit_price × quantity）→ 同一科室同月只生成一次（幂等）
+- 状态机：PENDING_SIGN（待护士长签字）→ PENDING_REIMBURSE（已签字待报销）→ REIMBURSED（财务回填）
+- 科室端签字复用 Canvas 手写签名弹窗：新增报销单模式（隐藏代签），与工单验收签字共用上传/确认逻辑
+- 权限：生成/列表/详情/财务回填 仅 ADMIN/DISPATCHER；科室端凭 deviceCode 查本科室报销单并签字
+- 前端：admin.html 新增「月度报销单」区块（月份选择/生成/列表/详情抽屉/财务回填）；report.html 新增报销单卡片（签字确认/查看明细）
+- 测试注意：同一月份生成后，新增签字工单不会自动加入已生成报销单（快照语义）；如需补录需调整逻辑
+- MySQL 不支持 ALTER TABLE ADD COLUMN IF NOT EXISTS：新增列采用「DROP 空表重建 + CREATE TABLE IF NOT EXISTS」方案（reimbursement 原为空表，无数据风险）
