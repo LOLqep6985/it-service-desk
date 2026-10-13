@@ -44,7 +44,7 @@
   <span class="title">IT 运维工单 · 管理员后台</span>
   <div class="right">
     <span id="userName">加载中...</span>
-    <button onclick="location.href='report.html'">科室报修端</button>
+    <button onclick="location.href='report.html'">科室报修端</button><button id="refreshBtn">刷新</button>
     <button id="logoutBtn">退出</button>
   </div>
 </div>
@@ -95,6 +95,7 @@
 
   document.getElementById('userName').textContent = user.name + '（' + (user.role || '') + '）';
   document.getElementById('logoutBtn').addEventListener('click', () => { localStorage.removeItem('itsdUser'); location.href = 'login.html'; });
+  document.getElementById('refreshBtn').addEventListener('click', () => { showToast('刷新中...'); load(); });
 
   function showToast(text, type) {
     toast.textContent = text;
@@ -110,7 +111,17 @@
     // 报修单列表
     const res = await fetch('/api/reports', { headers: { 'X-Token': user.token } });
     const json = await res.json();
-    if (json.code !== 0) { showToast(json.message, 'error'); return; }
+    if (json.code === 401 || json.code === 403) {
+      localStorage.removeItem('itsdUser');
+      showToast(json.message + '，请重新以管理员登录', 'error');
+      setTimeout(() => location.href = 'login.html', 1200);
+      return;
+    }
+    if (json.code !== 0) {
+      showToast(json.message, 'error');
+      document.getElementById('pendingBody').innerHTML = '<tr><td colspan="8" class="empty">' + json.message + '</td></tr>';
+      return;
+    }
     const list = json.data || [];
     const pending = list.filter(r => r.status === 'PENDING');
     const history = list.filter(r => r.status !== 'PENDING');
