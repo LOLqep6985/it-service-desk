@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>登录 - IT运维工单系统</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f2f4f7; color: #2c3e50; }
+    .container { max-width: 420px; margin: 0 auto; padding: 60px 24px; }
+    h1 { font-size: 24px; text-align: center; }
+    .sub { text-align: center; color: #7f8c8d; margin: 8px 0 32px; font-size: 14px; }
+    input { width: 100%; padding: 14px; margin-bottom: 14px; border: 1px solid #d0d5dd; border-radius: 8px; font-size: 16px; }
+    button { width: 100%; padding: 16px; background: #1d6fe0; color: #fff; border: none; border-radius: 8px; font-size: 17px; font-weight: 600; }
+    button:active { background: #155bbf; }
+    .msg { margin-top: 14px; text-align: center; color: #d63031; font-size: 14px; min-height: 20px; }
+    .hint { margin-top: 32px; padding: 14px; background: #fff; border-radius: 8px; font-size: 12px; color: #7f8c8d; line-height: 1.7; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>IT 运维工单系统</h1>
+  <p class="sub">多院区现场维修调度</p>
+  <input id="username" placeholder="用户名" autocomplete="username">
+  <input id="password" type="password" placeholder="密码">
+  <button id="loginBtn">登 录</button>
+  <div id="msg" class="msg"></div>
+  <div class="hint">
+    演示账号：<br>
+    · 维修工：repairer1 / 123456（张工）<br>
+    · 维修工：repairer2 / 123456（李工）<br>
+    · 报修人：reporter1 / 123456（王护士）<br>
+    · 管理员：admin / admin123
+  </div>
+</div>
+<script>
+  const loginBtn = document.getElementById('loginBtn');
+  const msg = document.getElementById('msg');
+  loginBtn.addEventListener('click', async () => {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    msg.textContent = '';
+    if (!username || !password) { msg.textContent = '请输入用户名和密码'; return; }
+    msg.textContent = '登录中...';
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const json = await res.json();
+      if (json.code !== 0) { msg.textContent = json.message; return; }
+      localStorage.setItem('itsdUser', JSON.stringify(json.data));
+      window.location.href = 'today.html?userId=' + json.data.userId;
+    } catch (e) {
+      msg.textContent = '网络错误：' + e.message;
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>今日任务 - IT运维工单系统</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f2f4f7; color: #2c3e50; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: #1d6fe0; color: #fff; position: sticky; top: 0; }
+    .header .user { font-size: 15px; font-weight: 600; }
+    .header .logout { background: rgba(255,255,255,.2); border: none; color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 13px; }
+    .container { max-width: 480px; margin: 0 auto; padding: 16px; }
+    .summary { font-size: 14px; color: #7f8c8d; margin-bottom: 12px; }
+    .campus-group { margin-bottom: 18px; }
+    .campus-title { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+    .campus-count { background: #1d6fe0; color: #fff; border-radius: 10px; font-size: 12px; padding: 2px 8px; }
+    .card { background: #fff; border-radius: 10px; padding: 14px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.06); cursor: pointer; }
+    .card:active { background: #f8fafc; }
+    .card .title { font-size: 16px; font-weight: 600; }
+    .card .meta { font-size: 13px; color: #7f8c8d; margin-top: 6px; line-height: 1.6; }
+    .badge { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 4px; margin-left: 6px; }
+    .badge.urgent { background: #ffe3e3; color: #d63031; }
+    .empty { text-align: center; color: #b0b8c1; padding: 60px 0; }
+    .empty p { font-size: 15px; }
+  </style>
+</head>
+<body>
+<div class="header">
+  <span class="user" id="userName">加载中...</span>
+  <button class="logout" id="logoutBtn">退出</button>
+</div>
+<div class="container">
+  <div class="summary" id="summary"></div>
+  <div id="groups"></div>
+</div>
+<script>
+  const params = new URLSearchParams(location.search);
+  const userId = params.get('userId');
+  const saved = localStorage.getItem('itsdUser');
+  const user = saved ? JSON.parse(saved) : {};
+  if (!userId && user.userId) window.location.href = 'today.html?userId=' + user.userId;
+  document.getElementById('userName').textContent = user.name + '（' + (user.role || '') + '）';
+
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    localStorage.removeItem('itsdUser');
+    window.location.href = 'login.html';
+  });
+
+  async function load() {
+    const res = await fetch('/api/work-orders/today?assigneeId=' + userId);
+    const json = await res.json();
+    if (json.code !== 0) { alert(json.message); return; }
+    const list = json.data || [];
+    document.getElementById('summary').textContent = '共 ' + list.length + ' 个待处理任务';
+    const groups = {};
+    const campusOrder = ['老院', '西院', '东院'];
+    list.forEach(wo => {
+      const key = wo.campus ? wo.campus.label : '其他';
+      (groups[key] = groups[key] || []).push(wo);
+    });
+    const root = document.getElementById('groups');
+    root.innerHTML = '';
+    if (list.length === 0) {
+      root.innerHTML = '<div class="empty"><p>今天没有待处理任务 🎉</p></div>';
+      return;
+    }
+    campusOrder.forEach(campus => {
+      const items = groups[campus];
+      if (!items) return;
+      const div = document.createElement('div');
+      div.className = 'campus-group';
+      div.innerHTML = '<div class="campus-title"><span>' + campus + '</span><span class="campus-count">' + items.length + '</span></div>';
+      items.forEach(wo => {
+        const urgent = wo.priority === 'HIGH' ? '<span class="badge urgent">紧急</span>' : '';
+        div.innerHTML += '<div class="card" onclick="openDetail(' + wo.id + ')">'
+          + '<div class="title">' + wo.title + urgent + '</div>'
+          + '<div class="meta">' + wo.location + ' · ' + wo.contactPerson + '</div>'
+          + '<div class="meta">' + wo.departmentName + ' · ' + (wo.status ? wo.status.label : '') + '</div>'
+          + '</div>';
+      });
+      root.appendChild(div);
+    });
+  }
+
+  function openDetail(id) {
+    window.location.href = 'detail.html?id=' + id + '&userId=' + userId;
+  }
+
+  load();
+</script>
+</body>
+</html>
