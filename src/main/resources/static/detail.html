@@ -18,13 +18,19 @@
     .row .k { color: #7f8c8d; }
     .row .v { text-align: right; max-width: 65%; }
     .badge { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 4px; background: #e8f4fd; color: #1d6fe0; }
+    .badge.sign-pending { background: #fff3cd; color: #856404; }
     .form { background: #fff; border-radius: 10px; padding: 16px; margin-top: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
     .form h3 { font-size: 16px; margin-bottom: 10px; }
-    textarea { width: 100%; min-height: 120px; padding: 12px; border: 1px solid #d0d5dd; border-radius: 8px; font-size: 15px; line-height: 1.6; }
-    button.submit { width: 100%; padding: 16px; background: #27ae60; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; margin-top: 12px; }
-    button.submit:disabled { background: #b0b8c1; }
+    textarea, input[type=text], input[type=number] { width: 100%; padding: 10px; border: 1px solid #d0d5dd; border-radius: 8px; font-size: 14px; }
+    textarea { min-height: 80px; line-height: 1.5; }
+    .consumable-row { display: flex; gap: 6px; margin-bottom: 8px; align-items: center; flex-wrap: wrap; }
+    .consumable-row input { flex: 1; min-width: 70px; }
+    .consumable-row .cb { flex: 0 0 auto; display: flex; align-items: center; gap: 3px; font-size: 12px; color: #555; }
+    .add-row { color: #1d6fe0; font-size: 13px; border: none; background: none; cursor: pointer; margin-bottom: 6px; }
+    button.primary { width: 100%; padding: 14px; background: #1d6fe0; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; margin-top: 12px; }
+    button.primary.green { background: #27ae60; }
+    button.primary:disabled { background: #b0b8c1; }
     .msg { margin-top: 12px; text-align: center; font-size: 14px; color: #d63031; min-height: 20px; }
-    .done { text-align: center; color: #27ae60; font-size: 15px; padding: 8px 0; }
   </style>
 </head>
 <body>
@@ -34,42 +40,117 @@
 </div>
 <div class="container">
   <div class="card" id="card">加载中...</div>
-  <div class="form" id="formBox">
+  <div class="form" id="acceptBox" style="display:none;">
+    <h3>确认接单</h3>
+    <p style="font-size:13px;color:#7f8c8d;">接单后开始处理，请尽快到场确认。</p>
+    <button class="primary green" id="acceptBtn">接单</button>
+    <div class="msg" id="acceptMsg"></div>
+  </div>
+  <div class="form" id="repairBox" style="display:none;">
     <h3>维修记录</h3>
-    <textarea id="record" placeholder="填写维修处理过程、更换配件、处理结果等"></textarea>
-    <button class="submit" id="submitBtn">提交并关闭工单</button>
-    <div class="msg" id="msg"></div>
+    <textarea id="record" placeholder="填写故障原因、处理方式、维修结果等"></textarea>
+    <h3 style="margin-top:12px;">耗材 / 欠条</h3>
+    <div id="consumableRows"></div>
+    <button class="add-row" id="addConsumableBtn">＋ 添加耗材/欠条</button>
+    <button class="primary" id="submitBtn">提交并关闭工单</button>
+    <div class="msg" id="repairMsg"></div>
   </div>
 </div>
 <script>
-  const WORK_ORDER_STATUS = { PENDING:'待派单', ASSIGNED:'已派单', IN_PROGRESS:'处理中', COMPLETED:'已完成' };
-  const CAMPUS_LABEL = { LAOYUAN:'老院', XIYUAN:'西院', DONGYUAN:'东院' };
   const params = new URLSearchParams(location.search);
   const id = params.get('id');
   const userId = params.get('userId');
   const saved = localStorage.getItem('itsdUser');
   const user = saved ? JSON.parse(saved) : {};
   const token = user.token || '';
+  const WORK_ORDER_STATUS = { PENDING:'待派单', ASSIGNED:'已派单', IN_PROGRESS:'处理中', COMPLETED:'已完成' };
+  const CAMPUS_LABEL = { LAOYUAN:'老院', XIYUAN:'西院', DONGYUAN:'东院' };
+  const isRepairer = user.roleCode === 'REPAIRER';
   const card = document.getElementById('card');
-  const formBox = document.getElementById('formBox');
-  const msg = document.getElementById('msg');
-  const submitBtn = document.getElementById('submitBtn');
+  const repairBox = document.getElementById('repairBox');
+  const acceptBox = document.getElementById('acceptBox');
+  const repairMsg = document.getElementById('repairMsg');
+  const acceptMsg = document.getElementById('acceptMsg');
 
   document.getElementById('backBtn').addEventListener('click', () => {
     window.location.href = 'today.html?userId=' + userId;
   });
 
-  function esc(s) {
-    return (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function esc(s) { return (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function fmtTime(s) { return (s || '').replace('T', ' ').slice(0, 16); }
+
+  document.getElementById('acceptBtn').addEventListener('click', async () => {
+    acceptMsg.textContent = '接单中...';
+    try {
+      const res = await fetch('/api/work-orders/' + id + '/accept', { method: 'POST', headers: { 'X-Token': token } });
+      const json = await res.json();
+      if (json.code !== 0) { acceptMsg.textContent = json.message; return; }
+      acceptMsg.style.color = '#27ae60';
+      acceptMsg.textContent = '已接单，请填写维修记录';
+      load();
+    } catch (e) { acceptMsg.textContent = '网络错误：' + e.message; }
+  });
+
+  document.getElementById('addConsumableBtn').addEventListener('click', () => addConsumableRow());
+
+  function addConsumableRow() {
+    const div = document.createElement('div');
+    div.className = 'consumable-row';
+    div.innerHTML =
+      '<input type="text" class="c-name" placeholder="耗材名（如硒鼓）">' +
+      '<input type="number" class="c-qty" placeholder="数量" style="max-width:60px;">' +
+      '<input type="number" class="c-price" placeholder="单价" style="max-width:70px;">' +
+      '<label class="cb"><input type="checkbox" class="c-iou"> 欠条</label>' +
+      '<input type="text" class="c-iou-no" placeholder="欠条编号" style="max-width:100px;">' +
+      '<button class="add-row" onclick="this.parentNode.remove()">✕</button>';
+    document.getElementById('consumableRows').appendChild(div);
   }
+  addConsumableRow();
+
+  document.getElementById('submitBtn').addEventListener('click', async () => {
+    const record = document.getElementById('record').value.trim();
+    if (!record) { repairMsg.textContent = '请填写维修记录'; return; }
+    const consumables = [];
+    document.querySelectorAll('.consumable-row').forEach(row => {
+      const name = row.querySelector('.c-name').value.trim();
+      if (!name) return;
+      consumables.push({
+        name,
+        quantity: Number(row.querySelector('.c-qty').value) || 1,
+        unitPrice: Number(row.querySelector('.c-price').value) || 0,
+        isIou: row.querySelector('.c-iou').checked,
+        iouNo: row.querySelector('.c-iou-no').value.trim()
+      });
+    });
+    repairMsg.textContent = '提交中...';
+    document.getElementById('submitBtn').disabled = true;
+    try {
+      const res = await fetch('/api/work-orders/' + id + '/repair', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Token': token },
+        body: JSON.stringify({ record, consumables })
+      });
+      const json = await res.json();
+      if (json.code !== 0) { repairMsg.textContent = json.message; document.getElementById('submitBtn').disabled = false; return; }
+      repairMsg.style.color = '#27ae60';
+      repairMsg.textContent = '工单已完成，等待护士长签字 ✓';
+      setTimeout(() => { window.location.href = 'today.html?userId=' + userId; }, 1200);
+    } catch (e) {
+      repairMsg.textContent = '网络错误：' + e.message;
+      document.getElementById('submitBtn').disabled = false;
+    }
+  });
 
   async function load() {
     const res = await fetch('/api/work-orders/' + id, { headers: { 'X-Token': token } });
     const json = await res.json();
     if (json.code !== 0) { card.innerHTML = json.message; return; }
     const wo = json.data;
+    const statusLabel = WORK_ORDER_STATUS[wo.status] || wo.status;
+    const signLabel = wo.signStatus === 'SIGNED' ? '已签字' : '待签字';
     const rows = [
-      ['状态', '<span class="badge">' + esc(WORK_ORDER_STATUS[wo.status] || wo.status) + '</span>'],
+      ['状态', '<span class="badge">' + statusLabel + '</span>'],
+      ['签字', '<span class="badge sign-pending">' + signLabel + '</span>'],
       ['标题', esc(wo.title)],
       ['描述', esc(wo.description)],
       ['院区', esc(CAMPUS_LABEL[wo.campus] || wo.campus)],
@@ -77,40 +158,22 @@
       ['地点', esc(wo.location)],
       ['联系人', esc(wo.contactPerson)],
       ['联系电话', esc(wo.contactPhone)],
-      ['优先级', esc(wo.priority)],
-      ['创建时间', esc(wo.createdAt || '')]
+      ['创建时间', fmtTime(wo.createdAt)]
     ];
-    if (WORK_ORDER_STATUS[wo.status] === '已完成') {
+    if (wo.status === 'COMPLETED') {
       rows.push(['维修记录', esc(wo.repairRecord)]);
-      rows.push(['完成时间', esc(wo.completedAt || '')]);
-      formBox.style.display = 'none';
-      card.innerHTML = '<h2>工单已完成 ✅</h2>' + rows.map(r => '<div class="row"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></div>').join('');
-    } else {
-      card.innerHTML = '<h2>' + esc(wo.title) + '</h2>' + rows.slice(1).map(r => '<div class="row"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></div>').join('');
+      rows.push(['完成时间', fmtTime(wo.completedAt)]);
+    }
+    card.innerHTML = '<h2>' + esc(wo.title) + '</h2>' + rows.map(r => '<div class="row"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></div>').join('');
+
+    repairBox.style.display = 'none';
+    acceptBox.style.display = 'none';
+    if (isRepairer && wo.status === 'ASSIGNED') {
+      acceptBox.style.display = 'block';
+    } else if (isRepairer && wo.status === 'IN_PROGRESS') {
+      repairBox.style.display = 'block';
     }
   }
-
-  submitBtn.addEventListener('click', async () => {
-    const record = document.getElementById('record').value.trim();
-    if (!record) { msg.textContent = '请填写维修记录'; return; }
-    submitBtn.disabled = true;
-    msg.textContent = '提交中...';
-    try {
-      const res = await fetch('/api/work-orders/' + id + '/repair', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Token': token },
-        body: JSON.stringify({ record })
-      });
-      const json = await res.json();
-      if (json.code !== 0) { msg.textContent = json.message; submitBtn.disabled = false; return; }
-      msg.style.color = '#27ae60';
-      msg.textContent = '工单已关闭 ✓';
-      setTimeout(() => { window.location.href = 'today.html?userId=' + userId; }, 800);
-    } catch (e) {
-      msg.textContent = '网络错误：' + e.message + '（内容已保留，请重试）';
-      submitBtn.disabled = false;
-    }
-  });
 
   load();
 </script>

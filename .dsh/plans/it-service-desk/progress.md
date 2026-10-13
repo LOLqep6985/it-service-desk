@@ -115,3 +115,18 @@
 | 日期 | 提交 | 内容 |
 |---|---|---|
 | 2026-10-13 | （待提交） | feat: Day4 管理员后台 |
+### 2026-10-13：Day 5 完成（维修人员端）
+
+- 完成：
+  - 后端：POST /api/work-orders/{id}/accept（接单：ASSIGNED→IN_PROGRESS）；POST /repair 扩展支持 consumables 列表（耗材/欠条写入 consumable 表）
+  - 权限：接单/维修仅 REPAIRER，且必须工单派给本人（否则 403）
+  - 前端：today.html 卡片加「接单」按钮；detail.html 重写（接单按钮/维修记录+耗材欠条动态行/签字状态展示）
+- 结果/输出：派单→李工尝试接张工单 403→张工接单 IN_PROGRESS→提交维修（硒鼓120元欠条+搓纸轮45元）→COMPLETED/UNSIGNED→consumable 表落库
+- 里程碑进展：M4 complete；Day 5 complete
+- 下一步：Day 6 签字确认 + 月度报销
+
+## Git 提交记录
+
+| 日期 | 提交 | 内容 |
+|---|---|---|
+| 2026-10-13 | （待提交） | feat: Day5 维修人员端 |

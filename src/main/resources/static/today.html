@@ -21,6 +21,7 @@
     .card .meta { font-size: 13px; color: #7f8c8d; margin-top: 6px; line-height: 1.6; }
     .badge { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 4px; margin-left: 6px; }
     .badge.urgent { background: #ffe3e3; color: #d63031; }
+    .accept-btn { background: #1d6fe0; color: #fff; border: none; border-radius: 6px; padding: 3px 10px; font-size: 12px; margin-top: 4px; cursor: pointer; }
     .empty { text-align: center; color: #b0b8c1; padding: 60px 0; }
     .empty p { font-size: 15px; }
   </style>
@@ -88,11 +89,20 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
         div.innerHTML += '<div class="card" onclick="openDetail(' + wo.id + ')">'
           + '<div class="title">' + wo.title + urgent + '</div>'
           + '<div class="meta">' + wo.location + ' · ' + wo.contactPerson + '</div>'
-          + '<div class="meta">' + wo.departmentName + ' · ' + (WORK_ORDER_STATUS[wo.status] || '') + '</div>'
+          + '<div class="meta">' + wo.departmentName + ' · ' + (WORK_ORDER_STATUS[wo.status] || '')
+          + (wo.status === 'ASSIGNED' ? ' <button class="accept-btn" onclick="event.stopPropagation();acceptOrder(' + wo.id + ')">接单</button>' : '')
+          + '</div>'
           + '</div>';
       });
       root.appendChild(div);
     });
+  }
+
+  async function acceptOrder(id) {
+    const res = await fetch('/api/work-orders/' + id + '/accept', { method: 'POST', headers: { 'X-Token': token } });
+    const json = await res.json();
+    if (json.code !== 0) { alert(json.message); return; }
+    load();
   }
 
   function openDetail(id) {

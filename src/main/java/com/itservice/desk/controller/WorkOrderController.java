@@ -26,7 +26,7 @@ public class WorkOrderController {
 
     @PostMapping
     public ApiResponse create(@RequestBody WorkOrderCreateRequest req,
-                              @RequestHeader(value = "X-Token", required = false) String token) {
+                            @RequestHeader(value = "X-Token", required = false) String token) {
         User user = resolveUserByToken(token);
         if (user == null) {
             return ApiResponse.error(401, "未登录或登录已过期");
@@ -66,6 +66,27 @@ public class WorkOrderController {
         }
     }
 
+    @PostMapping("/{id}/accept")
+    public ApiResponse accept(@PathVariable Long id,
+                              @RequestHeader(value = "X-Token", required = false) String token) {
+        User user = resolveUserByToken(token);
+        if (user == null) {
+            return ApiResponse.error(401, "未登录或登录已过期");
+        }
+        if (user.getRole() != UserRole.REPAIRER) {
+            return ApiResponse.error(403, "无权限：只有维修人员可以接单");
+        }
+        try {
+            WorkOrder wo = workOrderService.getById(id);
+            if (!user.getId().equals(wo.getAssigneeId())) {
+                return ApiResponse.error(403, "该工单不是派给你的");
+            }
+            return ApiResponse.ok(workOrderService.accept(id));
+        } catch (IllegalArgumentException e) {
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
     @PostMapping("/{id}/repair")
     public ApiResponse repair(@PathVariable Long id,
                               @RequestBody RepairRequest req,
@@ -78,7 +99,11 @@ public class WorkOrderController {
             return ApiResponse.error(403, "无权限：只有维修人员可以提交维修记录");
         }
         try {
-            WorkOrder wo = workOrderService.submitRepair(id, req.getRecord());
+            WorkOrder wo0 = workOrderService.getById(id);
+            if (!user.getId().equals(wo0.getAssigneeId())) {
+                return ApiResponse.error(403, "该工单不是派给你的");
+            }
+            WorkOrder wo = workOrderService.submitRepair(id, req.getRecord(), req.getConsumables());
             return ApiResponse.ok(wo);
         } catch (IllegalArgumentException e) {
             return ApiResponse.error(e.getMessage());

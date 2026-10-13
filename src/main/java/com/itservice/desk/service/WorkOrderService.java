@@ -1,15 +1,13 @@
 package com.itservice.desk.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.itservice.desk.dto.ConsumableItem;
 import com.itservice.desk.dto.WorkOrderCreateRequest;
+import com.itservice.desk.mapper.ConsumableMapper;
 import com.itservice.desk.mapper.DepartmentMapper;
 import com.itservice.desk.mapper.UserMapper;
 import com.itservice.desk.mapper.WorkOrderMapper;
-import com.itservice.desk.model.Department;
-import com.itservice.desk.model.User;
-import com.itservice.desk.model.UserRole;
-import com.itservice.desk.model.WorkOrder;
-import com.itservice.desk.model.WorkOrderStatus;
+import com.itservice.desk.model.*;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -22,14 +20,17 @@ public class WorkOrderService {
     private final WorkOrderMapper workOrderMapper;
     private final DepartmentMapper departmentMapper;
     private final UserMapper userMapper;
+    private final ConsumableMapper consumableMapper;
     private final AtomicLong assignCursor = new AtomicLong(0);
 
     public WorkOrderService(WorkOrderMapper workOrderMapper,
                             DepartmentMapper departmentMapper,
-                            UserMapper userMapper) {
+                            UserMapper userMapper,
+                            ConsumableMapper consumableMapper) {
         this.workOrderMapper = workOrderMapper;
         this.departmentMapper = departmentMapper;
         this.userMapper = userMapper;
+        this.consumableMapper = consumableMapper;
     }
 
     public WorkOrder createWorkOrder(WorkOrderCreateRequest req, Long creatorId) {
@@ -50,6 +51,7 @@ public class WorkOrderService {
         wo.setStatus(WorkOrderStatus.ASSIGNED);
         wo.setAssigneeId(nextRepairerId());
         wo.setCreatorId(creatorId);
+        wo.setSignStatus(SignStatus.UNSIGNED);
         wo.setCreatedAt(LocalDateTime.now());
         workOrderMapper.insert(wo);
         return wo;
@@ -81,12 +83,37 @@ public class WorkOrderService {
         return wo;
     }
 
-    public WorkOrder submitRepair(Long id, String record) {
+    public WorkOrder accept(Long id) {
+        WorkOrder wo = getById(id);
+        if (wo.getStatus() != WorkOrderStatus.ASSIGNED) {
+            throw new IllegalArgumentException("只有已派单的工单可以接单");
+        }
+        wo.setStatus(WorkOrderStatus.IN_PROGRESS);
+        workOrderMapper.updateById(wo);
+        return wo;
+    }
+
+    public WorkOrder submitRepair(Long id, String record, List<ConsumableItem> consumables) {
         WorkOrder wo = getById(id);
         wo.setStatus(WorkOrderStatus.COMPLETED);
         wo.setRepairRecord(record);
         wo.setCompletedAt(LocalDateTime.now());
         workOrderMapper.updateById(wo);
+        if (consumables != null) {
+            for (ConsumableItem item : consumables) {
+                if (item.getName() == null || item.getName().isBlank()) {
+                    continue;
+                }
+                Consumable c = new Consumable();
+                c.setWorkOrderId(wo.getId());
+                c.setName(item.getName());
+                c.setQuantity(item.getQuantity() == null ? 1 : item.getQuantity());
+                c.setUnitPrice(item.getUnitPrice());
+                c.setIsIou(Boolean.TRUE.equals(item.getIsIou()));
+                c.setIouNo(item.getIouNo());
+                consumableMapper.insert(c);
+            }
+        }
         return wo;
     }
 }

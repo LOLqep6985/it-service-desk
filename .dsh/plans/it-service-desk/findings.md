@@ -155,3 +155,9 @@
 - admin.html 用纯 HTML+JS 实现，无前端框架；派单通过弹窗选择维修工
 - 报修单历史中已派单/已取消用不同 badge 色
 - 基础数据只读展示科室与用户，管理编辑（增删改）留待后续
+### 2026-10-13：Day 5 技术要点
+
+- 接单/维修归属校验：通过 WorkOrderService.getById 校验 assigneeId == 当前维修工，防越权处理他人工单
+- RepairRequest 扩展 List<ConsumableItem>，前端动态行收集耗材/欠条
+- 工单完成后 sign_status 保持 UNSIGNED（待签字），等待 Day 6 签字闭环
+- consumable 表启用：记录耗材名/数量/单价/是否欠条/欠条编号，作为月度报销数据源
