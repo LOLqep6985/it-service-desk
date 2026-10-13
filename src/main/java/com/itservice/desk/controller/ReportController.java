@@ -98,6 +98,22 @@ public class ReportController {
         return ApiResponse.ok(reportService.listReports(status));
     }
 
+    @GetMapping("/{id}")
+    public ApiResponse detail(@PathVariable Long id,
+                              @RequestHeader(value = "X-Token", required = false) String token) {
+        User user = resolveUser(token);
+        if (user == null) {
+            return ApiResponse.error(401, "未登录或登录已过期");
+        }
+        if (user.getRole() != UserRole.ADMIN && user.getRole() != UserRole.DISPATCHER) {
+            return ApiResponse.error(403, "无权限：只有管理员或调度员可以查看报修单详情");
+        }
+        try {
+            return ApiResponse.ok(reportService.getById(id));
+        } catch (IllegalArgumentException e) {
+            return ApiResponse.error(e.getMessage());
+        }
+    }
     @GetMapping("/by-device")
     public ApiResponse listByDevice(@RequestParam String deviceCode) {
         DepartmentBinding b = findActiveBinding(deviceCode);

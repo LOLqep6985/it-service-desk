@@ -60,8 +60,8 @@
   <div class="section">
     <h2>工单管理（派单后生成）</h2>
     <table id="workOrderTable">
-      <thead><tr><th>工单ID</th><th>报修单号</th><th>设备/标题</th><th>科室</th><th>维修工</th><th>状态</th><th>签字</th><th>创建时间</th><th>完成时间</th></tr></thead>
-      <tbody id="workOrderBody"><tr><td colspan="9" class="empty">加载中...</td></tr></tbody>
+      <thead><tr><th>工单ID</th><th>报修单号</th><th>设备/标题</th><th>科室</th><th>维修工</th><th>状态</th><th>签字</th><th>创建时间</th><th>完成时间</th><th>操作</th></tr></thead>
+      <tbody id="workOrderBody"><tr><td colspan="10" class="empty">加载中...</td></tr></tbody>
     </table>
   </div>
 
@@ -169,16 +169,16 @@
         fetch('/api/users?role=REPAIRER', { headers: { 'X-Token': user.token } })
       ]);
       const woJson = await woRes.json();
-      if (woJson.code !== 0) { document.getElementById('workOrderBody').innerHTML = '<tr><td colspan="9" class="empty">' + woJson.message + '</td></tr>'; return; }
+      if (woJson.code !== 0) { document.getElementById('workOrderBody').innerHTML = '<tr><td colspan="10" class="empty">' + woJson.message + '</td></tr>'; return; }
       const repairers = (await userRes.json()).data || [];
       const nameMap = {};
       repairers.forEach(u => { nameMap[u.id] = u.name; });
       const list = woJson.data || [];
       document.getElementById('workOrderBody').innerHTML = list.length ? list.map(wo =>
-        '<tr><td>' + wo.id + '</td><td>' + (wo.reportId ? ('R' + String(wo.reportId).padStart(6, '0')) : '-') + '</td><td>' + esc(wo.title) + '</td><td>' + esc(wo.departmentName) + '</td><td>' + esc(nameMap[wo.assigneeId] || wo.assigneeId) + '</td><td><span class="badge ' + (WO_STATUS[wo.status] ? wo.status.toLowerCase() : 'other') + '">' + (WO_STATUS[wo.status] || wo.status) + '</span></td><td>' + (wo.signStatus === 'SIGNED' ? '已签字' : '待签字') + '</td><td>' + fmtTime(wo.createdAt) + '</td><td>' + fmtTime(wo.completedAt) + '</td></tr>'
-      ).join('') : '<tr><td colspan="9" class="empty">暂无工单</td></tr>';
+        '<tr><td>' + wo.id + '</td><td>' + (wo.reportId ? ('R' + String(wo.reportId).padStart(6, '0')) : '-') + '</td><td>' + esc(wo.title) + '</td><td>' + esc(wo.departmentName) + '</td><td>' + esc(nameMap[wo.assigneeId] || wo.assigneeId) + '</td><td><span class="badge ' + (WO_STATUS[wo.status] ? wo.status.toLowerCase() : 'other') + '">' + (WO_STATUS[wo.status] || wo.status) + '</span></td><td>' + (wo.signStatus === 'SIGNED' ? '已签字' : '待签字') + '</td><td>' + fmtTime(wo.createdAt) + '</td><td>' + fmtTime(wo.completedAt) + '</td><td><button class="btn btn-primary btn-sm" onclick="openWoDetail(' + wo.id + ')">详情</button></td></tr>'
+      ).join('') : '<tr><td colspan="10" class="empty">暂无工单</td></tr>';
     } catch (e) {
-      document.getElementById('workOrderBody').innerHTML = '<tr><td colspan="9" class="empty">加载失败</td></tr>';
+      document.getElementById('workOrderBody').innerHTML = '<tr><td colspan="10" class="empty">加载失败</td></tr>';
     }
   }
 
@@ -208,9 +208,123 @@
     load();
   });
 
+  function closeDrawer() {
+    document.getElementById('drawer').classList.remove('show');
+    document.getElementById('drawerMask').classList.remove('show');
+  }
+
+  async function openWoDetail(woId) {
+    const drawer = document.getElementById('drawer');
+    const body = document.getElementById('drawerBody');
+    drawer.classList.add('show');
+    document.getElementById('drawerMask').classList.add('show');
+    body.innerHTML = '加载中...';
+    try {
+      const [woRes, userRes] = await Promise.all([
+        fetch('/api/work-orders/' + woId, { headers: { 'X-Token': user.token } }),
+        fetch('/api/users?role=REPAIRER', { headers: { 'X-Token': user.token } })
+      ]);
+      const woJson = await woRes.json();
+      if (woJson.code !== 0) { body.innerHTML = woJson.message; return; }
+      const wo = woJson.data;
+      const repairers = (await userRes.json()).data || [];
+      const nameMap = {};
+      repairers.forEach(u => { nameMap[u.id] = u.name; });
+      const repairerName = nameMap[wo.assigneeId] || wo.assigneeId;
+
+      // 报修单信息
+      let reportInfo = {};
+      if (wo.reportId) {
+        try {
+          const rj = await (await fetch('/api/reports/' + wo.reportId, { headers: { 'X-Token': user.token } })).json();
+          if (rj.code === 0) reportInfo = rj.data;
+        } catch (e) {}
+      }
+      // 耗材
+      let consumables = [];
+      try {
+        const cj = await (await fetch('/api/work-orders/' + woId + '/consumables', { headers: { 'X-Token': user.token } })).json();
+        if (cj.code === 0) consumables = cj.data || [];
+      } catch (e) {}
+
+      const photo = reportInfo.devicePhoto || '';
+      const reportNo = wo.reportId ? ('R' + String(wo.reportId).padStart(6, '0')) : (reportInfo.reportNo || '未填写');
+      const reporterName = reportInfo.reporterName || '未填写';
+      const deviceName = reportInfo.deviceName || wo.title || '未填写';
+      const problemDesc = reportInfo.problemDesc || wo.description || '未填写';
+      const signStatusText = wo.signStatus === 'SIGNED' ? '已签字' : '待签字';
+      const signedTime = wo.signedAt ? fmtTime(wo.signedAt) : '未签字';
+      const signedBy = wo.signedBy || '未填写';
+      const consumableHtml = consumables.length ? '<table class="consumable-table"><tr><th>耗材</th><th>数量</th><th>单价</th><th>欠条</th><th>欠条号</th></tr>' + consumables.map(cn =>
+        '<tr><td>' + esc(cn.name) + '</td><td>' + (cn.quantity ?? '1') + '</td><td>' + (cn.unitPrice != null ? cn.unitPrice : '未填写') + '</td><td>' + (cn.isIou ? '是' : '否') + '</td><td>' + esc(cn.iouNo || '') + '</td></tr>'
+      ).join('') + '</table>' : '<div style="color:#95a5a6;font-size:13px;">暂无耗材记录</div>';
+
+      body.innerHTML =
+        '<div class="detail-section"><h3>基本信息</h3>' +
+        '<div class="detail-row"><span class="k">工单ID</span><span class="v">' + wo.id + '</span></div>' +
+        '<div class="detail-row"><span class="k">报修单号</span><span class="v">' + esc(reportNo) + '</span></div>' +
+        '<div class="detail-row"><span class="k">科室</span><span class="v">' + esc(wo.departmentName || reportInfo.departmentName || '未填写') + '</span></div>' +
+        '<div class="detail-row"><span class="k">设备名称</span><span class="v">' + esc(deviceName) + '</span></div>' +
+        '<div class="detail-row"><span class="k">报修人</span><span class="v">' + esc(reporterName) + '</span></div>' +
+        '<div class="detail-row"><span class="k">维修工</span><span class="v">' + esc(repairerName || '未填写') + '</span></div>' +
+        '</div>' +
+
+        '<div class="detail-section"><h3>报修信息</h3>' +
+        '<div class="detail-row"><span class="k">故障描述</span><span class="v">' + esc(problemDesc) + '</span></div>' +
+        '<div class="detail-row"><span class="k">设备照片</span></div>' +
+        (photo ? '<div class="detail-photo"><img src="' + photo + '" onclick="window.open(this.src)" alt="设备照片"></div>' : '<div style="color:#95a5a6;font-size:13px;">未上传照片</div>') +
+        '</div>' +
+
+        '<div class="detail-section"><h3>流转记录</h3>' +
+        '<div class="detail-row"><span class="k">派单时间</span><span class="v">' + fmtTime(wo.createdAt) + '</span></div>' +
+        '<div class="detail-row"><span class="k">分配的维修工</span><span class="v">' + esc(repairerName || '未填写') + '</span></div>' +
+        '<div class="detail-row"><span class="k">完成时间</span><span class="v">' + (wo.completedAt ? fmtTime(wo.completedAt) : '未完成') + '</span></div>' +
+        '</div>' +
+
+        '<div class="detail-section"><h3>维修记录</h3>' +
+        '<div class="detail-row"><span class="v" style="text-align:left;max-width:100%;">' + esc(wo.repairRecord || '未填写') + '</span></div>' +
+        '</div>' +
+
+        '<div class="detail-section"><h3>耗材更换记录</h3>' + consumableHtml + '</div>' +
+
+        '<div class="detail-section"><h3>签字状态</h3>' +
+        '<div class="detail-row"><span class="k">签字状态</span><span class="v">' + signStatusText + '</span></div>' +
+        '<div class="detail-row"><span class="k">签字人</span><span class="v">' + esc(signedBy) + '</span></div>' +
+        '<div class="detail-row"><span class="k">签字时间</span><span class="v">' + signedTime + '</span></div>' +
+        '</div>';
+    } catch (e) {
+      body.innerHTML = '加载失败：' + e.message;
+    }
+  }
+
   load();
   // 自动刷新：每 15 秒拉取一次最新报修单/工单
   setInterval(load, 15000);
 </script>
+
+<!-- 工单详情抽屉 -->
+<div class="drawer-mask" id="drawerMask" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-header"><span>工单详情</span><button onclick="closeDrawer()" style="border:none;background:none;font-size:16px;cursor:pointer;">✕</button></div>
+  <div class="drawer-body" id="drawerBody">加载中...</div>
+</div>
+<style>
+  .drawer-mask { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; z-index: 200; }
+  .drawer-mask.show { display: block; }
+  .drawer { position: fixed; top: 0; right: 0; width: 520px; max-width: 94vw; height: 100%; background: #fff; z-index: 201; transform: translateX(100%); transition: transform .3s; box-shadow: -4px 0 16px rgba(0,0,0,.15); display: flex; flex-direction: column; }
+  .drawer.show { transform: translateX(0); }
+  .drawer-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid #ecf0f1; font-weight: 600; }
+  .drawer-body { padding: 16px; overflow-y: auto; flex: 1; }
+  .detail-section { margin-bottom: 16px; }
+  .detail-section h3 { font-size: 14px; color: #1d6fe0; border-left: 3px solid #1d6fe0; padding-left: 8px; margin-bottom: 8px; }
+  .detail-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+  .detail-row .k { color: #7f8c8d; flex-shrink: 0; }
+  .detail-row .v { text-align: right; max-width: 70%; }
+  .detail-photo img { max-width: 100%; border-radius: 6px; cursor: zoom-in; }
+  .consumable-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .consumable-table th, .consumable-table td { border: 1px solid #ecf0f1; padding: 5px 8px; text-align: left; }
+  .consumable-table th { background: #f8fafc; }
+</style>
+
 </body>
 </html>

@@ -101,6 +101,11 @@ public class WorkOrderService {
         return wo;
     }
 
+    public List<Consumable> listConsumables(Long workOrderId) {
+        return consumableMapper.selectList(new LambdaQueryWrapper<Consumable>()
+                .eq(Consumable::getWorkOrderId, workOrderId)
+                .orderByAsc(Consumable::getId));
+    }
     public WorkOrder submitRepair(Long id, String record, List<ConsumableItem> consumables) {
         WorkOrder wo = getById(id);
         wo.setStatus(WorkOrderStatus.COMPLETED);
