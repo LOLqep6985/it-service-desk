@@ -42,7 +42,18 @@
 
 ## 当前阶段
 
-Day 1-6 全部完成；已完成 PWA 化、「院区→科室」两级下拉、以及**三级联动（院区→楼栋→科室）+ 楼层标签**（待用户验证）。随后进入 Day 7（部署 + README 完善 + 简历）。
+Day 1-6 全部完成；已完成 PWA 化、「院区→科室」两级下拉、三级联动（院区→楼栋→科室）+ 楼层标签、三级联动组件化与共用、管理后台基础数据分类。**当前正在做管理后台信息架构重构（见下表），完成后进入 Day 7（部署 + README + 简历）。**
+
+## 管理后台信息架构重构（进行中）
+
+方案与文件清单：`findings.md#D-006`。目标：`admin.html` 由 470 行平铺页 → 「深色侧边栏多级菜单 + 顶部导航 + 工作台仪表盘」，视图按模块拆文件。
+
+| 批次 | 内容 | 状态 |
+|---|---|---|
+| 1 | 后端 `/api/stats/dashboard` 聚合接口（指标 + 近 7 日趋势 + 本月报销） | **complete（真值对账一致）** |
+| 2 | 前端基座（`admin-layout.css` + `js/admin/{api,store,router,layout,ui,app}.js`）+ `admin.html` 薄壳 + 空视图占位 | pending |
+| 3 | 8 个视图迁移（dashboard / reports-pending / work-orders / reports-history / reimbursements / departments / users / system） | pending |
+| 4 | Service Worker 升 `itsd-v3` + 全量回归测试 + 记忆落盘 | pending |
 
 ## Next Step
 

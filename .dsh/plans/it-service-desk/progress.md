@@ -325,3 +325,26 @@
 | 日期 | 提交 | 内容 |
 |---|---|---|
 | 2026-10-14 | （待用户提交） | refactor(web): 三级联动抽为共用组件 + create.html 接入 + 管理后台基础数据分类 |
+
+### S-005 | 2026-10-14：后台重构 批次 1 —— `/api/stats/dashboard` 聚合接口
+
+- 需求来源：用户要求重构管理后台布局，方案见 `findings.md#D-006`；开工方式为「按批次 1→4，每批汇报等验证」
+- 完成：
+  - `dto/DashboardStats.java`：概览指标（今日/昨日新增、待受理、已派单、处理中、进行中合计、待验收、本月已完成、本月报销金额与三种状态笔数、近 7 日趋势 TrendPoint）
+  - `service/StatsService.java`：SQL 侧聚合——`selectCount` 计数、`QueryWrapper.select("DATE(created_at) AS d","COUNT(*) AS c").groupBy(...)` 出趋势、本月报销按 `month` 取列表求和；含 `toDateKey()` 兼容不同驱动的日期返回类型
+  - `controller/StatsController.java`：`GET /api/stats/dashboard`，仅 ADMIN/DISPATCHER
+- 验证（真值对账，证据可复现）：
+  - 应用跑在 8090，`GET /api/stats/dashboard` + `X-Token: token-1` → code=0
+  - 指标 vs MySQL 真值**逐项一致**：今日 0/0、昨日 21/21、待受理 10/10、已派单 3/3、处理中 0/0、待验收 1/1、本月已完成 10/10、本月报销 1 笔 ¥70.00/1 笔 ¥70.00、已报销 1/1、待签字 0/0
+  - 趋势：SQL `GROUP BY DATE(created_at)` 仅 2026-10-13=21，接口 trend 同为 10/13=21，其余 6 天 0（含今日 10/14=0）
+  - 权限：维修工 token-3 → **403**「无权限：只有管理员或调度员可以查看概览数据」；无 token → **401**
+  - 构建：`mvn -o '-Dmaven.repo.local=.m2repo' package '-DskipTests'` → BUILD SUCCESS
+- 错误：无
+- 里程碑进展：M5 前体验优化（后台重构批次 1/4）
+- 下一步：等用户验证后进入批次 2（前端基座 + admin.html 薄壳 + 空视图占位）
+
+## Git 提交记录（S-005 追加）
+
+| 日期 | 提交 | 内容 |
+|---|---|---|
+| 2026-10-14 | （待用户提交） | feat(stats): 新增后台概览聚合接口 /api/stats/dashboard（指标+近7日趋势+本月报销） |

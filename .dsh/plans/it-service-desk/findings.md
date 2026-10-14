@@ -333,3 +333,33 @@
   - admin.html：概要「68 个科室 · 3 个院区 · 6 个楼栋」、6 个楼栋分组、楼层标签、短名、各院区计数 39/23/6、角色标签、旧 `baseDataBody` 已移除
   - HTTP 层：`/css/dept-cascade.css`(text/css)、`/js/department-cascade.js`(application/javascript)、三个页面均 200
 - 遗留：README 文案更新按用户要求**推迟到 Day 7** 一并处理（不再单独改）
+
+### D-006 | 2026-10-14：管理后台信息架构重构方案（侧边栏 + 顶部导航 + 仪表盘）
+
+- 状态：accepted（用户明确要求，且按用户要求"先出方案再动手"逐项确认）
+- 来源：用户明确要求
+- 用户原话（逐字，核心诉求）：
+  > "目前这些模块全部被平铺放在了同一个大界面上，导致页面极其杂乱，毫无重点，不符合现代 B 端后台的设计规范。请帮我重构这个管理后台的首页布局。"
+  > "请不要直接盲目修改代码。请按照以下步骤跟我交互：1 先给出一份重构后的【路由结构设计图】和【菜单树结构】。2 给出【首页概览 Dashboard 的区块分布草图】…3 确认无误后，列出需要新建或修改的文件清单。4 最后再依次生成代码（注意组件解耦，不要把所有代码写在一个文件里）。"
+- 用户确认的四项选择（逐字选项）：A 单入口 admin.html + hash 路由 + 视图 JS 模块；"新增 /api/stats/dashboard 聚合接口"；"近 7 日趋势柱状图（纯 CSS，零依赖）+ 列表页搜索/分页"；"要，展示运行信息（版本/上传目录/演示账号/已知限制）"
+- 开工方式（用户选择）：「按批次 1→4 依次做，每批结束汇报等我验证」
+- 核代码时发现的事实（影响指标口径）：
+  - `WorkOrderStatus.PENDING("待派单")` **从未被使用**：`ReportService.dispatch()` 直接创建 `ASSIGNED` 工单，流程无独立"受理"环节
+  - 因此「待受理数」与「待派单数」是同一个数（`report.status = PENDING`）→ 方案里合并为一张卡
+- 路由与菜单树（单入口 + hash）：
+  - `#/dashboard` 工作台·首页概览
+  - `#/reports/pending` 工单业务·待受理报修单（角标=待受理数）
+  - `#/work-orders` 工单业务·工单管理（角标=进行中+待验收）
+  - `#/reports/history` 工单业务·报修单历史
+  - `#/reimbursements` 财务与报销·月度报销单（角标=待签字数）
+  - `#/departments` / `#/users` / `#/system` 系统与基础数据配置
+  - 选 hash 而非 History API 的理由：Spring Boot 静态直出、无服务端路由，`#/x` 刷新/分享/后退均不 404，零后端改动
+- 指标口径（定稿）：今日新增报修单 / 昨日新增（环比）/ 待受理(=待派单) / 已派单待接单 / 处理中 / 待科室验收 / 本月已完成 / 本月报销金额与三种状态笔数 / 近 7 日报修量
+- 视觉规范：深色侧栏 `#111827→#1f2937` + 科技蓝 `#1d6fe0`（沿用）+ 页面 `#f2f4f7` + 内容容器白底圆角 12px + 卡片阴影微悬浮 + **内联 SVG 图标与纯 CSS 图表（不引 CDN/第三方库，医院内网必须能跑）** + 响应式（≥1200 展开 / 768–1200 折叠为 64px / <768 抽屉）
+- 文件清单（13 新增 + 3 修改）：
+  - 后端新增：`dto/DashboardStats.java`、`service/StatsService.java`、`controller/StatsController.java`
+  - 前端新增：`css/admin-layout.css`；`js/admin/{api,store,router,layout,ui,app}.js`；`js/admin/views/{dashboard,reports-pending,work-orders,reports-history,reimbursements,departments,users,system}.js`
+  - 修改：`static/admin.html`（470 行平铺 → 薄壳）、`static/service-worker.js`（CACHE → itsd-v3 + APP_SHELL 补齐）、`.rdoc_inspect/test-frontend.js`
+  - **明确不动**：report/create/today/detail/login.html、`department-cascade.js|css`、现有 Controller/Service/Mapper、数据库结构
+- 批次计划：①后端统计接口 ②前端基座+admin.html 壳+空视图 ③8 个视图迁移 ④SW 升版+全量回归+记忆落盘（每批结束汇报，等用户验证）
+- 遗留待办（本方案外）：「token 解析在 6 个 controller 中重复」建议后续抽公共组件（本轮不做，避免混淆重构范围）
