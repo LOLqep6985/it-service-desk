@@ -185,7 +185,7 @@
   const bindMsg = document.getElementById('bindMsg');
   const submitMsg = document.getElementById('submitMsg');
   const submitBtn = document.getElementById('submitBtn');
-  const DUPLICATE_MINUTES = 10;
+  const DUPLICATE_MINUTES = 1;   // 仅防手抖重复点击；重复判定口径见后端 ReportService（同科室+设备+报修人+描述，3 分钟）
   let countdownTimer = null;
   let departmentId = Number(localStorage.getItem('itsdDepartmentId')) || null;
   let selectedDeptId = null;   // 三级联动当前选中的科室（点击「绑定」后落库到 localStorage）
@@ -332,6 +332,8 @@
         return;
       }
       resetForm();
+      submitMsg.style.color = '#27ae60';
+      submitMsg.textContent = '报修单已提交 ✓（如需报修其他设备，请等倒计时结束）';
       startCountdown(DUPLICATE_MINUTES * 60);
       loadAccept();
       loadCompleted();
@@ -487,6 +489,9 @@
         '<br><br><b>合计金额：</b>¥' + (r.totalAmount == null ? '0.00' : Number(r.totalAmount).toFixed(2)) +
         '<br><b>状态：</b>' + (REIMB_STATUS[r.status] || r.status) +
         (r.signedBy ? '<br><b>签字人：</b>' + esc(r.signedBy) + ' · ' + ((r.signedAt || '').replace('T',' ').slice(0,16)) : '') +
+        (r.signatureUrl
+          ? '<br><b>手写签名：</b><div style="margin-top:6px;"><img src="' + r.signatureUrl + '" onclick="window.open(this.src)" style="max-width:100%;border:1px solid #ecf0f1;border-radius:6px;cursor:zoom-in;" alt="手写签名"></div>'
+          : '') +
         '<br><br><b>包含工单（' + wos.length + '）：</b>' + woHtml;
     } catch (e) {
       info.innerHTML = '加载失败：' + e.message;

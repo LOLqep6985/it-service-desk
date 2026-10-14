@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.itservice.desk.dto.*;
 import com.itservice.desk.mapper.ConsumableMapper;
 import com.itservice.desk.mapper.DepartmentBindingMapper;
+import com.itservice.desk.mapper.ReportMapper;
 import com.itservice.desk.mapper.UserMapper;
 import com.itservice.desk.model.*;
 import com.itservice.desk.service.WorkOrderService;
@@ -19,15 +20,18 @@ public class WorkOrderController {
     private final UserMapper userMapper;
     private final DepartmentBindingMapper bindingMapper;
     private final ConsumableMapper consumableMapper;
+    private final ReportMapper reportMapper;
 
     public WorkOrderController(WorkOrderService workOrderService,
                                 UserMapper userMapper,
                                 DepartmentBindingMapper bindingMapper,
-                                ConsumableMapper consumableMapper) {
+                                ConsumableMapper consumableMapper,
+                                ReportMapper reportMapper) {
         this.workOrderService = workOrderService;
         this.userMapper = userMapper;
         this.bindingMapper = bindingMapper;
         this.consumableMapper = consumableMapper;
+        this.reportMapper = reportMapper;
     }
 
     @PostMapping
@@ -105,12 +109,34 @@ public class WorkOrderController {
             }
             return ApiResponse.ok(wo);
         }
-        // 登录用户：任意已登录角色可看（报修人/维修工/管理员各自场景）
+        // 登录用户：管理员/调度员看全部；维修工仅本人工单；报修人仅自己提交的报修单对应工单
         User user = resolveUserByToken(token);
         if (user == null) {
             return ApiResponse.error(401, "未登录或登录已过期");
         }
+        if (!canView(wo, user)) {
+            return ApiResponse.error(403, "无权查看该工单");
+        }
         return ApiResponse.ok(wo);
+    }
+
+    /** 工单详情可见性：防止越权查看他人工单 */
+    private boolean canView(WorkOrder wo, User user) {
+        if (user.getRole() == UserRole.ADMIN || user.getRole() == UserRole.DISPATCHER) {
+            return true;
+        }
+        if (user.getRole() == UserRole.REPAIRER) {
+            return user.getId().equals(wo.getAssigneeId());
+        }
+        // 报修人：直接创建的工单，或其报修单派单后生成的工单
+        if (user.getId().equals(wo.getCreatorId())) {
+            return true;
+        }
+        if (wo.getReportId() != null) {
+            Report report = reportMapper.selectById(wo.getReportId());
+            return report != null && user.getId().equals(report.getCreatorId());
+        }
+        return false;
     }
 
     @GetMapping("/{id}/consumables")

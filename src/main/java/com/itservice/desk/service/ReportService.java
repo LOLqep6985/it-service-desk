@@ -14,6 +14,11 @@ import java.util.List;
 @Service
 public class ReportService {
 
+    /** 重复提交判定窗口（分钟）：只拦「短时间内完全相同的报修」，不影响同科室报修多台设备 */
+    public static final int DUPLICATE_MINUTES = 3;
+    public static final String DUPLICATE_MESSAGE =
+            "相同报修刚刚已提交（同科室·同设备·同报修人·同描述），请勿重复提交；如报修其他设备请修改设备或描述";
+
     private final ReportMapper reportMapper;
     private final DepartmentMapper departmentMapper;
     private final WorkOrderMapper workOrderMapper;
@@ -37,9 +42,10 @@ public class ReportService {
         if (dept == null) {
             throw new IllegalArgumentException("科室不存在");
         }
-        Report recent = findRecentReport(dept.getId(), req.getDeviceName(), 10);
-        if (recent != null && recent.getStatus() != ReportStatus.CANCELLED) {
-            throw new IllegalArgumentException("该设备报修已提交，请勿重复提交");
+        String desc = req.getProblemDesc() == null ? "" : req.getProblemDesc();
+        Report recent = findDuplicate(dept.getId(), req.getDeviceName(), req.getReporterName(), desc, DUPLICATE_MINUTES);
+        if (recent != null) {
+            throw new IllegalArgumentException(DUPLICATE_MESSAGE);
         }
         Report r = new Report();
         r.setDepartmentId(dept.getId());
@@ -47,7 +53,7 @@ public class ReportService {
         r.setReporterName(req.getReporterName());
         r.setDeviceName(req.getDeviceName());
         r.setDevicePhoto(req.getDevicePhoto());
-        r.setProblemDesc(req.getProblemDesc());
+        r.setProblemDesc(desc);
         r.setDepartmentHead(req.getDepartmentHead() == null || req.getDepartmentHead().isBlank()
                 ? dept.getDepartmentHead() : req.getDepartmentHead());
         r.setStatus(ReportStatus.PENDING);
@@ -59,7 +65,12 @@ public class ReportService {
         return r;
     }
 
-    public Report findRecentReport(Long departmentId, String deviceName, int minutes) {
+    /**
+     * 防重复提交：只有「同科室 + 同设备 + 同报修人 + 同问题描述」在窗口期内再次提交才算重复。
+     * 口径说明：设备名已是宽泛下拉（打印机/电脑…），若只按「科室+设备」判定，
+     * 同科室短时间报修两台不同打印机会被误判，因此纳入报修人与问题描述。
+     */
+    public Report findDuplicate(Long departmentId, String deviceName, String reporterName, String problemDesc, int minutes) {
         if (deviceName == null || deviceName.isBlank()) {
             return null;
         }
@@ -67,6 +78,9 @@ public class ReportService {
         return reportMapper.selectOne(new LambdaQueryWrapper<Report>()
                 .eq(Report::getDepartmentId, departmentId)
                 .eq(Report::getDeviceName, deviceName)
+                .eq(Report::getReporterName, reporterName == null ? "" : reporterName)
+                .eq(Report::getProblemDesc, problemDesc == null ? "" : problemDesc)
+                .ne(Report::getStatus, ReportStatus.CANCELLED)
                 .ge(Report::getCreatedAt, since)
                 .orderByDesc(Report::getCreatedAt)
                 .last("LIMIT 1"));

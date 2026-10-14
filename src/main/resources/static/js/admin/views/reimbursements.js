@@ -93,6 +93,13 @@
           r.reimbursedAt ? detailRow('报销时间', ui.fmtTime(r.reimbursedAt)) : null
         ),
         ui.h('div', { class: 'detail-section' },
+          ui.h('h4', { text: '签字留痕' }),
+          r.signatureUrl
+            ? ui.h('div', { class: 'detail-photo' },
+              ui.h('img', { src: r.signatureUrl, alt: '手写签名', onclick: function (e) { global.open(e.target.src, '_blank'); } }))
+            : ui.h('div', { style: { color: '#95a5a6', fontSize: '13px' }, text: '无签名图片（历史单据签字时未启用留痕）' })
+        ),
+        ui.h('div', { class: 'detail-section' },
           ui.h('h4', { text: '包含工单（' + wos.length + '）' }),
           woTable
         )

@@ -61,9 +61,11 @@ public class ReportController {
         if (dept == null) {
             return ApiResponse.error(401, "请选择有效的科室");
         }
-        Report recent = reportService.findRecentReport(dept.getId(), req.getDeviceName(), 10);
-        if (recent != null && recent.getStatus() != ReportStatus.CANCELLED) {
-            return ApiResponse.error("该设备报修已提交，请勿重复提交");
+        String desc = req.getProblemDesc() == null ? "" : req.getProblemDesc();
+        Report recent = reportService.findDuplicate(dept.getId(), req.getDeviceName(), req.getReporterName(),
+                desc, ReportService.DUPLICATE_MINUTES);
+        if (recent != null) {
+            return ApiResponse.error(ReportService.DUPLICATE_MESSAGE);
         }
         Report r = new Report();
         r.setDepartmentId(dept.getId());
@@ -71,7 +73,7 @@ public class ReportController {
         r.setReporterName(req.getReporterName());
         r.setDeviceName(req.getDeviceName());
         r.setDevicePhoto(req.getDevicePhoto());
-        r.setProblemDesc(req.getProblemDesc());
+        r.setProblemDesc(desc);
         r.setDepartmentHead(req.getDepartmentHead() == null || req.getDepartmentHead().isBlank()
                 ? dept.getDepartmentHead() : req.getDepartmentHead());
         r.setStatus(ReportStatus.PENDING);

@@ -83,6 +83,7 @@ CREATE TABLE IF NOT EXISTS reimbursement (
     signed_by     VARCHAR(50),
     signed_at     DATETIME,
     reimbursed_at DATETIME,
+    signature_url VARCHAR(255),
     created_at    DATETIME
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
