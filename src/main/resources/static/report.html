@@ -10,6 +10,7 @@
   <link rel="manifest" href="/manifest-report.json">
   <link rel="icon" href="/icons/report-192.png">
   <link rel="apple-touch-icon" href="/icons/report-192.png">
+  <link rel="stylesheet" href="/css/dept-cascade.css">
   <title>科室报修 - IT运维工单系统</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -37,21 +38,7 @@
     .bind-row { display: flex; gap: 8px; }
     .bind-row input { flex: 1; }
     .bind-row button { width: 90px; background: #27ae60; color: #fff; border: none; border-radius: 8px; font-size: 14px; }
-    select:disabled { background: #f8fafc; color: #95a5a6; }
-    /* 第三级科室选择：自定义下拉面板，以便楼层号用彩色标签与科室名区分（原生 option 无法可靠着色） */
-    .picker { position: relative; }
-    .picker-value { width: 100%; padding: 11px; border: 1px solid #d0d5dd; border-radius: 8px; background: #fff; font-size: 15px; color: #2c3e50; text-align: left; display: flex; align-items: center; gap: 8px; cursor: pointer; }
-    .picker-value:disabled { background: #f8fafc; color: #95a5a6; cursor: not-allowed; }
-    .picker-value .arrow { margin-left: auto; color: #95a5a6; font-size: 12px; }
-    .picker-panel { position: absolute; left: 0; right: 0; top: calc(100% + 4px); max-height: 260px; overflow-y: auto; background: #fff; border: 1px solid #d0d5dd; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.12); z-index: 30; display: none; }
-    .picker-panel.show { display: block; }
-    .picker-opt { display: flex; align-items: center; gap: 8px; padding: 10px 12px; font-size: 14px; border-bottom: 1px solid #f4f6f8; cursor: pointer; }
-    .picker-opt:last-child { border-bottom: none; }
-    .picker-opt:active { background: #f8fafc; }
-    .picker-opt.active { background: #e8f8ef; }
-    .floor-chip { display: inline-block; flex: 0 0 auto; min-width: 42px; text-align: center; font-size: 12px; font-weight: 600; color: #1d6fe0; background: #e8f4fd; border: 1px solid #cfe6fb; border-radius: 4px; padding: 2px 6px; }
-    .picker-opt .opt-name { color: #2c3e50; }
-    .picker-empty { padding: 12px; font-size: 13px; color: #95a5a6; text-align: center; }
+    /* 三级联动（院区→楼栋→科室）的 .picker / .floor-chip 样式见 /css/dept-cascade.css（与 create.html 共用） */
     /* 签字弹窗 */
     .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; align-items: center; justify-content: center; z-index: 100; }
     .modal-mask.show { display: flex; }
@@ -184,11 +171,11 @@
   </div>
 </div>
 
+<script src="/js/department-cascade.js"></script>
 <script>
   const REPORT_STATUS = { PENDING:'待受理', ACCEPTED:'已受理', DISPATCHED:'已派单', CANCELLED:'已取消' };
   const WO_STATUS = { ASSIGNED:'已派单', IN_PROGRESS:'处理中', PENDING_ACCEPT:'待验收', COMPLETED:'已完成' };
   const REIMB_STATUS = { PENDING_SIGN:'待签字', PENDING_REIMBURSE:'待报销', REIMBURSED:'已报销' };
-  const CAMPUS_LABEL = { LAOYUAN:'老院区', XIYUAN:'西院区', DONGYUAN:'东区院区' };
   const bindCard = document.getElementById('bindCard');
   const formCard = document.getElementById('formCard');
   const acceptCard = document.getElementById('acceptCard');
@@ -201,39 +188,17 @@
   const DUPLICATE_MINUTES = 10;
   let countdownTimer = null;
   let departmentId = Number(localStorage.getItem('itsdDepartmentId')) || null;
-  let departments = [];
   let selectedDeptId = null;   // 三级联动当前选中的科室（点击「绑定」后落库到 localStorage）
   let currentSignWoId = null;
   let currentReimbId = null;
 
   function esc(s) { return (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-  // ---------- 科室定位工具 ----------
-  // department.name 形如「门诊楼-一层-收费室」；name 承担全局唯一键职责（uk_dept_name），
-  // 且报修单/工单保存的是名字快照，因此不改 name，展示时按「楼栋-楼层-科室」拆解。
-  const FLOOR_CN = { '一层':'1F','二层':'2F','三层':'3F','四层':'4F','五层':'5F','六层':'6F',
-                     '七层':'7F','八层':'8F','九层':'9F','十层':'10F','十一层':'11F','十二层':'12F' };
-  function nameParts(dept) { return String((dept && dept.name) || '').split('-'); }
-  function buildingOf(dept) {
-    if (dept.building) return dept.building;
-    const p = nameParts(dept);
-    return p.length >= 3 ? p[0] : '';
-  }
-  /** 楼层号：优先用后端 floor 字段，缺失时按中文楼层兜底 */
-  function floorOf(dept) {
-    if (dept.floor) return dept.floor;
-    const p = nameParts(dept);
-    return p.length >= 3 ? (FLOOR_CN[p[1]] || p[1] || '') : '';
-  }
-  /** 科室名（去掉「楼栋-楼层-」前缀），供选科室时展示 */
-  function shortNameOf(dept) {
-    const p = nameParts(dept);
-    return p.length >= 3 ? p.slice(2).join('-') : ((dept && dept.name) || '');
-  }
-  function floorChip(dept) {
-    const f = floorOf(dept);
-    return f ? '<span class="floor-chip">' + esc(f) + '</span>' : '';
-  }
+  // 三级联动（院区→楼栋→科室）逻辑在共用组件 /js/department-cascade.js（与 create.html 共用）
+  const campusLabel = DeptCascade.campusLabel;
+  const shortNameOf = DeptCascade.shortNameOf;
+  const floorChip = DeptCascade.floorChip;
+  const buildingOf = DeptCascade.buildingOf;
 
   function showBound(dept) {
     bindCard.style.display = 'none';
@@ -243,11 +208,10 @@
     reimbCard.style.display = 'block';
     historyCard.style.display = 'block';
     document.getElementById('rebindBtn').style.display = 'block';
-    const campusLabel = CAMPUS_LABEL[dept.campus] || dept.campus || '';
     const building = buildingOf(dept);
     document.getElementById('deptBox').innerHTML =
       '当前科室：' + floorChip(dept) + ' <b>' + esc(shortNameOf(dept)) + '</b>' +
-      '<span style="color:#7f8c8d;font-size:12px;">　' + esc(campusLabel) + (building ? ' · ' + esc(building) : '') + '</span>';
+      '<span style="color:#7f8c8d;font-size:12px;">　' + esc(campusLabel(dept.campus)) + (building ? ' · ' + esc(building) : '') + '</span>';
     const headInput = document.getElementById('departmentHead');
     headInput.value = dept.departmentHead || '';
     headInput.readOnly = !!dept.departmentHead;
@@ -263,74 +227,19 @@
     }
   }
 
-  /** 第一级：院区 */
-  function renderCampusSelect() {
-    const campusSel = document.getElementById('campusSelect');
-    const campusList = [];
-    departments.forEach(d => { if (d.campus && campusList.indexOf(d.campus) < 0) campusList.push(d.campus); });
-    campusSel.innerHTML = '<option value="">请选择院区</option>' +
-      campusList.map(c => '<option value="' + esc(c) + '">' + esc(CAMPUS_LABEL[c] || c) + '</option>').join('');
-  }
-
-  /** 第二级：该院区下的楼栋（院区变化时重建，并清空选择） */
-  function renderBuildingSelect(campus) {
-    const sel = document.getElementById('buildingSelect');
-    const buildings = [];
-    if (campus) {
-      departments.filter(d => d.campus === campus).forEach(d => {
-        const b = buildingOf(d);
-        if (b && buildings.indexOf(b) < 0) buildings.push(b);
-      });
-    }
-    sel.innerHTML = buildings.length
-      ? '<option value="">请选择楼栋</option>' + buildings.map(b => '<option value="' + esc(b) + '">' + esc(b) + '</option>').join('')
-      : '<option value="">请先选择院区</option>';
-    sel.disabled = buildings.length === 0;
-    sel.value = '';
-  }
-
-  /** 第三级：该楼栋下的科室（楼层号用彩色标签与科室名区分），楼栋变化时重建并清空选择 */
-  function renderDeptPicker(campus, building) {
-    const panel = document.getElementById('deptPickerPanel');
-    const value = document.getElementById('deptPickerValue');
-    selectedDeptId = null;
-    panel.classList.remove('show');
-    if (!campus || !building) {
-      value.disabled = true;
-      value.innerHTML = '请先选择楼栋<span class="arrow">▾</span>';
-      panel.innerHTML = '';
-      return;
-    }
-    const list = departments.filter(d => d.campus === campus && buildingOf(d) === building);
-    if (list.length === 0) {
-      value.disabled = true;
-      value.innerHTML = '该楼栋暂无科室<span class="arrow">▾</span>';
-      panel.innerHTML = '<div class="picker-empty">该楼栋暂无科室</div>';
-      return;
-    }
-    value.disabled = false;
-    value.innerHTML = '请选择科室（共 ' + list.length + ' 个）<span class="arrow">▾</span>';
-    panel.innerHTML = list.map(d =>
-      '<div class="picker-opt" data-id="' + d.id + '">' + floorChip(d) +
-      '<span class="opt-name">' + esc(shortNameOf(d)) + '</span></div>'
-    ).join('');
-  }
-
-  function pickDept(id) {
-    const dept = departments.find(d => d.id === Number(id));
-    if (!dept) return;
-    selectedDeptId = dept.id;
-    document.getElementById('deptPickerValue').innerHTML =
-      floorChip(dept) + '<span class="opt-name">' + esc(shortNameOf(dept)) + '</span><span class="arrow">▾</span>';
-    document.querySelectorAll('#deptPickerPanel .picker-opt').forEach(el => {
-      el.classList.toggle('active', Number(el.getAttribute('data-id')) === dept.id);
-    });
-    document.getElementById('deptPickerPanel').classList.remove('show');
-    bindMsg.textContent = '';
-  }
+  // 三级联动实例：选中的科室存入 selectedDeptId，点击「绑定」后落 localStorage
+  const cascade = DeptCascade.create({
+    campusEl: document.getElementById('campusSelect'),
+    buildingEl: document.getElementById('buildingSelect'),
+    wrapEl: document.getElementById('deptPicker'),
+    valueEl: document.getElementById('deptPickerValue'),
+    panelEl: document.getElementById('deptPickerPanel'),
+    onSelect: dept => { selectedDeptId = dept ? dept.id : null; },
+    onChange: () => { bindMsg.textContent = ''; }
+  });
 
   function doBind() {
-    const dept = departments.find(d => d.id === selectedDeptId);
+    const dept = cascade.selected();
     if (!dept) { bindMsg.textContent = '请选择科室'; return; }
     localStorage.setItem('itsdDepartmentId', String(dept.id));
     localStorage.setItem('itsdDepartmentName', dept.name);
@@ -348,44 +257,12 @@
 
   // 初始化：加载科室列表 → 三级联动（院区→楼栋→科室）→ 恢复本地绑定；支持 ?departmentId= 快捷绑定（扫码入口预留）
   (async function init() {
-    departments = await loadDepartments();
-    renderCampusSelect();
-    renderBuildingSelect('');
-    renderDeptPicker('', '');
-
-    const campusSel = document.getElementById('campusSelect');
-    const buildingSel = document.getElementById('buildingSelect');
-
-    // 第一级（院区）改变：清空第二、三级，并动态加载该院区下的楼栋
-    campusSel.addEventListener('change', () => {
-      renderBuildingSelect(campusSel.value);
-      renderDeptPicker(campusSel.value, '');
-      bindMsg.textContent = '';
-    });
-    // 第二级（楼栋）改变：清空第三级，并动态加载该楼栋下的科室
-    buildingSel.addEventListener('change', () => {
-      renderDeptPicker(campusSel.value, buildingSel.value);
-      bindMsg.textContent = '';
-    });
-    // 第三级：点开面板 / 点选科室 / 点击面板外收起
-    document.getElementById('deptPickerValue').addEventListener('click', () => {
-      if (document.getElementById('deptPickerValue').disabled) return;
-      document.getElementById('deptPickerPanel').classList.toggle('show');
-    });
-    document.getElementById('deptPickerPanel').addEventListener('click', (e) => {
-      const opt = e.target.closest('.picker-opt');
-      if (opt) pickDept(opt.getAttribute('data-id'));
-    });
-    document.addEventListener('click', (e) => {
-      if (!document.getElementById('deptPicker').contains(e.target)) {
-        document.getElementById('deptPickerPanel').classList.remove('show');
-      }
-    });
+    cascade.setDepartments(await loadDepartments());
 
     const urlDeptId = new URLSearchParams(location.search).get('departmentId');
     const targetId = urlDeptId ? Number(urlDeptId) : departmentId;
     if (targetId) {
-      const dept = departments.find(d => d.id === targetId);
+      const dept = cascade.byId(targetId);
       if (dept) {
         localStorage.setItem('itsdDepartmentId', String(dept.id));
         localStorage.setItem('itsdDepartmentName', dept.name);
