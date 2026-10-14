@@ -13,5 +13,7 @@ public class Department {
     private String name;
     private Campus campus;
     private String building;
+    /** 楼层号，如 3F；用于科室端三级联动（院区→楼栋→科室）第三级的楼层标签 */
+    private String floor;
     private String departmentHead;
 }

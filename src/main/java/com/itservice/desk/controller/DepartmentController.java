@@ -1,5 +1,6 @@
 package com.itservice.desk.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.itservice.desk.dto.ApiResponse;
 import com.itservice.desk.mapper.DepartmentMapper;
 import com.itservice.desk.model.Department;
@@ -19,9 +20,16 @@ public class DepartmentController {
         this.departmentMapper = departmentMapper;
     }
 
+    /**
+     * 科室列表（供科室端三级联动：院区 → 楼栋 → 科室）。
+     * 固定按 院区 → 楼栋 → id 升序返回，保证前端分组顺序稳定。
+     */
     @GetMapping
     public ApiResponse list() {
-        List<Department> list = departmentMapper.selectList(null);
+        List<Department> list = departmentMapper.selectList(new LambdaQueryWrapper<Department>()
+                .orderByAsc(Department::getCampus)
+                .orderByAsc(Department::getBuilding)
+                .orderByAsc(Department::getId));
         return ApiResponse.ok(list);
     }
 }
