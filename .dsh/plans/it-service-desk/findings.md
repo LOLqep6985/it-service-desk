@@ -310,3 +310,26 @@
   - 幂等回填：手工把 id=13 的 floor 置 NULL → 重启应用 → 自动恢复 `3F`
   - 页面 `/report.html` HTTP 200 且含三级结构与样式
 - 附带发现（未改，待确认）：README 仍在写「设备码 DEV001」（`本地绑定` 已在上一轮改为按科室），属上一轮遗留的文档陈旧，Day 7 写 README 时一并更新
+
+### D-005 | 2026-10-14：三级联动抽为共用组件 + create.html 接入 + 管理后台基础数据分类
+
+- 状态：accepted（用户明确要求）
+- 来源：用户明确要求
+- 用户原话（逐字）：
+  > "1.create.html（报修人登录后报修）还是平铺的 68 项科室下拉，没做三级联动，改"
+  > "2.README 在Day 7 写 README 时我一并更新"
+  > "我发现IT 运维工单 · 管理员后台下面的"基础数据"部分太乱，要将科室信息分类规整好。"
+- 决策：
+  1. **抽为共用组件**：`static/js/department-cascade.js`（`window.DeptCascade`：三级联动 `create()`、楼层/短名工具、`groupByLocation()` 分组）+ `static/css/dept-cascade.css`（`.picker*` / `.floor-chip`）。理由：三级联动逻辑约 90 行，`report.html` 与 `create.html` 都要用，复制两份会导致后续改动双写；抽为组件后三页共用同一份实现
+  2. **create.html 接入三级联动**，并在选择科室时自动带出科室负责人（有默认值 → 只读；无默认值 → 可手填），与科室端行为一致
+  3. **管理后台「基础数据」拆分并分类**：原先把 68 个科室名用「、」拼进一个单元格（用户反馈"太乱"）→ 改为「基础数据 · 科室索引」+「基础数据 · 用户」两块；科室按 **院区 → 楼栋 → 楼层** 分类（楼层用统一 `.floor-chip` 蓝色标签、科室名用浅灰 chip、每级显示数量，楼层按数字升序 1F→12F）；用户按角色彩色标签展示
+  4. **Service Worker 缓存版本 `itsd-v1` → `itsd-v2`** 并把新资源加入 `APP_SHELL`。理由：SW 对静态资源是 cache-first，不升级缓存版本会一直吃旧文件、页面改动看不到（该踩坑已在 v1 时期出现过）
+- 落地文件：新增 `js/department-cascade.js`、`css/dept-cascade.css`；改 `report.html`（改为调用组件）、`create.html`、`admin.html`、`service-worker.js`
+- 验证证据：`node .rdoc_inspect/test-frontend.js`（Node + DOM 桩 + 真实接口数据）**34 项全部 PASS**，覆盖：
+  - 语法：组件 + 7 个页面内联脚本全部通过
+  - 组件：院区→楼栋→科室联动、二三级清空、20 科室 20 楼层标签、`3F` 标签、科室短名去前缀、6 楼栋合计 68 科室 0 缺标签、分组 3 院区/6 楼栋/68 科室、门诊楼楼层升序 1F→8F
+  - report.html：选老院/急救中心 12 科室 → 绑定写 localStorage + 触发刷新
+  - create.html：三级联动、负责人带出（有/无默认值两种）、提交 `departmentId` 正确且带 `X-Token`、**未选科室被拦截且不发请求**
+  - admin.html：概要「68 个科室 · 3 个院区 · 6 个楼栋」、6 个楼栋分组、楼层标签、短名、各院区计数 39/23/6、角色标签、旧 `baseDataBody` 已移除
+  - HTTP 层：`/css/dept-cascade.css`(text/css)、`/js/department-cascade.js`(application/javascript)、三个页面均 200
+- 遗留：README 文案更新按用户要求**推迟到 Day 7** 一并处理（不再单独改）

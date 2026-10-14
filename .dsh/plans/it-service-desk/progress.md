@@ -300,3 +300,28 @@
 | 日期 | 提交 | 内容 |
 |---|---|---|
 | 2026-10-14 | （待用户提交） | feat(dept): 科室端绑定改三级联动（院区→楼栋→科室）+ department.floor 楼层标签 |
+
+### S-004 | 2026-10-14：三级联动抽为共用组件 + create.html 接入 + 管理后台基础数据分类
+
+- 需求来源：用户本轮两条指令（详见 `findings.md#D-005` 用户原话逐字）
+- 完成：
+  - 新增 `static/js/department-cascade.js`（`window.DeptCascade`：`create()` 三级联动、`buildingOf/floorOf/shortNameOf/floorChip/campusLabel`、`groupByLocation()` 院区→楼栋→楼层分组）与 `static/css/dept-cascade.css`（`.picker*`/`.floor-chip`）
+  - `report.html`：删除内联联动逻辑与样式，改为调用组件（三页共用一份实现）
+  - `create.html`：接入三级联动；选科室自动带出科室负责人（有默认值只读/无则手填）；提交改用所选科室 `departmentId`
+  - `admin.html`：「基础数据」拆为「科室索引」+「用户」两块；科室按 院区→楼栋→楼层 分类（楼层蓝色标签、科室名 chip、每级数量、楼层数字升序），用户显示角色彩色标签
+  - `service-worker.js`：`CACHE` 升级 `itsd-v1` → `itsd-v2`，新资源加入 `APP_SHELL`
+- 验证（证据）：
+  - `node .rdoc_inspect/test-frontend.js` → **ALL CHECKS PASSED（34 项）**：语法 11 项；组件 13 项；report.html 5 项；create.html 8 项（含"未选科室不发请求"）；admin.html 7 项
+  - HTTP：`/css/dept-cascade.css` 200 + text/css、`/js/department-cascade.js` 200 + application/javascript、report/create/admin 三页 200
+  - 构建：`mvn -o '-Dmaven.repo.local=.m2repo' package '-DskipTests'` → BUILD SUCCESS，新资源已进 `target/classes/static`
+- 错误：
+  - 测试桩中 `els.reporterName` 为 undefined（页面只在提交时才 `getElementById`，桩元素懒创建）| 尝试：直接取属性 | 解决：测试改用 `document.getElementById(...)` 触发懒创建
+  - CSS 注释里「原生/原生」写法怀疑有错别字 | 尝试：edit 替换 | 解决：工具提示两串相同 → 复核确认本就一致，无需改（未产生脏改动）
+- 里程碑进展：M5 前的体验优化；M5 仍待 Day 7
+- 下一步：用户启动验证（三级联动 + 管理后台基础数据）；README 更新按用户要求推迟到 Day 7
+
+## Git 提交记录（S-004 追加）
+
+| 日期 | 提交 | 内容 |
+|---|---|---|
+| 2026-10-14 | （待用户提交） | refactor(web): 三级联动抽为共用组件 + create.html 接入 + 管理后台基础数据分类 |

@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <link rel="stylesheet" href="/css/dept-cascade.css">
   <title>报修 - IT运维工单系统</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -31,14 +32,21 @@
   <div class="card">
     <h2>报修单</h2>
     <p class="tip">只填必要信息，设备详情由维修人员到场确认。</p>
+    <label>院区 *</label>
+    <select id="campusSelect"><option value="">请选择院区</option></select>
+    <label>楼栋 *</label>
+    <select id="buildingSelect" disabled><option value="">请先选择院区</option></select>
     <label>科室 *</label>
-    <select id="department"></select>
+    <div class="picker" id="deptPicker">
+      <button type="button" class="picker-value" id="deptPickerValue" disabled>请先选择楼栋<span class="arrow">▾</span></button>
+      <div class="picker-panel" id="deptPickerPanel"></div>
+    </div>
     <label>报修人姓名 *</label>
     <input id="reporterName" placeholder="如：李护士">
     <label>设备名称 *</label>
     <input id="deviceName" placeholder="如：打印机、电脑、显示器">
     <label>设备照片链接（可选）</label>
-    <input id="devicePhoto" placeholder="可粘贴图片链接，Day3 支持拍照上传">
+    <input id="devicePhoto" placeholder="可粘贴图片链接，或使用科室端拍照上传">
     <label>问题描述</label>
     <textarea id="problemDesc" placeholder="如：卡纸、缺墨、不亮、打不开机"></textarea>
     <label>科室负责人</label>
@@ -47,8 +55,8 @@
     <div class="msg" id="msg"></div>
   </div>
 </div>
+<script src="/js/department-cascade.js"></script>
 <script>
-  const CAMPUS_LABEL = { LAOYUAN:'老院', XIYUAN:'西院', DONGYUAN:'东院' };
   const params = new URLSearchParams(location.search);
   const saved = localStorage.getItem('itsdUser');
   const user = saved ? JSON.parse(saved) : {};
@@ -65,28 +73,40 @@
     try {
       const res = await fetch('/api/departments', { headers: { 'X-Token': token } });
       const json = await res.json();
-      if (json.code !== 0) { msg.textContent = json.message; return; }
-      const sel = document.getElementById('department');
-      (json.data || []).forEach(d => {
-        const opt = document.createElement('option');
-        opt.value = d.id;
-        opt.textContent = d.name + '（' + (CAMPUS_LABEL[d.campus] || d.campus) + '）';
-        sel.appendChild(opt);
-      });
+      if (json.code !== 0) { msg.textContent = json.message; return []; }
+      return json.data || [];
     } catch (e) {
       msg.textContent = '加载科室失败：' + e.message;
+      return [];
     }
   }
 
+  // 三级联动（院区 → 楼栋 → 科室）：与科室端 report.html 共用组件
+  const cascade = DeptCascade.create({
+    campusEl: document.getElementById('campusSelect'),
+    buildingEl: document.getElementById('buildingSelect'),
+    wrapEl: document.getElementById('deptPicker'),
+    valueEl: document.getElementById('deptPickerValue'),
+    panelEl: document.getElementById('deptPickerPanel'),
+    onSelect: (dept) => {
+      msg.textContent = '';
+      // 科室负责人：有默认值则自动带出并只读，无默认值时可手填
+      const headInput = document.getElementById('departmentHead');
+      headInput.value = dept ? (dept.departmentHead || '') : '';
+      headInput.readOnly = !!(dept && dept.departmentHead);
+    },
+    onChange: () => { msg.textContent = ''; }
+  });
+
   submitBtn.addEventListener('click', async () => {
-    const departmentId = document.getElementById('department').value;
+    const dept = cascade.selected();
     const reporterName = document.getElementById('reporterName').value.trim();
     const deviceName = document.getElementById('deviceName').value.trim();
     const devicePhoto = document.getElementById('devicePhoto').value.trim();
     const problemDesc = document.getElementById('problemDesc').value.trim();
     const departmentHead = document.getElementById('departmentHead').value.trim();
-    if (!departmentId || !reporterName || !deviceName) {
-      msg.textContent = '请填写科室、报修人姓名和设备名称';
+    if (!dept || !reporterName || !deviceName) {
+      msg.textContent = '请选择科室，并填写报修人姓名和设备名称';
       return;
     }
     msg.textContent = '';
@@ -95,7 +115,7 @@
       const res = await fetch('/api/reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Token': token },
-        body: JSON.stringify({ departmentId: Number(departmentId), reporterName, deviceName, devicePhoto, problemDesc, departmentHead })
+        body: JSON.stringify({ departmentId: dept.id, reporterName, deviceName, devicePhoto, problemDesc, departmentHead })
       });
       const json = await res.json();
       if (json.code !== 0) { msg.textContent = json.message; submitBtn.disabled = false; return; }
@@ -108,7 +128,9 @@
     }
   });
 
-  loadDepartments();
+  (async function init() {
+    cascade.setDepartments(await loadDepartments());
+  })();
 </script>
 </body>
 </html>

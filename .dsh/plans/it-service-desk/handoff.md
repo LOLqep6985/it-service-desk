@@ -6,7 +6,7 @@
 ## 当前状态
 
 - 计划：it-service-desk
-- 阶段：Day 1-6 全部完成；PWA + 「院区→科室」两级下拉已完成；**三级联动（院区→楼栋→科室）+ 楼层标签已完成，待用户启动验证**；Day 7 未开始
+- 阶段：Day 1-6 全部完成；PWA 已完成；**三级联动已组件化并在 report/create 两页共用 + 管理后台基础数据已分类，待用户启动验证**；Day 7 未开始
 - 里程碑：M0-M4 ✅；M5 签字+报销闭环 ✅，待「部署+简历」收尾
 - 状态：进行中（等用户验证反馈）
 - 阻塞：无
@@ -24,6 +24,7 @@
 - PWA 化（manifest + service-worker + 图标，4 页接入）→ `progress.md`「体验优化——PWA 化」
 - 科室端「院区→科室」两级下拉 + department 表 68 个真实科室 → `progress.md`「需求变更——去掉设备码」；提交 `1b9cafa`
 - **科室端三级联动（院区→楼栋→科室）+ `department.floor` 楼层标签**（含旧库迁移脚本）→ `findings.md#D-004`、`progress.md#S-003`
+- **三级联动抽为共用组件**（`js/department-cascade.js` + `css/dept-cascade.css`，report/create/admin 三页共用）、create.html 接入、管理后台「基础数据」按院区→楼栋→楼层分类 → `findings.md#D-005`、`progress.md#S-004`
 - 采用 project-memory v3 规范 + 新版 skill 复制到工作区 → `progress.md#S-001`
 
 ## 未完成与阻塞点
@@ -40,13 +41,13 @@
 
 ## 下一步
 
-- 用户启动验证三级联动（`/report.html` 绑定页：院区→楼栋→科室，第三级楼层标签）并反馈
-- 之后只做一个动作：**Day 7 部署配置**（Dockerfile + docker-compose + Nginx），完成后补 README 与简历描述 → 详见 `task_plan.md` 的 `## Next Step`
+- 用户启动验证：①科室端 `report.html` 与报修人 `create.html` 的三级联动 ②管理员后台「基础数据」分类效果；验证后反馈
+- 之后只做一个动作：**Day 7 部署配置**（Dockerfile + docker-compose + Nginx）+ README 更新（含去掉陈旧的「设备码 DEV001」文案）+ 简历描述 → 详见 `task_plan.md` 的 `## Next Step`
 
 ## 回读顺序（细节不够时按此顺序）
 
-1. `findings.md` 的 D-001 / D-002 / D-003 / D-004 条目
-2. `progress.md` 最近一节（S-003）
+1. `findings.md` 的 D-001 ~ D-005 条目
+2. `progress.md` 最近一节（S-004）
 3. `git log --oneline -10`、`git status --short`
 
 ## 建议技能
