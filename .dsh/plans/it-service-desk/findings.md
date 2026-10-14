@@ -239,3 +239,29 @@
   - MySQL 不支持 ALTER ADD COLUMN IF NOT EXISTS，但支持 ADD UNIQUE KEY；已手动对现有库执行 `ALTER TABLE department ADD UNIQUE KEY uk_dept_name (name)`，并清理旧演示科室数据
   - 旧演示数据（work_order/report）仍引用已删除的旧科室 id，但表内已有科室名快照，展示不受影响；新科室 id 从 6 开始（AUTO_INCREMENT 未重置）
   - `/api/reimbursements/by-department` 新增为语义化端点，`/by-device` 保留兼容
+
+---
+
+> 以下条目按 project-memory **v3.0.0** 规范记录（事实层只追加，历史条目保持原样）。
+
+## 决策记录（v3 编号）
+
+### D-001 | 2026-10-14：采用 project-memory v3 规范管理项目记忆
+
+- 状态：accepted
+- 来源：用户明确要求
+- 背景：用户用 DeepSeek V4.1 flash 修改了 project-memory skill 为 v3.0.0；旧版 v2.0.0 已备份到 `D:\DeepSeek_data\gradaute_space\skills\_backup_project-memory_v2`（并已压缩存档 `.zip`）
+- 决策：将新版 skill 复制到 `D:\DeepSeek_data\gradaute_space\skills\project-memory`；此后项目记忆按 v3 规范维护——`findings.md` / `progress.md` 只追加，`handoff.md` 为指针式交接单
+- 理由：抗静默压缩的信息衰减；关键约束与用户原话必须逐字保留在磁盘
+- 后果：findings/progress 的历史条目保持原样，新条目带 ID（D-/S-/P-）；handoff 重写为指针式
+- 用户原话：> "你现在将新的skill复制到D:\DeepSeek_data\gradaute_space\skills目录下，并使用新的skill来保存工作进度。"
+
+### D-002 | 2026-10-14：科室端去掉设备码，改为「院区→科室」两级下拉（补录用户原话）
+
+- 状态：accepted（用户明确要求）
+- 来源：用户明确要求
+- 背景：科室工作机由医院信息科统一下发，逐个绑定设备码不现实；改为按科室绑定
+- 决策：科室端绑定从「设备码输入」改为「先选院区 → 再选科室」两级下拉；科室数据源为用户提供的《医院科室楼层索引.md》68 个科室；绑定结果存 localStorage 并刷新显示「当前科室：XXX」
+- 理由：一部工作机对应一个科室，按科室绑定更符合实际使用
+- 后果：后端科室端接口全面支持 departmentId（保留 deviceCode 兼容）；department 表导入 68 个真实科室（详见上文 2026-10-13「需求变更——去掉设备码」条目）
+- 用户原话：> "去掉设备码，改为直接下拉选择科室。" + "两个下拉列表，先选择院区，在选择科室" + "点击'绑定'后，把选中的科室名称存入浏览器的 localStorage，并刷新页面，页面上显示'当前科室：XXX'。"

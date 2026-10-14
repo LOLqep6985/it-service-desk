@@ -219,3 +219,36 @@
   - 测试数据已清理（保留历史演示数据）
 - 说明：旧演示数据引用已删除的旧科室 id，但表内有科室名快照，展示不受影响
 - 待办：用户在 VSCode 手动 commit + push（本次所有改动尚未提交）
+
+### 2026-10-13：今日收尾（已提交 + 保存进度）
+
+- 用户已在 VSCode 提交并推送：
+  - `9b09824 保存项目进度`（PWA 化 + 绑定引导 + 项目记忆文档）
+  - `1b9cafa feat: 科室端去掉设备码，改为「院区→科室」两级下拉绑定 + 导入真实楼层索引68科室`
+- 工作区干净；MySQL 中 department=68（真实楼层索引），旧演示科室已清理
+- 明日待办：Day 7 部署配置（Docker/Nginx）+ README 完善 + 简历项目描述 + 最终演示（详见 task_plan.md Next Step）
+
+---
+
+> 以下条目按 project-memory **v3.0.0** 规范记录（事实层只追加）。
+
+## 会话记录（v3 编号）
+
+### S-001 | 2026-10-14：采用 project-memory v3 规范 + 复制新版 skill 到工作区
+
+- 完成：
+  - 将新版 project-memory skill（v3.0.0，位于 `.dsh/skills/project-memory`）复制到 `D:\DeepSeek_data\gradaute_space\skills\project-memory`
+  - 确认旧版 v2.0.0 已备份在 `skills/_backup_project-memory_v2`（含 `.zip` 存档）
+  - 按 v3 规范追加记忆：findings.md 新增 D-001/D-002；progress.md 新增本会话 S-001；handoff.md 重写为指针式
+- 结果/输出：项目记忆规范升级为 v3（事实层只追加 + 指针式交接）
+- 错误：无
+- 里程碑进展：无新功能开发；M5 仍待 Day 7 收尾
+- 下一步：Day 7 部署配置（Docker/Nginx）+ README 完善 + 简历项目描述（见 task_plan.md Next Step）
+
+## Git 提交记录（v3 追加）
+
+| 日期 | 提交 | 内容 |
+|---|---|---|
+| 2026-10-13 | 9b09824 | 保存项目进度（PWA 化 + 绑定引导 + 项目记忆） |
+| 2026-10-13 | 1b9cafa | feat: 科室端去掉设备码，改为「院区→科室」两级下拉绑定 + 导入真实楼层索引68科室 |
+| 2026-10-14 | （待用户提交） | docs: 采用 project-memory v3 规范 + 复制新版 skill 到工作区 |
