@@ -394,3 +394,18 @@
 - 视图规模：dashboard 201 / work-orders 205 / reimbursements 197 / system 158 / reports-pending 140 / departments 108 / users 87 / reports-history 82 行
 - 缓存：批次 3 修改了 7 个视图 JS → `CACHE itsd-v3 → itsd-v4`（APP_SHELL 无新增文件）
 - 遗留：批次 4 做全量回归 + 记忆落盘；`findings.md#D-003` 的 5 条已知限制仍未修（已在系统信息页披露，是否修由用户决定）
+
+### D-009 | 2026-10-14：修复 D-003 的 5 条已知限制（用户决定「修」）
+
+- 状态：accepted（用户明确要求）
+- 来源：用户明确要求
+- 用户原话（逐字）：> "已知限制是否修：修。之后做批次 4：全量回归 + 收尾（含你上面定的"已知限制是否修"）。"
+- 逐项修复方案：
+  1. **报销单签字留痕**：`reimbursement` 新增 `signature_url`；`ReimbursementService.sign()` 落库；管理员报销详情抽屉新增「签字留痕」分区、科室端报销明细展示签名图
+  2. **维修端状态映射**：`today.html` / `detail.html` 的 `WORK_ORDER_STATUS` 补齐 `PENDING_ACCEPT:'待验收'`（不再出现英文枚举名）
+  3. **防重口径**：`ReportService.findDuplicate()` 由「科室+设备名」改为 **「科室+设备名+报修人+问题描述」在 3 分钟内完全一致** 才算重复（窗口常量 `DUPLICATE_MINUTES=3`，文案说明可改设备/描述继续提交）；写库时把空的 problemDesc 归一为 `""` 以便比对；科室端倒计时由 10 分钟缩短为 **1 分钟**（仅防手抖），并给出「如需报修其他设备请等倒计时结束」提示
+  4. **工单详情越权**：`WorkOrderController.detail()` 新增 `canView()` 按角色校验——管理员/调度员看全部、维修工仅 `assigneeId` 本人、报修人仅自己创建的工单或自己报修单派单生成的工单（需 `ReportMapper` 关联查询）
+  5. **密码 BCrypt**：引入 `spring-security-crypto`（Boot 父 POM 管理 5.7.11，**仅用 BCryptPasswordEncoder，不引入完整 Security 过滤链**）；`AuthController` 用 `matches()` 校验，**历史明文命中后自动升级为哈希**；`data.sql` 种子密码改为哈希（$2a$10$…）
+- 迁移：新增 `sql/2026-10-14-signature-and-bcrypt.sql`（幂等：缺列才 ALTER、密码仍是明文才 UPDATE），并已在当前数据库执行
+- 系统信息页同步维护：原「已知限制」5 条转为「近期修复（2026-10-14）」，并重新列出**仍存在**的 6 条限制（浏览器端分页、科室端弱凭证、无后端单测、PWA 需 HTTPS、无待办提醒、无导出）
+- 验证：见 `progress.md#S-008`（24 项接口端到端 + 前端断言全通过）

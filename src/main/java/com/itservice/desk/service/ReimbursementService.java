@@ -164,6 +164,7 @@ public class ReimbursementService {
         r.setStatus(ReimbursementStatus.PENDING_REIMBURSE);
         r.setSignedBy(signerName);
         r.setSignedAt(LocalDateTime.now());
+        r.setSignatureUrl(signatureUrl);      // 手写签名留痕（与工单验收签字一致）
         reimbursementMapper.updateById(r);
         return r;
     }
