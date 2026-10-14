@@ -363,3 +363,19 @@
   - **明确不动**：report/create/today/detail/login.html、`department-cascade.js|css`、现有 Controller/Service/Mapper、数据库结构
 - 批次计划：①后端统计接口 ②前端基座+admin.html 壳+空视图 ③8 个视图迁移 ④SW 升版+全量回归+记忆落盘（每批结束汇报，等用户验证）
 - 遗留待办（本方案外）：「token 解析在 6 个 controller 中重复」建议后续抽公共组件（本轮不做，避免混淆重构范围）
+
+### D-007 | 2026-10-14：后台前端架构决策（无构建模块化 / 占位策略 / jsdom 测试）
+
+- 状态：accepted
+- 来源：模型推断（落实 D-006 时的实现决策），总体方案已获用户确认
+- 决策与理由：
+  1. **无构建的模块化**：用 `window.Admin` 命名空间 + 脚本按序加载（`api → store → ui → router → layout → views/* → app`），**不引入 webpack/vite/框架**。理由：项目是 Spring Boot 静态资源直出，保持「无构建步骤、改完刷新即生效」，与既有技术选型（原生 H5、不引 CDN）一致
+  2. **文件职责单一**：`api.js` 统一 fetch（X-Token/超时/错误归一化）、`store.js` 状态与缓存（科室/用户缓存 + 订阅）、`ui.js` 原子组件、`router.js` 路由、`layout.js` 菜单树与骨架、`views/*.js` 一视图一文件、`app.js` 引导。**新增视图 = 新建 `views/x.js` + `admin.html` 加一行**，无需改动其它文件
+  3. **XSS 防护改进**：`ui.h()` 用 `textContent` 渲染文本；只有列渲染显式返回字符串时才按可信 HTML 处理（内部拼接用）
+  4. **批次 2 占位策略**：未迁移的 7 个菜单用 `ui.placeholderRoute()` 占位，避免点击出现空白/报错；批次 3 逐个替换为真实视图
+  5. **零第三方依赖**：图标为内联 SVG、图表为纯 CSS（`.trend` / `.dist`），医院内网与离线可用
+  6. **权限语义优化**：401 → 清登录态并跳登录页；**403 → 只提示不登出**（旧版对 401/403 一律登出，属于过度反应）
+  7. **Service Worker 提前升版**：批次 2 就 `itsd-v2 → itsd-v3` 并把 admin 全部静态资源纳入 `APP_SHELL`（新增 15 个文件且 SW 是 cache-first，不升版会一直吃旧文件）→ 批次 3/4 改动静态资源时需**再次升版**
+  8. **测试方式升级**：`jsdom` 安装到 `.rdoc_inspect`（已 gitignore），`test-admin-app.js` 用真实 DOM + **真实后端接口**做集成测试（比手写 DOM 桩更接近浏览器）
+- 规模对照：`admin.html` 479 行 → **45 行薄壳**；逻辑拆分到 6 个基座模块（api 70 / store 88 / ui 367 / router 100 / layout 225 / app 49 行）+ 8 个视图（dashboard 201 行，其余 7 个为 12 行占位）
+- 目录约定：`static/js/admin/**`、`static/css/admin-layout.css`

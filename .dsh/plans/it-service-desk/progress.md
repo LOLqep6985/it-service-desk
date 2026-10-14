@@ -348,3 +348,32 @@
 | 日期 | 提交 | 内容 |
 |---|---|---|
 | 2026-10-14 | （待用户提交） | feat(stats): 新增后台概览聚合接口 /api/stats/dashboard（指标+近7日趋势+本月报销） |
+
+### S-006 | 2026-10-14：后台重构 批次 2 —— 前端基座 + admin.html 薄壳 + 工作台视图
+
+- 需求来源：`findings.md#D-006`（方案）、`#D-007`（前端架构决策）
+- 完成：
+  - 新增 `css/admin-layout.css`：设计变量（深色侧栏/科技蓝/浅灰底）、布局（侧栏/顶栏/内容）、指标卡、表格、徽标/按钮/表单、抽屉、弹窗、Toast、空态、分页、骨架屏、纯 CSS 趋势柱状与占比条、四档响应式
+  - 新增 `js/admin/`：`api.js`（fetch 封装/401 登出、403 只提示）、`store.js`（用户/角标/科室与用户缓存/订阅）、`ui.js`（`h()` DOM 构造、metricCard、dataTable、drawer、modal、confirm、toast、trendBars、distBars、pagination、searchBox、filterBy、paginate、STATUS 字典、placeholderRoute）、`router.js`（hash 路由 + onLeave/destroy 生命周期 + 未知路由回工作台）、`layout.js`（菜单树集中定义、内联 SVG 图标、角标、折叠记忆 localStorage、<768px 抽屉+遮罩）、`app.js`（引导 + `refreshBadges()`）
+  - **工作台视图 `views/dashboard.js` 为真实实现**：快捷操作条 + 4 张指标卡（今日新增带环比/待受理/进行中/待验收）+ 待办聚焦（待受理 Top5、待验收 Top5，含维修工姓名映射）+ 本月报销概览（金额 + 三状态占比条）+ 近 7 日报修量柱状图
+  - 其余 7 个菜单：`placeholderRoute` 占位（批次 3 替换）
+  - `admin.html`：**479 行 → 45 行薄壳**（布局骨架 + 15 个模块引入）
+  - `service-worker.js`：`CACHE itsd-v2 → itsd-v3`，`APP_SHELL` 纳入 admin 全部静态资源（32 条预缓存）
+- 验证（证据）：
+  - **新增 `jsdom` 集成测试**：`node .rdoc_inspect/test-admin-app.js`（真实 DOM + 真实后端接口）→ **ALL CHECKS PASSED（33 项）**：壳启动、一级菜单 4 组/二级 8 项及名称路由齐全、顶栏用户角色、角标（待受理 10 / 进行中+待验收 4 / 待签字 0 隐藏）、4 张指标卡数值与接口一致（0/10/3/1）、环比文案「↓21 较昨日」、7 根柱值与 trend 一致且今日柱标记、快捷操作 4 按钮、4 块概览卡、待办表 ≤5 行、桌面折叠与 localStorage 记忆、小屏抽屉开关、菜单点击改变 hash + 高亮 + 面包屑、**8 个路由全部渲染无错误态**、未知路由回退、无未捕获脚本错误
+  - 回归：`test-frontend.js`（三级联动 + 报修端）仍 **ALL CHECKS PASSED**
+  - HTTP：admin.html / admin-layout.css / js/admin/* 全部 200 且 MIME 正确；admin.html 已无内联业务脚本
+  - 构建：BUILD SUCCESS
+- 错误：
+  - 编辑 `ui.js` 导出表时误删 `fmtTime/money/fmtDate` 一行 | 尝试：重新读取文件确认 | 解决：补齐该行并新增 `placeholderRoute`，复核导出表完整
+  - Maven 打包失败：`repackage` 无法重命名 jar（应用正在运行占用文件）| 解决：先 `Stop-Process` 停应用再 `mvn package`；教训——**构建前先停应用**
+  - jsdom 首次安装被拒（npm 缓存目录在沙箱外 `E:\CDriveGovernance\Caches\npm`）| 解决：`npm_config_cache` 指向工作区内 `.rdoc_inspect/.npm-cache`
+  - 测试断言把两张待办表的行数合并统计（应分别校验）| 解决：改为按表分别断言（5 行 / 1 行）
+- 里程碑进展：M5 前体验优化（后台重构批次 2/4）
+- 下一步：等用户验证批次 2 的界面观感 → 批次 3 迁移 7 个视图（并再次升 SW 版本）
+
+## Git 提交记录（S-006 追加）
+
+| 日期 | 提交 | 内容 |
+|---|---|---|
+| 2026-10-14 | （待用户提交） | refactor(admin): 后台改「深色侧边栏+顶部导航+工作台仪表盘」布局（薄壳 + 基座模块 + 工作台视图） |
