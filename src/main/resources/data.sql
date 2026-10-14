@@ -82,3 +82,27 @@ INSERT IGNORE INTO department (name, campus, building) VALUES
 ('住院部-一层-心脑血管（一）', 'XIYUAN', '住院部'),
 ('住院部-二层-心脑血管（二）', 'XIYUAN', '住院部'),
 ('住院部-三层-心脑血管（三）', 'XIYUAN', '住院部');
+
+-- ---------------------------------------------------------------------------
+-- 幂等回填 department.floor（楼层号，如 3F）
+-- 来源：科室 name 的中段为中文楼层（一层..十二层），在此显式落为规范楼层号，
+--       供科室端「院区 → 楼栋 → 科室」三级联动在第三级展示楼层标签。
+-- 说明：只回填空值，不覆盖已有数据；全新库与旧库（已执行 sql/2026-10-14-department-floor.sql）都适用。
+-- ---------------------------------------------------------------------------
+UPDATE department
+SET floor = CONCAT(CASE SUBSTRING_INDEX(SUBSTRING_INDEX(name, '-', 2), '-', -1)
+                        WHEN '一层' THEN '1'
+                        WHEN '二层' THEN '2'
+                        WHEN '三层' THEN '3'
+                        WHEN '四层' THEN '4'
+                        WHEN '五层' THEN '5'
+                        WHEN '六层' THEN '6'
+                        WHEN '七层' THEN '7'
+                        WHEN '八层' THEN '8'
+                        WHEN '九层' THEN '9'
+                        WHEN '十层' THEN '10'
+                        WHEN '十一层' THEN '11'
+                        WHEN '十二层' THEN '12'
+                        ELSE NULL END, 'F')
+WHERE (floor IS NULL OR floor = '')
+  AND name LIKE '%-%-%';

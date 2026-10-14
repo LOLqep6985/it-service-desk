@@ -252,3 +252,51 @@
 | 2026-10-13 | 9b09824 | 保存项目进度（PWA 化 + 绑定引导 + 项目记忆） |
 | 2026-10-13 | 1b9cafa | feat: 科室端去掉设备码，改为「院区→科室」两级下拉绑定 + 导入真实楼层索引68科室 |
 | 2026-10-14 | （待用户提交） | docs: 采用 project-memory v3 规范 + 复制新版 skill 到工作区 |
+
+### S-002 | 2026-10-14：新会话恢复状态（Day 7 启动前全量通读）
+
+- 完成：
+  - 按 project-memory v3 第一步恢复：读 `AGENTS.md` → `.active_plan`(=it-service-desk) → `handoff.md` → `task_plan.md` → `findings.md` → `progress.md`
+  - 全量通读代码：pom/schema.sql/data.sql/application.yml；6 个 controller + 3 个 service + 8 个 mapper + 13 个 model + 12 个 DTO；7 个 H5 页面（admin/report/today/detail/create/login/index）+ service-worker + 2 个 manifest
+  - 核查环境与版本库：`git log/status/diff`、远程与本地分支、MySQL80 服务、8080 端口、JDK 与 jar 产物
+- 结果/输出：
+  - 确认当前处于 **Day 1-6 全部完成、Day 7 未启动**；M0-M4 完成、M5 待「部署+简历」收尾
+  - 修正 `handoff.md` 的陈旧条目（原文写「项目记忆 4 文档待提交」，实际已在 a74be2b 提交）→ 改为指向 `findings.md#D-003`
+  - 新增 `findings.md#D-003`：记录远程仓库已改为 GitHub、环境可用性、无测试/无 Docker 现状，以及 5 项已知代码缺口
+- 错误：
+  - 追加 D-003 时误用 `edit` 把 `### D-002` 标题替换掉，导致 D-002 正文短暂失去标题 | 尝试：定位并核对被改区域 | 解决：先原样恢复 D-002 标题与正文，再把 D-003 追加到文件末尾；已复核 D-001/D-002/D-003 顺序与内容完整
+- 里程碑进展：无新功能开发；M5 仍待 Day 7 收尾
+- 下一步：Day 7 部署配置（Docker/Nginx）+ README 完善 + 简历项目描述（见 `task_plan.md` 的 `## Next Step`）
+
+## Git 提交记录（S-002 追加）
+
+| 日期 | 提交 | 内容 |
+|---|---|---|
+| 2026-10-14 | （待用户提交） | docs: 恢复 Day 7 前状态 + 现状核查（findings D-003 / handoff 修正 / progress S-002） |
+
+### S-003 | 2026-10-14：科室端绑定改三级联动（院区→楼栋→科室）+ 楼层标签
+
+- 需求来源：用户在启动验证前提出（详见 `findings.md#D-004` 的用户原话逐字）
+- 完成：
+  - 数据层：`department` 新增 `floor`；新增幂等迁移脚本 `sql/2026-10-14-department-floor.sql`；`schema.sql` 加列；`data.sql` 追加幂等回填（中文楼层→1F..12F）
+  - 后端：`Department` 加 `floor`；`DepartmentController.list()` 固定按 campus→building→id 排序
+  - 前端 `report.html`：绑定卡改为「院区(select) → 楼栋(select) → 科室(自定义下拉面板)」；第一级变化清空二三级并加载楼栋；第二级变化清空三级并加载科室；第三级每行=蓝色 `.floor-chip` 楼层标签 + 深色科室名；已绑定后「当前科室」也带楼层标签 + 院区·楼栋
+- 验证（证据）：
+  - 迁移执行成功：`total=68, with_floor=68`；接口 `/api/departments` 返回 floor、无缺失、排序稳定
+  - `node .rdoc_inspect/test-3level.js`（Node + 最小 DOM 桩，跑真实接口数据）→ **ALL CHECKS PASSED**：楼栋 2 项、门诊楼 20 科室 20 标签、3F 标签存在、科室名已去前缀、改院区后二三级清空、6 楼栋合计 68 科室 0 缺标签
+  - 幂等回填：`UPDATE department SET floor=NULL WHERE id=13` → 重启应用 → 接口返回 `floor=3F`（全新库同样自动回填）
+  - `/report.html` HTTP 200，含 `buildingSelect` / `deptPickerPanel` / `.floor-chip`
+  - 构建：`mvn -o '-Dmaven.repo.local=.m2repo' package '-DskipTests'` → BUILD SUCCESS
+- 错误：
+  - Maven 参数被 PowerShell 拆解（`-Dmaven.repo.local=.m2repo` 报 Unknown lifecycle phase）| 尝试：直接拼接 | 解决：给 `-D` 参数加单引号
+  - 三级联动测试首轮 B/E 段失败 | 尝试：怀疑页面逻辑 | 解决：定位为测试桩同步执行、`change` 监听注册在 `init()` 的 `await` 之后；桩内加 `await setTimeout 50ms` 后全通过（非产品缺陷）
+  - 测试桩缺 `canvas.getContext` 导致脚本顶层报错 | 解决：桩内补 `getContext()` 空实现
+- 备注：临时验证实例跑在 **8090**（避开用户 8080），验证后已 `Stop-Process` 清理 java 进程；`.rdoc_inspect/test-3level.js` 保留作回归脚本（该目录已 gitignore）
+- 里程碑进展：属于 M5 前的体验优化；M5 仍待 Day 7 部署/简历收尾
+- 下一步：用户启动验证三级联动效果并反馈；随后进入 Day 7（部署 + README + 简历）
+
+## Git 提交记录（S-003 追加）
+
+| 日期 | 提交 | 内容 |
+|---|---|---|
+| 2026-10-14 | （待用户提交） | feat(dept): 科室端绑定改三级联动（院区→楼栋→科室）+ department.floor 楼层标签 |

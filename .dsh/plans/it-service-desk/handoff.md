@@ -6,9 +6,9 @@
 ## 当前状态
 
 - 计划：it-service-desk
-- 阶段：Day 1-6 全部完成；PWA + 「院区→科室」两级下拉已完成；待 Day 7
+- 阶段：Day 1-6 全部完成；PWA + 「院区→科室」两级下拉已完成；**三级联动（院区→楼栋→科室）+ 楼层标签已完成，待用户启动验证**；Day 7 未开始
 - 里程碑：M0-M4 ✅；M5 签字+报销闭环 ✅，待「部署+简历」收尾
-- 状态：进行中（今日收尾）
+- 状态：进行中（等用户验证反馈）
 - 阻塞：无
 
 ## 不能碰的约束（必读）
@@ -23,11 +23,13 @@
 - 三端全流程闭环（报修→派单→维修→签字→核价→月度报销→财务回填）→ `progress.md` 各 Day 会话节
 - PWA 化（manifest + service-worker + 图标，4 页接入）→ `progress.md`「体验优化——PWA 化」
 - 科室端「院区→科室」两级下拉 + department 表 68 个真实科室 → `progress.md`「需求变更——去掉设备码」；提交 `1b9cafa`
+- **科室端三级联动（院区→楼栋→科室）+ `department.floor` 楼层标签**（含旧库迁移脚本）→ `findings.md#D-004`、`progress.md#S-003`
 - 采用 project-memory v3 规范 + 新版 skill 复制到工作区 → `progress.md#S-001`
 
 ## 未完成与阻塞点
 
 - Day 7：部署配置（Docker/Nginx）+ README 完善 + 简历项目描述 + 最终演示 → `task_plan.md#Next-Step`
+- 已知代码缺口（可选修复，非阻塞）→ `findings.md#D-003`
 - 可选体验优化：科室端列表分页、报销单 PDF 导出、基础数据管理（科室/用户增删改）
 
 ## 关键约束与决策
@@ -38,12 +40,13 @@
 
 ## 下一步
 
-- 只做一个动作：**Day 7 部署配置**（Dockerfile + docker-compose + Nginx），完成后补 README 与简历描述 → 详见 `task_plan.md` 的 `## Next Step`
+- 用户启动验证三级联动（`/report.html` 绑定页：院区→楼栋→科室，第三级楼层标签）并反馈
+- 之后只做一个动作：**Day 7 部署配置**（Dockerfile + docker-compose + Nginx），完成后补 README 与简历描述 → 详见 `task_plan.md` 的 `## Next Step`
 
 ## 回读顺序（细节不够时按此顺序）
 
-1. `findings.md` 的 D-001 / D-002 条目
-2. `progress.md` 最近一节（S-001）
+1. `findings.md` 的 D-001 / D-002 / D-003 / D-004 条目
+2. `progress.md` 最近一节（S-003）
 3. `git log --oneline -10`、`git status --short`
 
 ## 建议技能

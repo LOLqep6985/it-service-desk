@@ -265,3 +265,48 @@
 - 理由：一部工作机对应一个科室，按科室绑定更符合实际使用
 - 后果：后端科室端接口全面支持 departmentId（保留 deviceCode 兼容）；department 表导入 68 个真实科室（详见上文 2026-10-13「需求变更——去掉设备码」条目）
 - 用户原话：> "去掉设备码，改为直接下拉选择科室。" + "两个下拉列表，先选择院区，在选择科室" + "点击'绑定'后，把选中的科室名称存入浏览器的 localStorage，并刷新页面，页面上显示'当前科室：XXX'。"
+
+### D-003 | 2026-10-14：项目现状核查（Day 7 启动前）
+
+- 状态：accepted
+- 来源：模型推断（全量读取代码 + git/服务状态核查，非用户指示）
+- 事实（已核实）：
+  - 远程仓库已从 Gitee 变为 **GitHub**：`it-service-desk` → `https://github.com/LOLqep6985/it-service-desk.git`；本地 `master` 与远程 `master` 同步（ahead/behind = 0/0）
+  - 项目记忆 4 个文档已在 `a74be2b` 提交；工作区仅剩 `handoff.md` 的一处陈旧条目（本次已修正）
+  - 环境可用：MySQL80 服务 Running；8080 端口空闲；`java -version` = 17.0.12；`D:\DevTools\Java\jdk17` 存在
+  - 当前仓库**无任何测试代码**（有 spring-boot-starter-test 依赖，`src/test` 不存在）；**无 Dockerfile / docker-compose / Nginx 配置**
+- 已知代码缺口（待用户决定是否纳入 Day 7 或后续）：
+  1. 报销单签字**签名图片未落库**：`report.html` 上传签名后调用 `/api/reimbursements/{id}/sign` 传了 `signatureUrl`，但 `ReimbursementService.sign` 忽略该参数，`reimbursement` 表也无 `signature_url` 列 → 报销单签字无留痕（工单签字正常）
+  2. `today.html` / `detail.html` 的 `WORK_ORDER_STATUS` 映射缺 `PENDING_ACCEPT`，维修工看已完成流程的工单会显示英文原名（`admin.html` / `report.html` 已含）
+  3. 「10 分钟防重复提交」按 `department_id + device_name` 判定，而科室端设备名已改为**下拉宽泛类型**（打印机/电脑…）→ 同科室 10 分钟内报修两台不同打印机（都选「打印机」）会被误判重复
+  4. `WorkOrderController.detail` 对已登录用户未校验归属（任意登录角色可看任意工单详情）
+  5. 密码明文存储（演示可接受，简历项目建议说明或改哈希）
+- 影响：Day 7 若只做「部署+README+简历」，上述 1-3 建议至少修掉（都是演示时会被看到的点）；4-5 可写入 README 的「已知限制/后续优化」
+
+### D-004 | 2026-10-14：科室端绑定改为三级联动（院区→楼栋→科室）+ department.floor 显式建模
+
+- 状态：accepted（用户明确要求）
+- 来源：用户明确要求
+- 用户原话（逐字）：
+  > "现在只有两级下拉列表，需要改成三级"
+  > "当第一级（院区）改变时，清空第二、三级，并动态加载该院区下的楼栋；"
+  > "当第二级（楼栋）改变时，清空第三级，并动态加载该楼栋下的科室；"
+  > "第三级下拉框因为科室较多；楼层号（如 1F）和科室名称请用不同颜色或标签做视觉区分"
+- 数据事实：department 表 68 个科室，院区下恰好各 2 个楼栋（东区=门诊楼 20 + 病房楼 19；老院=住院部1号楼 11 + 急救中心 12；西院=门诊 3 + 住院部 3），楼栋字段原本已存在，缺的是**楼层**
+- 决策：
+  1. `department` 新增 `floor VARCHAR(20)`（值如 `1F`…`12F`，与用户《医院科室楼层索引.md》一致），把楼层作为**显式字段**建模，不在前端猜字符串
+  2. **`name` 不改**：它承担全局唯一键（uk_dept_name，`药房` 等重名靠「楼栋-楼层-」前缀区分），且 `report.department_name` / `work_order.department_name` 存的是名字快照——改 name 会让历史记录与新记录显示不一致
+  3. 第三级用**自定义下拉面板**而非原生 `<select>`：原生 `<option>` 在移动端无法可靠着色，无法满足「楼层号与科室名不同颜色/标签」；面板中每行 = 蓝色楼层标签（`.floor-chip`）+ 深色科室名
+  4. `/api/departments` 固定按 `campus → building → id` 升序返回，保证三级分组顺序稳定
+- 落地文件：
+  - `sql/2026-10-14-department-floor.sql`（新建，幂等 ALTER + 回填，供旧库升级）
+  - `src/main/resources/schema.sql`（department 加 floor 列）
+  - `src/main/resources/data.sql`（追加幂等回填 UPDATE，全新库自动补 floor）
+  - `Department.java`（加 floor 字段）、`DepartmentController.java`（稳定排序）
+  - `report.html`（三级联动 + `.floor-chip` 样式 + 联动清空逻辑）
+- 验证证据（本次实测）：
+  - 迁移：68/68 行回填成功；接口返回 `floor` 无缺失；排序稳定
+  - 三级联动：Node + 最小 DOM 桩跑真实接口数据，A–F 全段 PASS（院区→楼栋 2 项、门诊楼 20 科室 20 标签、改院区后二三级清空复位、6 楼栋合计 68 科室 0 缺失）
+  - 幂等回填：手工把 id=13 的 floor 置 NULL → 重启应用 → 自动恢复 `3F`
+  - 页面 `/report.html` HTTP 200 且含三级结构与样式
+- 附带发现（未改，待确认）：README 仍在写「设备码 DEV001」（`本地绑定` 已在上一轮改为按科室），属上一轮遗留的文档陈旧，Day 7 写 README 时一并更新

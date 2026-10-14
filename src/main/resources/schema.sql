@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS department (
     name     VARCHAR(100) NOT NULL,
     campus   VARCHAR(20)  NOT NULL,
     building VARCHAR(100),
+    floor    VARCHAR(20),
     department_head VARCHAR(50),
     UNIQUE KEY uk_dept_name (name)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
