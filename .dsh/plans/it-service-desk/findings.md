@@ -379,3 +379,18 @@
   8. **测试方式升级**：`jsdom` 安装到 `.rdoc_inspect`（已 gitignore），`test-admin-app.js` 用真实 DOM + **真实后端接口**做集成测试（比手写 DOM 桩更接近浏览器）
 - 规模对照：`admin.html` 479 行 → **45 行薄壳**；逻辑拆分到 6 个基座模块（api 70 / store 88 / ui 367 / router 100 / layout 225 / app 49 行）+ 8 个视图（dashboard 201 行，其余 7 个为 12 行占位）
 - 目录约定：`static/js/admin/**`、`static/css/admin-layout.css`
+
+### D-008 | 2026-10-14：后台重构批次 3 实现要点（视图迁移 + 系统信息接口）
+
+- 状态：accepted
+- 来源：模型推断（实现决策；方案见 D-006、架构见 D-007）
+- 关键决策：
+  1. **列表视图统一用 `ui.listSection()`**：把「卡片 + 工具栏搜索 + 表格 + 分页 + 计数」封成一个可复用区块，7 个视图不再各写一遍（内部维护 keyword/page，`controls` 插槽放状态下拉等筛选项）
+  2. **测试不改动演示数据**：派单只「打开弹窗 + 校验可选项 + 取消」，不确认提交；生成报销单因同科室同月幂等而安全 —— 保证回归测试可反复跑不污染数据
+  3. **详情抽屉按区块渲染**（基本信息/报修信息/流转记录/维修记录/耗材更换记录/签字状态），耗材行内直接核价（`input[data-id]` → `POST /consumables/pricing`）后回调刷新列表
+  4. **新增 `GET /api/system/info`**（`SystemInfoController`）：返回应用/版本/端口/Java/OS/启动时间/运行时长/上传目录/数据库地址与账号/数据规模；**不读取也不返回数据库密码**；仅 ADMIN/DISPATCHER
+  5. **「已知限制」在系统信息页对使用方透明展示**（内容与 `D-003` 对齐：报销单签名未落库、维修端状态映射、防重口径、工单详情越权、密码明文）
+  6. 报销单页把「列表合计/待签字/待报销/已报销」做成 4 张统计卡，替代旧版一次性表格
+- 视图规模：dashboard 201 / work-orders 205 / reimbursements 197 / system 158 / reports-pending 140 / departments 108 / users 87 / reports-history 82 行
+- 缓存：批次 3 修改了 7 个视图 JS → `CACHE itsd-v3 → itsd-v4`（APP_SHELL 无新增文件）
+- 遗留：批次 4 做全量回归 + 记忆落盘；`findings.md#D-003` 的 5 条已知限制仍未修（已在系统信息页披露，是否修由用户决定）

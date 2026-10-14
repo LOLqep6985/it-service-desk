@@ -340,6 +340,65 @@
   }
 
   /**
+   * 列表区块（卡片 + 工具栏搜索 + 表格 + 分页），供各视图复用。
+   * opts = {
+   *   title, hint, extra,            // 卡片头
+   *   rows, columns, empty,          // 数据与列定义
+   *   searchPlaceholder, searchFields,   // 关键词过滤字段
+   *   controls,                      // 额外的筛选控件节点（如状态下拉）
+   *   pageSize
+   * }
+   * 返回 { node, redraw }
+   */
+  function listSection(opts) {
+    var state = { keyword: '', page: 1 };
+    var pageSize = opts.pageSize || 10;
+    var tableHost = h('div');
+    var pagerHost = h('div');
+    var countHint = h('span', { class: 'count-hint' });
+
+    function draw() {
+      var filtered = filterBy(opts.rows, state.keyword, opts.searchFields || []);
+      var page = paginate(filtered, state.page, pageSize);
+      state.page = page.page;
+      tableHost.innerHTML = '';
+      tableHost.appendChild(dataTable({ columns: opts.columns, rows: page.items, empty: opts.empty }));
+      pagerHost.innerHTML = '';
+      if (page.pages > 1) {
+        pagerHost.appendChild(pagination({
+          page: page.page, pages: page.pages, total: page.total,
+          onChange: function (p) { state.page = p; draw(); }
+        }));
+      }
+      countHint.textContent = opts.rows && opts.rows.length !== filtered.length
+        ? '（' + filtered.length + ' / ' + opts.rows.length + '）'
+        : '（' + (opts.rows ? opts.rows.length : 0) + '）';
+    }
+
+    var toolbar = h('div', { class: 'toolbar' },
+      opts.searchPlaceholder
+        ? searchBox({
+          placeholder: opts.searchPlaceholder,
+          onInput: function (v) { state.keyword = v; state.page = 1; draw(); }
+        })
+        : null,
+      opts.controls || null,
+      h('span', { class: 'spacer' }),
+      countHint
+    );
+
+    var node = card({
+      title: opts.title,
+      hint: opts.hint,
+      extra: opts.extra,
+      body: h('div', null, toolbar, tableHost, pagerHost)
+    });
+
+    draw();
+    return { node: node, redraw: draw };
+  }
+
+  /**
    * 占位视图工厂：批次 3 迁移期间，未实现的菜单项先占位（避免点击空白/报错）。
    * cfg = { path, title, breadcrumb, note }
    */
@@ -368,6 +427,7 @@
     toast: toast, empty: empty, placeholder: placeholder, placeholderRoute: placeholderRoute,
     skeletonCards: skeletonCards, skeletonLines: skeletonLines,
     filterBy: filterBy, paginate: paginate, pagination: pagination, searchBox: searchBox,
+    listSection: listSection,
     /** 状态字典：{CODE:{label,tone}} */
     STATUS: {
       REPORT: {

@@ -6,9 +6,9 @@
 ## 当前状态
 
 - 计划：it-service-desk
-- 阶段：Day 1-6 全部完成；PWA + 三级联动组件化 + 后台信息架构重构**批次 1、2 已完成**（等用户验证界面观感）；Day 7 未开始
+- 阶段：Day 1-6 全部完成；后台信息架构重构**批次 1、2、3 已完成**（8 个视图全部真实实现，等用户验证）；Day 7 未开始
 - 里程碑：M0-M4 ✅；M5 签字+报销闭环 ✅，待「部署+简历」收尾
-- 状态：进行中（后台重构 2/4，下一步批次 3 迁移 7 个视图）
+- 状态：进行中（后台重构 3/4，下一步批次 4 收尾）
 - 阻塞：无
 
 ## 不能碰的约束（必读）
@@ -27,6 +27,7 @@
 - **三级联动抽为共用组件**（`js/department-cascade.js` + `css/dept-cascade.css`，report/create/admin 三页共用）、create.html 接入、管理后台「基础数据」按院区→楼栋→楼层分类 → `findings.md#D-005`、`progress.md#S-004`
 - **后台重构批次 1/4**：`/api/stats/dashboard` 聚合接口（指标 + 近 7 日趋势 + 本月报销）→ `findings.md#D-006`、`progress.md#S-005`
 - **后台重构批次 2/4**：前端基座（`js/admin/*` + `admin-layout.css`）+ `admin.html` 薄壳（479→45 行）+ 工作台仪表盘 + 7 个占位视图；SW 升 `itsd-v3` → `findings.md#D-007`、`progress.md#S-006`
+- **后台重构批次 3/4**：7 个视图全部迁移（派单弹窗/工单详情抽屉+核价/报修历史/报销单+财务回填/科室索引/用户/系统信息）+ 新增 `/api/system/info`；SW 升 `itsd-v4` → `findings.md#D-008`、`progress.md#S-007`
 - 采用 project-memory v3 规范 + 新版 skill 复制到工作区 → `progress.md#S-001`
 
 ## 未完成与阻塞点
@@ -43,14 +44,14 @@
 
 ## 下一步
 
-- 用户验证批次 2 的界面观感（深色侧栏 / 多级菜单 / 折叠 / 工作台仪表盘）
-- 之后做**批次 3**：迁移 7 个视图（reports-pending 派单 → work-orders 详情抽屉与核价 → reports-history → reimbursements → departments → users → system），**注意改静态资源后需再次升 SW 版本（当前 itsd-v3）**
-- 再之后：批次 4 全量回归 + 记忆落盘；最后 Day 7 部署（Docker/Nginx）+ README（含去掉陈旧的「设备码 DEV001」）+ 简历描述
+- 用户验证批次 3：8 个页面（工作台 + 7 个业务页）逐页点一遍，重点看派单弹窗、工单详情抽屉核价、报销单生成/财务回填
+- 之后做**批次 4**：全量回归 + 文档收尾（`findings.md#D-003` 的 5 条已知限制是否修由用户决定）
+- 再之后：Day 7 部署（Docker/Nginx）+ README（含去掉陈旧的「设备码 DEV001」）+ 简历描述
 
 ## 回读顺序（细节不够时按此顺序）
 
-1. `findings.md` 的 D-001 ~ D-007（D-006 = 重构方案与批次计划，D-007 = 前端架构决策）
-2. `progress.md` 最近一节（S-006）
+1. `findings.md` 的 D-001 ~ D-008（D-006 方案/批次，D-007 前端架构，D-008 批次 3 要点）
+2. `progress.md` 最近一节（S-007）
 3. `git log --oneline -10`、`git status --short`
 
 ## 建议技能

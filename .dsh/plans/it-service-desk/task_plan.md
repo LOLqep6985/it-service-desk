@@ -51,9 +51,9 @@ Day 1-6 全部完成；已完成 PWA 化、「院区→科室」两级下拉、�
 | 批次 | 内容 | 状态 |
 |---|---|---|
 | 1 | 后端 `/api/stats/dashboard` 聚合接口（指标 + 近 7 日趋势 + 本月报销） | **complete（真值对账一致）** |
-| 2 | 前端基座（`admin-layout.css` + `js/admin/{api,store,router,layout,ui,app}.js`）+ `admin.html` 薄壳 + 工作台视图 + 7 个占位视图 | **complete（jsdom 集成测试 33 项通过）** |
-| 3 | 7 个视图迁移（reports-pending / work-orders / reports-history / reimbursements / departments / users / system） | pending |
-| 4 | Service Worker 再次升版 + 全量回归测试 + 记忆落盘 | pending（批次 2 已先行升到 `itsd-v3`） |
+| 2 | 前端基座（`admin-layout.css` + `js/admin/{api,store,router,layout,ui,app}.js`）+ `admin.html` 薄壳 + 工作台视图 + 7 个占位视图 | **complete（jsdom 集成测试通过）** |
+| 3 | 7 个视图迁移（reports-pending / work-orders / reports-history / reimbursements / departments / users / system）+ 新增 `/api/system/info` | **complete（86 项测试通过）** |
+| 4 | 全量回归 + 文档与记忆收尾（SW 已升到 `itsd-v4`） | pending |
 
 ## Next Step
 
