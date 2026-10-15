@@ -736,5 +736,19 @@
 - 代码状态：**待用户提交**（连同 D-013~D-017 改动）
 - 下一步：用户重启 IDEA 后继续全流程验证（签字时可见费用明细）→ git 提交
 
+### S-023 | 2026-10-15：UI 文案 + 详情费用 + 数据留存策略
+
+- 完成（详见 `findings.md#D-019`）：
+  - 文案：report.html 标题「本科室报修与维修历史」→「报修记录」
+  - 详情弹窗费用：openHistoryDetail 加「报修费用」区（耗材×数量×核价单价+小计+合计，未核价标红）
+  - 报修留存：ReportService RETENTION_DAYS=60，listReportsByDepartment/listReports 加 60 天过滤
+  - 报销留存：ReimbursementService RETENTION_DAYS=180，listAll/listByDepartment 加 180 天过滤
+  - 前端提示：报修卡片「仅展示近 2 个月」+ reimbursements「仅展示近 6 个月」
+  - SW itsd-v13 → itsd-v14
+- 验证：造 61 天前报修单 → 接口过滤生效（库内未删）✓；工单#1 费用明细 ¥40.00 ✓；mvn test + 前端回归 + 专项 10 项全过
+- 取舍：查询过滤而非定时删除（数据不丢可追溯，符合需求规格"防误删"建议）；不加 is_deleted 字段
+- 代码状态：**待用户提交**（连同 D-013~D-018 改动）
+- 下一步：用户复验（详情弹窗费用 + 报修记录文案 + 留存过滤）→ git 提交 → D-012 实时推送 或 Day 7
+
 
 

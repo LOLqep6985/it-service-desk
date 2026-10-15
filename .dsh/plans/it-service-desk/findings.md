@@ -610,3 +610,35 @@
 - 数据状态：用户全流程验证中（工单#1 待签字/碳粉¥40 已核价）；我的测试数据已清理
 - 教训：**杀 java 进程必须按端口精确定位（netstat→pid），不能用启动时间过滤**——本次误杀了用户 IDEA 的 8080 实例，已提醒用户重启
 - 关联：`progress.md#S-022`
+
+### D-019 | 2026-10-15：UI 文案 + 详情费用 + 数据留存策略（按《数据留存策略.md》）
+
+- 状态：accepted（用户提供需求规格文件，明确要求；方案先经确认）
+- 来源：用户提供《数据留存策略.md》+ 两张截图（详情弹窗缺费用 / 历史标题文案）
+- 用户原话（逐字）：> "这是Deep Seek的建议，之后根据上面两张粘贴的图片显示出的问题，并结合你对该项目具体情况的掌握，给出你的方案。" → 之后：> "先按上述文案开工"
+- **需求规格与现状差距（已核查代码）**：
+  1. 文案：report.html 标题「本科室报修与维修历史」→ 要求改「报修记录」
+  2. 详情弹窗缺费用：openHistoryDetail 只显示耗材名"碳粉×1"，无单价无金额（图1问题）
+  3. 报修记录无留存期：listReportsByDepartment/listReports 全量返回，无时间过滤
+  4. 报销单无留存期：listAll/listByDepartment 全量返回
+  5. 权限可见性（科室看本科室/管理员全量）已实现（D-011），无需改
+- **改动（5 项，严格按需求，不做需求外的事）**：
+  1. 文案：`report.html` 标题 →「报修记录」
+  2. 详情费用：`openHistoryDetail` 在「耗材」行下加「报修费用」区——耗材×数量×核价单价+小计+合计金额，未核价标红，无耗材显示"无耗材费用"（复用 `.cost-*` 样式，纯展示层，后端零改动——耗材接口已返回 unitPrice）
+  3. 报修留存：`ReportService` 加 `RETENTION_DAYS=60` 常量，listReportsByDepartment + listReports 加 `created_at >= now-60天` 过滤
+  4. 报销留存：`ReimbursementService` 加 `RETENTION_DAYS=180`，listAll + listByDepartment 加 `created_at >= now-180天` 过滤
+  5. 前端提示：报修记录卡片标题旁「（仅展示近 2 个月）」；reimbursements.js hint 加「仅展示近 6 个月」
+- **取舍（不做清单，防过度设计）**：
+  - ❌ 不加定时清理任务（@Scheduled）：需求规格说"定时清理**或**查询过滤"二选一；查询过滤更安全（数据不丢、可追溯、无需调度配置），符合"防误删"建议
+  - ❌ 不加 is_deleted/archived_at 字段：查询时间过滤已满足"只展示近 N 个月"，无需改表结构
+  - ❌ 不真存两份数据：需求规格"额外建议"已明示用 RBAC，项目已实现（D-011）
+  - ❌ 不动签字弹窗费用（D-018 已做）；不动后台工单详情抽屉（耗材表格已有单价列）
+- 落地文件：`report.html`、`ReportService.java`、`ReimbursementService.java`、`js/admin/views/reimbursements.js`、`service-worker.js`(v14)
+- 验证证据（8090 实跑 + jsdom）：
+  - 留存过滤：造 61 天前报修单 → 科室端/后台接口都不返回（库内仍 2 条，未物理删除）✓；今天创建的 R000001 正常返回 ✓
+  - 费用明细：工单#1（碳粉¥40）→ openHistoryDetail 渲染「报修费用」「维修费用明细」「合计 ¥40.00」✓
+  - 文案：标题「报修记录」+「仅展示近 2 个月」+ reimbursements「仅展示近 6 个月」✓
+  - mvn test 通过；test-frontend + test-admin-app ALL PASSED
+  - 新增专项 test-history-cost.js（10 项 ALL PASSED）
+- 数据状态：用户全流程验证中（R000001 已完成/报销单#1 待报销）；测试造的 61 天前数据已清理
+- 关联：`progress.md#S-023`
