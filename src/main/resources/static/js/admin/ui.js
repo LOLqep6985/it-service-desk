@@ -452,6 +452,7 @@
         PENDING: { label: '待受理', tone: 'pending' },
         DISPATCHED: { label: '已派单', tone: 'dispatched' },
         COMPLETED: { label: '已完成', tone: 'success' },
+        REIMBURSED: { label: '已报销', tone: 'success' },
         CANCELLED: { label: '已取消', tone: 'cancelled' }
       },
       WORK_ORDER: {
