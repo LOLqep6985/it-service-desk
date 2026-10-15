@@ -183,7 +183,7 @@
 <script src="/js/department-cascade.js"></script>
 <script src="/js/signature-pad.js"></script>
 <script>
-  const REPORT_STATUS = { PENDING:'待受理', DISPATCHED:'已派单', COMPLETED:'已完成', CANCELLED:'已取消' };
+  const REPORT_STATUS = { PENDING:'待受理', DISPATCHED:'已派单', COMPLETED:'已完成', REIMBURSED:'已报销', CANCELLED:'已取消' };
   const WO_STATUS = { ASSIGNED:'待接单', IN_PROGRESS:'维修中', PENDING_ACCEPT:'待签字', COMPLETED:'已完工' };
   const REIMB_STATUS = { PENDING_SIGN:'待签字', PENDING_REIMBURSE:'待报销', REIMBURSED:'已报销' };
   const SIGN_TYPE = { HANDWRITTEN:'手写签名', TYPED:'输入姓名生成' };
@@ -659,8 +659,8 @@
         // 已完成：附带签字人/完成时间；已派单：附带工单号；待受理：纯报修单
         let extra = '';
         if (wo) {
-          if (r.status === 'COMPLETED') {
-            extra = '<br><span style="color:#27ae60;">工单#' + wo.id + ' · 签字人：' + esc(wo.signedBy || '未填写') + ' · ' + ((wo.signedAt || wo.completedAt || '').replace('T',' ').slice(0,16)) + '</span>';
+          if (r.status === 'COMPLETED' || r.status === 'REIMBURSED') {
+            extra = '<br><span style="color:' + (r.status === 'REIMBURSED' ? '#8e44ad' : '#27ae60') + ';">工单#' + wo.id + ' · ' + (REPORT_STATUS[r.status] || r.status) + ' · 签字人：' + esc(wo.signedBy || '未填写') + ' · ' + ((wo.signedAt || wo.completedAt || '').replace('T',' ').slice(0,16)) + '</span>';
           } else {
             extra = '<br><span style="color:#7f8c8d;">工单#' + wo.id + ' · 处理中</span>';
           }

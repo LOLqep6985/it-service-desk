@@ -520,3 +520,15 @@
   - 前端 jsdom：`test-frontend.js`(report/create/admin 语法+逻辑)、`test-admin-app.js`(8 大区块)、`test-sign-type.js`、`test-finance-api.js` 全部 ALL CHECKS PASSED
   - 测试造数据已按 id>13(id>7) 清理，基线恢复：report 2(R000001/R000013)、work_order 2(#1/#7)、consumable 1、reimbursement 1
 - 关联：解决 `D-012` 中用户反馈的「历史工单的最后状态应该是已完成」这一具体诉求；`D-012` 的「跨端实时推送」部分仍未做（不在本次范围）→ `progress.md#S-017`
+
+### D-014 | 2026-10-15：报销闭环同步——财务回填后报修单回写「已报销」
+
+- 状态：accepted（用户明确要求，延续 D-013 的最小改动原则）
+- 来源：用户明确要求
+- 用户原话（逐字）：> "下面进行报销单的部分，根据保修单历史进行处理，之后报修单历史当中状态为"已报销"状态"
+- 决策：`ReportStatus` 新增 `REIMBURSED("已报销")`；`ReimbursementService.reimburse()` 财务回填成功后按报销单明细反查工单 → 回写对应 `report.status = REIMBURSED`（私有方法 `syncReportsReimbursed`，**只推进 COMPLETED 状态的报修单**，幂等防御旧数据/重复回填）。报修单状态机最终定为：`PENDING → DISPATCHED → COMPLETED → REIMBURSED`（+CANCELLED 终态）
+- 前端同步：`ui.js#STATUS.REPORT`、`reports-history.js` 下拉/副标题、`system.js` 状态机图、`report.html` 映射与历史列表展示（已报销用紫色 #8e44ad 区分于绿色的已完成）
+- 迁移：`sql/2026-10-15-report-reimbursed-sync.sql` 幂等回填存量（已报销报销单内工单对应的 COMPLETED 报修单 → REIMBURSED），已在当前库执行
+- SW：itsd-v8 → itsd-v9
+- 验证证据（8090 实例端到端实跑）：生成报销单#9（含工单#7→R000013）→ 科室签字 → 财务回填 → 查库 R000013/R000016 均 REIMBURSED ✓；`mvn test` 通过；test-frontend/test-admin-app/test-finance-api 全部 ALL CHECKS PASSED；测试数据已清理，基线恢复（R000001=已报销 对应报销单#1，R000013=已完成，报销单 1 张）
+- 关联：`findings.md#D-013`、`progress.md#S-018`

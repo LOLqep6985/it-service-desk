@@ -659,5 +659,23 @@
 |---|---|---|
 | 2026-10-15 | （待提交） | fix(work-order): 报修单状态随工单流转同步回写 COMPLETED + 科室端历史列表整合 + 状态映射统一 |
 
+### S-018 | 2026-10-15：报销闭环同步——财务回填后报修单回写「已报销」
+
+- 完成（详见 `findings.md#D-014`）：
+  - `ReportStatus` 加 `REIMBURSED`；`ReimbursementService.reimburse()` 回填后按明细反查工单回写 report.status=REIMBURSED（只推进 COMPLETED，幂等）
+  - 前端 4 处映射/展示同步（ui.js / reports-history.js / system.js / report.html，已报销用紫色区分）
+  - 迁移脚本 `sql/2026-10-15-report-reimbursed-sync.sql` 已执行（存量 R000001 → REIMBURSED）
+  - SW itsd-v8 → itsd-v9
+- 验证（8090 端到端）：生成报销单#9→签字→财务回填→R000013/R000016 均变 REIMBURSED ✓；mvn test 通过；前端三套回归 ALL CHECKS PASSED；测试数据已清理恢复基线
+- 错误：无
+- 代码状态：**待用户提交**（连同 S-017 改动一起）
+- 下一步：用户复验（后台「报修单历史」应显示已报销徽标；科室端历史列表紫色「已报销」）→ git 提交 → D-012 实时推送 或 Day 7
+
+## Git 提交记录（S-017/S-018 待提交）
+
+| 日期 | 提交 | 内容 |
+|---|---|---|
+| 2026-10-15 | （待提交） | feat(reimbursement): 财务回填后报修单同步回写「已报销」+ 存量迁移 |
+
 
 

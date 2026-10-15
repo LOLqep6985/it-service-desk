@@ -1,7 +1,8 @@
 /*!
  * 视图：工单业务 · 报修单历史（#/reports/history）
- * 功能：已派单/已完成/已取消的报修单列表（状态过滤 + 搜索 + 分页）
- * 说明：待受理（PENDING）不在本页，见「待受理报修单」；已完成（COMPLETED）= 对应工单已签字完工
+ * 功能：已派单/已完成/已报销/已取消的报修单列表（状态过滤 + 搜索 + 分页）
+ * 说明：待受理（PENDING）不在本页，见「待受理报修单」；已完成（COMPLETED）= 对应工单已签字完工；
+ *       已报销（REIMBURSED）= 该工单所在月度报销单已由财务回填
  */
 (function (global) {
   'use strict';
@@ -14,6 +15,7 @@
     { value: '', label: '全部（非待受理）' },
     { value: 'DISPATCHED', label: '已派单' },
     { value: 'COMPLETED', label: '已完成' },
+    { value: 'REIMBURSED', label: '已报销' },
     { value: 'CANCELLED', label: '已取消' }
   ];
 
@@ -83,7 +85,7 @@
       var ui = Admin.ui;
       el.appendChild(ui.h('div', { class: 'page-head' },
         ui.h('h2', { text: '报修单历史' }),
-        ui.h('span', { class: 'sub', text: '已派单 / 已完成 / 已取消的报修单留档' })
+        ui.h('span', { class: 'sub', text: '已派单 / 已完成 / 已报销 / 已取消的报修单留档' })
       ));
       el.appendChild(ui.h('div', { id: 'history-body' }, ui.skeletonLines(6)));
       await paint(el);

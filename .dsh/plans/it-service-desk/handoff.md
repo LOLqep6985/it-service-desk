@@ -6,21 +6,20 @@
 ## 当前状态
 
 - 计划：it-service-desk
-- 阶段：Day 1-6 完成；后台重构 4 批次完成；权限 A 档完成；**本次完成「工单业务管理重构」（报修单状态同步 + 科室端历史整合）** → `findings.md#D-013`、`progress.md#S-017`
-- 里程碑：M0-M4 ✅；M5 闭环 ✅；权限/状态同步这一块：**报修单终态同步 + 历史列表已解决**（本次）；跨端实时推送仍未做（D-012 残留）
+- 阶段：Day 1-6 完成；后台重构 4 批次完成；权限 A 档完成；**工单业务管理重构（D-013 报修单状态同步）+ 报销闭环同步（D-014 财务回填→已报销）均已完成** → `findings.md#D-013`、`#D-014`、`progress.md#S-017`、`#S-018`
+- 里程碑：M0-M4 ✅；M5 闭环 ✅；**报修单状态机终态闭环完成**：待受理→已派单→已完成→已报销（+已取消）
 - 状态：**本次改动已完成并自测全绿，待用户复验与提交**
 - 代码状态：HEAD 仍为 `472c30e`（A 档）；本次改 7 个文件 + 新增 1 个 sql + 记忆文档，**均未提交**（git commit/push 由用户手动）
 - 环境现状：MySQL80 Running（3306）；8080 留给 IDEA；8090 临时实例已停，无 java 进程
 - 数据现状：report 2（R000001/R000013 均 COMPLETED）、work_order 2（#1/#7 均 COMPLETED+SIGNED）、consumable 1、reimbursement 1（2026-10 ¥40 已报销）；sys_user 6 个、department 68 个
 
-## 本次改动（2026-10-15，工单业务管理重构）
+## 本次改动（2026-10-15）
 
-- 诊断 + 方案 + 不做清单 → `findings.md#D-013`
-- 用户原话 → `findings.md#D-013` 开头
-- 改动 4 项：A 报修单状态回写 / B 科室端历史整合 / C 后台状态映射 / D 迁移脚本
-- 落地文件：`ReportStatus.java`、`WorkOrderService.java`、`report.html`、`js/admin/ui.js`、`js/admin/views/reports-history.js`、`js/admin/views/system.js`、`service-worker.js`(v7→v8)、`sql/2026-10-15-report-status-sync.sql`
-- 验证：闭环实跑（签字后 report.status=COMPLETED ✓）+ mvn test 17 项 + 4 套前端 jsdom 全绿 → `progress.md#S-017`
-- 解决的诉求：①工单状态同步（报修单反映真实终态）②历史工单最后状态=已完成 ③科室端历史列表设计混乱
+- **D-013 工单业务管理重构**（诊断+方案+不做清单）→ `findings.md#D-013`；验证 → `progress.md#S-017`
+- **D-014 报销闭环同步**（财务回填→报修单已报销）→ `findings.md#D-014`；验证 → `progress.md#S-018`
+- 落地文件：`ReportStatus.java`（+COMPLETED、+REIMBURSED）、`WorkOrderService.sign()` 回写、`ReimbursementService.reimburse()` 回写、`report.html`、`js/admin/ui.js`、`views/reports-history.js`、`views/system.js`、`service-worker.js`(v9)、`sql/2026-10-15-report-status-sync.sql`、`sql/2026-10-15-report-reimbursed-sync.sql`
+- 验证：两轮闭环实跑全绿（签字→COMPLETED；财务回填→REIMBURSED）+ mvn test + 前端四套回归
+- 数据基线：R000001=已报销（对应报销单#1 已回填）、R000013=已完成、报销单 1 张
 
 ## 不能碰的约束（必读）
 
@@ -45,14 +44,14 @@
 ## 关键约束与决策
 
 - 决策与踩坑全表 → `findings.md`
-- 关键用户原话（设备码废弃/两级下拉）→ `#D-002`；（三级联动+楼层）→ `#D-004`；（后台重构方案）→ `#D-006`；（5 条限制修复）→ `#D-009`；（签字改造）→ `#D-010`；（权限 A 档不做什么）→ `#D-011`；（状态同步未决）→ `#D-012`；（本次工单业务重构）→ `#D-013`
+- 关键用户原话（设备码废弃/两级下拉）→ `#D-002`；（三级联动+楼层）→ `#D-004`；（后台重构方案）→ `#D-006`；（5 条限制修复）→ `#D-009`；（签字改造）→ `#D-010`；（权限 A 档不做什么）→ `#D-011`；（状态同步未决）→ `#D-012`；（工单业务重构）→ `#D-013`；（报销闭环同步）→ `#D-014`
 - 环境事实（MySQL 账号、上传目录、演示账号、8090/8080 约定）→ `progress.md#S-010` 与 `findings.md`
 - 演示账号密码：admin/admin123、dispatcher/123456、repairer1/123456、repairer2/123456、reporter1/123456、finance/123456（BCrypt 哈希，见 data.sql）
 
 ## 下一步
 
-- **第 0 步（用户复验）**：科室端 `report.html` 绑定科室后看「本科室报修与维修历史」——已完工报修单应显示「已完成」+ 工单号+签字人+查看详情；后台「报修单历史」状态列显示「已完成」徽标；系统信息页状态机图报修单有 `→ COMPLETED`。SW 已升 itsd-v8，首次打开 Ctrl+Shift+R
-- 复验通过后：**git 提交**（建议信息：`fix(work-order): 报修单状态随工单流转同步回写 COMPLETED + 科室端历史列表整合 + 状态映射统一`）
+- **第 0 步（用户复验）**：后台「报修单历史」——已报销报修单（R000001）显示「已报销」徽标，状态过滤下拉含「已报销」；科室端历史列表已报销项用紫色显示；系统信息页状态机图报修单为 `待受理→已派单→已完成→已报销`。SW 已升 itsd-v9，首次打开 Ctrl+Shift+R
+- 复验通过后：**git 提交**（两条建议信息见 `progress.md#S-017`/`#S-018` 的 Git 提交记录节）
 - 之后 **D-012 跨端实时推送**（焦点自动刷新 ~10 行 / SSE 单向推送约 1 批次，二选一）或 **Day 7** 部署/README/简历
 - 常规回归（需先起 8090 实例）：`mvn -Dmaven.repo.local=.m2repo test`（17 项）→ `test-frontend.js` → `test-admin-app.js` → `test-sign-type.js` → `test-finance-api.js`（造数据后按 id 清理）
 
