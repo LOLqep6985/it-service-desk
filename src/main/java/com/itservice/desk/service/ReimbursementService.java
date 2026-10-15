@@ -104,8 +104,13 @@ public class ReimbursementService {
         return created;
     }
 
+    /** 报销单留存期（天）：仅展示近 6 个月，过期数据不返回（不物理删除，保留可追溯） */
+    public static final int RETENTION_DAYS = 180;
+
     public List<Reimbursement> listAll(String status) {
+        LocalDateTime since = LocalDateTime.now().minusDays(RETENTION_DAYS);
         LambdaQueryWrapper<Reimbursement> qw = new LambdaQueryWrapper<Reimbursement>()
+                .ge(Reimbursement::getCreatedAt, since)
                 .orderByDesc(Reimbursement::getCreatedAt);
         if (status != null && !status.isBlank()) {
             qw.eq(Reimbursement::getStatus, status);
@@ -116,8 +121,10 @@ public class ReimbursementService {
     }
 
     public List<Reimbursement> listByDepartment(Long departmentId) {
+        LocalDateTime since = LocalDateTime.now().minusDays(RETENTION_DAYS);
         List<Reimbursement> list = reimbursementMapper.selectList(new LambdaQueryWrapper<Reimbursement>()
                 .eq(Reimbursement::getDepartmentId, departmentId)
+                .ge(Reimbursement::getCreatedAt, since)
                 .orderByDesc(Reimbursement::getCreatedAt));
         fillDepartmentName(list);
         return list;

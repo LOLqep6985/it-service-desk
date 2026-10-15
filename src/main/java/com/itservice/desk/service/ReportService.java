@@ -86,14 +86,21 @@ public class ReportService {
                 .last("LIMIT 1"));
     }
 
+    /** 报修记录留存期（天）：仅展示近 2 个月，过期数据不返回（不物理删除，保留可追溯） */
+    public static final int RETENTION_DAYS = 60;
+
     public List<Report> listReportsByDepartment(Long departmentId) {
+        LocalDateTime since = LocalDateTime.now().minusDays(RETENTION_DAYS);
         return reportMapper.selectList(new LambdaQueryWrapper<Report>()
                 .eq(Report::getDepartmentId, departmentId)
+                .ge(Report::getCreatedAt, since)
                 .orderByDesc(Report::getCreatedAt));
     }
 
     public List<Report> listReports(String status) {
+        LocalDateTime since = LocalDateTime.now().minusDays(RETENTION_DAYS);
         LambdaQueryWrapper<Report> qw = new LambdaQueryWrapper<Report>()
+                .ge(Report::getCreatedAt, since)
                 .orderByDesc(Report::getCreatedAt);
         if (status != null && !status.isBlank()) {
             qw.eq(Report::getStatus, status);

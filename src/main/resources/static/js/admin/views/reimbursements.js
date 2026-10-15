@@ -141,7 +141,7 @@
 
     var list = ui.listSection({
       title: '月度报销单',
-      hint: '（按已签字工单汇总耗材金额）',
+      hint: '（按已签字工单汇总耗材金额；仅展示近 6 个月）',
       searchPlaceholder: '搜索月份 / 科室 / 签字人',
       searchFields: ['month', 'departmentName', 'signedBy'],
       rows: state.rows,

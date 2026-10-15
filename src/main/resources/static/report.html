@@ -132,7 +132,7 @@
   </div>
 
   <div class="card" id="historyCard" style="display:none;">
-    <h2>本科室报修与维修历史</h2>
+    <h2>报修记录 <span style="font-size:12px;color:#95a5a6;font-weight:normal;">（仅展示近 2 个月）</span></h2>
     <div id="historyList"><div class="history-item">加载中...</div></div>
   </div>
 </div>
@@ -739,6 +739,19 @@
       const consJson = await consRes.json();
       const consumables = (consJson.data || []);
       const consHtml = consumables.length ? consumables.map(cn => cn.name + '×' + (cn.quantity || 1)).join('、') : '无';
+      // 费用明细：核价后单价×数量，未核价标红，合计金额（对科室/管理员/财务透明）
+      let total = 0, unpriced = 0;
+      const costRows = consumables.filter(c => c.name).map(c => {
+        const hasPrice = c.unitPrice !== null && c.unitPrice !== undefined;
+        const sub = hasPrice ? Number(c.unitPrice) * (c.quantity || 1) : 0;
+        if (hasPrice) total += sub; else unpriced++;
+        return '<div class="cost-row"><span class="cost-name">' + esc(c.name) + ' × ' + (c.quantity || 1) + '</span>' +
+          '<span class="cost-price">' + (hasPrice ? '¥' + Number(c.unitPrice).toFixed(2) + (c.quantity > 1 ? ' × ' + c.quantity : '') + ' = ¥' + sub.toFixed(2) : '<b style="color:#d63031;">未核价</b>') + '</span></div>';
+      }).join('');
+      const costHtml = costRows
+        ? '<div class="cost-title">维修费用明细' + (unpriced > 0 ? '（<span style="color:#d63031;">' + unpriced + ' 项未核价</span>）' : '') + '</div>' + costRows +
+          '<div class="cost-row cost-total"><span class="cost-name">合计金额</span><span class="cost-price"><b style="color:#27ae60;font-size:15px;">¥' + total.toFixed(2) + '</b></span></div>'
+        : '<div style="color:#95a5a6;">无耗材费用</div>';
       const sigImg = wo.signatureUrl
         ? '<div style="margin-top:8px;"><img src="' + wo.signatureUrl + '" onclick="window.open(this.src)" style="max-width:100%;border:1px solid #ecf0f1;border-radius:6px;cursor:zoom-in;" alt="手写签名"></div>'
         : '<div style="color:#95a5a6;">无签名图片</div>';
@@ -746,6 +759,8 @@
         '<b>工单#' + wo.id + '</b> ' + esc(wo.title || '') +
         '<br><br><b>维修记录：</b>' + esc(wo.repairRecord || '未填写') +
         '<br><b>耗材：</b>' + consHtml +
+        '<br><br><b>报修费用：</b>' +
+        '<div style="margin-top:6px;padding:8px 10px;background:#f8fafc;border-radius:8px;">' + costHtml + '</div>' +
         '<br><b>签字状态：</b>' + (wo.signStatus === 'SIGNED' ? '已签字' : '待签字') +
         '<br><b>签字方式：</b>' + signTypeLabel(wo.signType) +
         '<br><b>签字人：</b>' + esc(wo.signedBy || '未填写') +
