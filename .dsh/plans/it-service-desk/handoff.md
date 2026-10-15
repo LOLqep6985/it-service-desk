@@ -20,6 +20,7 @@
 - **D-015 工单状态机重构**（严格对齐《工单全流程规则.md》6态）→ `findings.md#D-015`、`progress.md#S-019`
 - **D-016 科室索引修复**（搜索失焦根因=重建整卡；竖列根因=.dept-* CSS 类从未定义；院区三栏 grid 重排）→ `findings.md#D-016`、`progress.md#S-020`；**附带发现 department_head 全空**
 - **D-017 科室索引搜索移除**（用户裁定冗余，只留刷新按钮）→ `findings.md#D-017`、`progress.md#S-021`
+- **D-018 签字弹窗费用明细**（核价后费用对签字人透明：耗材×数量×单价+合计，未核价标红）→ `findings.md#D-018`、`progress.md#S-022`；**数据库已清空配合用户全流程验证**（备份 business-data-20261015-214245.sql）；⚠️ 曾误杀用户 8080 实例（教训：杀进程必须按端口定位）
 - 落地文件：`WorkOrderStatus.java`(6态去PENDING/COMPLETED加PENDING_PRICING/PENDING_REIMBURSE/REIMBURSED)、`WorkOrderService.java`(+completePricing/reimburse, sign→待报销, submitRepair→待核价)、`WorkOrderAccess.java`(+REIMBURSE)、`WorkOrderController.java`(pricing语义变更+/{id}/reimburse)、`ReimbursementService.java`(reimburse回填工单→已报销+注入WorkOrderService)、`StatsService`+`DashboardStats`+`SystemInfoController`、前端 ui.js/work-orders.js/system.js/dashboard.js/app.js/today/detail/report/reports-history、`sql/2026-10-15-workorder-status-machine.sql`+2个前置迁移、`WorkOrderAccessTest.java`(12项)、SW itsd-v10
 - 验证：三轮闭环实跑全绿（签字→待报销→已报销；7步状态机每步查库正确）+ mvn test + 前端四套回归
 - 工单状态机（严格6态）：待接单→维修中→待核价→待签字→待报销(移入历史)→已报销
@@ -54,7 +55,7 @@
 
 ## 下一步
 
-- **第 0 步（用户复验）**：①科室索引页：无搜索框（D-017 已移除）、院区三栏卡片布局（楼栋蓝色分区、楼层行 chips 横排）、刷新按钮可用 ②工单管理默认进行中 4 态、切待报销/已报销看历史、详情报销按钮；系统信息页 6 态状态机图；科室端待签字列表。SW 已升 itsd-v12，首次打开 Ctrl+Shift+R
+- **第 0 步（用户复验）**：用户正在全流程验证（工单#1 待签字/碳粉¥40）——**需先重启 IDEA 的 8080**（被误杀）；科室端签字弹窗新增费用明细（耗材×数量×核价单价+合计，未核价标红）；科室索引无搜索框+三栏布局；工单管理 4 态+报销按钮；系统信息 6 态状态机图。SW 已升 itsd-v13，首次打开 Ctrl+Shift+R
 - 复验通过后：**git 提交**（三条建议信息见 `progress.md` 的 Git 提交记录节，可合并或分开）
 - 之后 **D-012 跨端实时推送**（焦点自动刷新 ~10 行 / SSE 单向推送约 1 批次，二选一）或 **Day 7** 部署/README/简历
 - 常规回归（需先起 8090 实例）：`mvn -Dmaven.repo.local=.m2repo test`（17 项）→ `test-frontend.js` → `test-admin-app.js` → `test-sign-type.js` → `test-finance-api.js`（造数据后按 id 清理）

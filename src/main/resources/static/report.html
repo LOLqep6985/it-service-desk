@@ -46,6 +46,14 @@
     .modal { background: #fff; border-radius: 12px; padding: 18px; width: 94vw; max-width: 440px; max-height: 90vh; overflow-y: auto; }
     .modal h3 { font-size: 16px; margin-bottom: 8px; }
     .modal .info { font-size: 13px; color: #555; background: #f8fafc; border-radius: 8px; padding: 10px; margin-bottom: 10px; line-height: 1.6; }
+    /* 签字弹窗费用明细：核价后费用透明展示 */
+    .modal .cost-title { font-size: 13px; font-weight: 600; color: #2c3e50; margin-bottom: 6px; }
+    .modal .cost-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 4px 0; border-bottom: 1px dashed #e5eaf1; }
+    .modal .cost-row:last-child { border-bottom: none; }
+    .modal .cost-name { font-size: 13px; color: #555; min-width: 0; }
+    .modal .cost-price { font-size: 13px; color: #2c3e50; white-space: nowrap; }
+    .modal .cost-total { margin-top: 4px; padding-top: 8px; border-top: 1px solid #dfe5ec; }
+    .modal .cost-total .cost-name { font-weight: 600; color: #2c3e50; }
     /* 签名板 .sig-* 样式见 /css/signature-pad.css（组件共用） */
     canvas { width: 100%; height: 140px; display: block; touch-action: none; }
     .modal .actions { display: flex; gap: 8px; margin-top: 12px; }
@@ -134,6 +142,8 @@
   <div class="modal">
     <h3 id="signModalTitle">签字验收</h3>
     <div class="info" id="signInfo">加载中...</div>
+    <!-- 费用明细：签字前展示管理员核价后的耗材费用，签字即确认费用（对科室/管理员/财务透明） -->
+    <div class="info" id="signCost" style="display:none;"></div>
     <label>签字人姓名 *</label>
     <input id="signerName" placeholder="护士长/科室主任姓名">
     <label id="delegateRowWrap" style="display:flex;align-items:center;gap:6px;margin-top:10px;">
@@ -529,7 +539,7 @@
     signModal.classList.remove('show');
   });
 
-  /** 打开签字弹窗时统一复位（含模式、姓名、代签、签名板） */
+  /** 打开签字弹窗时统一复位（含模式、姓名、代签、签名板、费用明细） */
   function resetSignPad() {
     sigPad.clear();
     currentSignActions = [];
@@ -541,6 +551,10 @@
     document.getElementById('delegatedName').value = '';
     document.getElementById('delegateChk').checked = false;
     document.getElementById('delegateRow').classList.remove('show');
+    // 费用明细：默认隐藏，由 openSign 按工单耗材渲染（报销单签字不展示）
+    const costBox = document.getElementById('signCost');
+    costBox.style.display = 'none';
+    costBox.innerHTML = '';
     setSignMode('HANDWRITTEN');
   }
 
@@ -553,8 +567,12 @@
     resetSignPad();
     requestAnimationFrame(function () { sigPad.resize(); });   // 弹窗显示后才能量到真实尺寸
     try {
-      const res = await fetch('/api/work-orders/' + woId + '?departmentId=' + departmentId);
-      const json = await res.json();
+      // 并行拉详情 + 耗材费用（签字前展示核价后费用，签字即确认金额）
+      const [detailRes, consRes] = await Promise.all([
+        fetch('/api/work-orders/' + woId + '?departmentId=' + departmentId),
+        fetch('/api/work-orders/' + woId + '/consumables?departmentId=' + departmentId)
+      ]);
+      const json = await detailRes.json();
       if (json.code === 0) {
         const detail = json.data || {};
         const wo = detail.workOrder || detail;
@@ -563,7 +581,36 @@
           '工单#' + wo.id + ' · ' + (wo.title || '') +
           '<br>维修记录：' + (wo.repairRecord || '未填写');
       }
+      const consJson = await consRes.json();
+      renderSignCost(consJson.code === 0 ? (consJson.data || []) : []);
     } catch (e) {}
+  }
+
+  /**
+   * 签字弹窗费用明细：耗材名 × 数量 × 核价单价，未核价的标出并计入合计为 0；
+   * 护士长签字 = 对费用与维修结果同时确认（对科室/管理员/财务透明，避免扯皮）
+   */
+  function renderSignCost(consumables) {
+    const box = document.getElementById('signCost');
+    const items = (consumables || []).filter(c => c.name);
+    if (items.length === 0) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    let total = 0;
+    let unpriced = 0;
+    const rows = items.map(c => {
+      const hasPrice = c.unitPrice !== null && c.unitPrice !== undefined;
+      const sub = hasPrice ? Number(c.unitPrice) * (c.quantity || 1) : 0;
+      if (hasPrice) total += sub; else unpriced++;
+      return '<div class="cost-row">' +
+        '<span class="cost-name">' + esc(c.name) + ' × ' + (c.quantity || 1) + '</span>' +
+        '<span class="cost-price">' + (hasPrice ? '¥' + Number(c.unitPrice).toFixed(2) + (c.quantity > 1 ? ' × ' + c.quantity : '') + ' = ¥' + sub.toFixed(2) : '<b style="color:#d63031;">未核价</b>') + '</span>' +
+        '</div>';
+    }).join('');
+    box.innerHTML =
+      '<div class="cost-title">维修费用明细' + (unpriced > 0 ? '（<span style="color:#d63031;">' + unpriced + ' 项未核价</span>，请先联系管理员核价）' : '') + '</div>' +
+      rows +
+      '<div class="cost-row cost-total"><span class="cost-name">合计金额</span>' +
+      '<span class="cost-price"><b style="color:#27ae60;font-size:15px;">¥' + total.toFixed(2) + '</b></span></div>';
+    box.style.display = 'block';
   }
 
   document.getElementById('confirmSign').addEventListener('click', async () => {

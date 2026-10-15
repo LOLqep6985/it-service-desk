@@ -594,3 +594,19 @@
 - 落地：重写 `js/admin/views/departments.js`（142→105 行）；专项测试改为断言「无搜索框 + 刷新可用」；test-admin-app 的「科室页有搜索框」断言同步反转；SW itsd-v11 → itsd-v12
 - 验证：专项 9 项 ALL PASSED + test-admin-app ALL PASSED
 - 关联：`progress.md#S-021`
+
+### D-018 | 2026-10-15：签字弹窗费用明细——核价后费用对签字人透明
+
+- 状态：accepted（用户明确要求）
+- 来源：用户明确要求
+- 用户原话（逐字）：> "科室报修页面，工单签字验收环节下面应该加上管理员核价之后的报修单费用，科室，外包公司耗材管理员，医院财务都知道每次维修费用，价格对环节所有人都透明，避免扯皮。"
+- 决策：科室端签字验收弹窗（report.html signModal）在「维修记录」下方新增**费用明细区**：耗材名 × 数量 × 核价单价 + 小计 + 合计金额。数据源 = 科室端耗材接口 `/api/work-orders/{id}/consumables?departmentId=`（签字发生在核价后，单价已填好）。**未核价项标红提示「请先联系管理员核价」并计 ¥0**；无耗材时费用区隐藏。护士长签字 = 对维修结果与费用同时确认（科室/管理员/财务四方费用透明）
+- 落地：
+  - `report.html`：signModal 加 `#signCost` 区块 + `renderSignCost()`（openSign 并行拉详情+耗材后渲染；resetSignPad 复位时隐藏；报销单签字模式不展示）+ `.cost-*` 样式
+  - SW itsd-v12 → itsd-v13
+- 新增专项测试：`.rdoc_inspect/test-sign-cost.js`（13 项：未核价标红/合计0、核价后小计与合计（80+15×2=110）、无耗材隐藏、真实后端数据流）
+- 验证：专项 13 项 ALL PASSED（真实闭环造数→核价→科室端接口返回核价单价→renderSignCost 合计正确）
+- 踩坑（测试脚本自身）：①helper 的 Object.assign 覆盖 headers 丢 Content-Type → repair 的 consumables 没写库（headers 须合并不能整体覆盖）②jsdom 无 canvas → stub HTMLCanvasElement.prototype.getContext
+- 数据状态：用户全流程验证中（工单#1 待签字/碳粉¥40 已核价）；我的测试数据已清理
+- 教训：**杀 java 进程必须按端口精确定位（netstat→pid），不能用启动时间过滤**——本次误杀了用户 IDEA 的 8080 实例，已提醒用户重启
+- 关联：`progress.md#S-022`
