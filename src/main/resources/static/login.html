@@ -65,8 +65,11 @@
 const uid = json.data.userId;
 if (roleCode === 'REPORTER') {
   window.location.href = 'create.html?userId=' + uid;
-} else {
+} else if (roleCode === 'REPAIRER') {
   window.location.href = 'today.html?userId=' + uid;
+} else {
+  // 管理员 / 调度员 / 财务 → PC 管理后台（后台再按角色渲染菜单）
+  window.location.href = 'admin.html';
 }
     } catch (e) {
       msg.textContent = '网络错误：' + e.message;

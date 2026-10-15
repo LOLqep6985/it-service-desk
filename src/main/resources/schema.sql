@@ -37,7 +37,8 @@ CREATE TABLE IF NOT EXISTS work_order (
     sign_status   VARCHAR(20) DEFAULT 'UNSIGNED',
     signed_by     VARCHAR(50),
     signed_at     DATETIME,
-    signature_url VARCHAR(255)
+    signature_url VARCHAR(255),
+    sign_type     VARCHAR(20) DEFAULT 'HANDWRITTEN'
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS department_binding (
@@ -84,6 +85,7 @@ CREATE TABLE IF NOT EXISTS reimbursement (
     signed_at     DATETIME,
     reimbursed_at DATETIME,
     signature_url VARCHAR(255),
+    sign_type     VARCHAR(20) DEFAULT 'HANDWRITTEN',
     created_at    DATETIME
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 

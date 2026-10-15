@@ -3,8 +3,12 @@ package com.itservice.desk.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.itservice.desk.dto.ConsumableItem;
 import com.itservice.desk.dto.WorkOrderCreateRequest;
+import com.itservice.desk.dto.WorkOrderDetail;
 import com.itservice.desk.mapper.ConsumableMapper;
 import com.itservice.desk.mapper.DepartmentMapper;
+import com.itservice.desk.mapper.ReimbursementItemMapper;
+import com.itservice.desk.mapper.ReimbursementMapper;
+import com.itservice.desk.mapper.ReportMapper;
 import com.itservice.desk.mapper.UserMapper;
 import com.itservice.desk.mapper.WorkOrderMapper;
 import com.itservice.desk.model.*;
@@ -21,16 +25,60 @@ public class WorkOrderService {
     private final DepartmentMapper departmentMapper;
     private final UserMapper userMapper;
     private final ConsumableMapper consumableMapper;
+    private final ReportMapper reportMapper;
+    private final ReimbursementItemMapper reimbursementItemMapper;
+    private final ReimbursementMapper reimbursementMapper;
     private final AtomicLong assignCursor = new AtomicLong(0);
 
     public WorkOrderService(WorkOrderMapper workOrderMapper,
                             DepartmentMapper departmentMapper,
                             UserMapper userMapper,
-                            ConsumableMapper consumableMapper) {
+                            ConsumableMapper consumableMapper,
+                            ReportMapper reportMapper,
+                            ReimbursementItemMapper reimbursementItemMapper,
+                            ReimbursementMapper reimbursementMapper) {
         this.workOrderMapper = workOrderMapper;
         this.departmentMapper = departmentMapper;
         this.userMapper = userMapper;
         this.consumableMapper = consumableMapper;
+        this.reportMapper = reportMapper;
+        this.reimbursementItemMapper = reimbursementItemMapper;
+        this.reimbursementMapper = reimbursementMapper;
+    }
+
+    /**
+     * 组装工单详情：工单本体 + 来源报修单号 + 报销进度。
+     * （allowedActions 由调用方通过 WorkOrderAccess 计算后填入）
+     */
+    public WorkOrderDetail buildDetail(WorkOrder wo) {
+        WorkOrderDetail detail = new WorkOrderDetail();
+        detail.setWorkOrder(wo);
+
+        if (wo.getReportId() != null) {
+            Report report = reportMapper.selectById(wo.getReportId());
+            if (report != null && report.getReportNo() != null && !report.getReportNo().isBlank()) {
+                detail.setReportNo(report.getReportNo());
+            } else {
+                detail.setReportNo("R" + String.format("%06d", wo.getReportId()));
+            }
+        }
+
+        ReimbursementItem item = reimbursementItemMapper.selectOne(new LambdaQueryWrapper<ReimbursementItem>()
+                .eq(ReimbursementItem::getWorkOrderId, wo.getId())
+                .orderByDesc(ReimbursementItem::getId)
+                .last("LIMIT 1"));
+        if (item != null && item.getReimbursementId() != null) {
+            Reimbursement r = reimbursementMapper.selectById(item.getReimbursementId());
+            if (r != null) {
+                WorkOrderDetail.ReimbursementInfo info = new WorkOrderDetail.ReimbursementInfo();
+                info.setId(r.getId());
+                info.setMonth(r.getMonth());
+                info.setTotalAmount(r.getTotalAmount());
+                info.setStatus(r.getStatus() == null ? null : r.getStatus().name());
+                detail.setReimbursement(info);
+            }
+        }
+        return detail;
     }
 
     public WorkOrder createWorkOrder(WorkOrderCreateRequest req, Long creatorId) {
@@ -117,7 +165,8 @@ public class WorkOrderService {
                 .orderByDesc(WorkOrder::getCreatedAt));
     }
 
-    public WorkOrder sign(Long id, String signerName, boolean isDelegate, String delegatedName, String signatureUrl) {
+    public WorkOrder sign(Long id, String signerName, boolean isDelegate, String delegatedName,
+                          String signatureUrl, String signType) {
         WorkOrder wo = getById(id);
         if (wo.getStatus() != WorkOrderStatus.PENDING_ACCEPT) {
             throw new IllegalArgumentException("该工单不在待验收状态");
@@ -132,6 +181,7 @@ public class WorkOrderService {
         }
         wo.setSignedAt(LocalDateTime.now());
         wo.setSignatureUrl(signatureUrl);
+        wo.setSignType(SignType.of(signType));
         workOrderMapper.updateById(wo);
         return wo;
     }

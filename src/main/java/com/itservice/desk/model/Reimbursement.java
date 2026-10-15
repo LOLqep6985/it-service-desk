@@ -23,6 +23,8 @@ public class Reimbursement {
     private LocalDateTime reimbursedAt;
     /** 科室签字的手写签名图片 URL（报销闭环留痕） */
     private String signatureUrl;
+    /** 签字方式：HANDWRITTEN（手写）/ TYPED（输入姓名生成） */
+    private SignType signType;
     private LocalDateTime createdAt;
 
     /** 非表字段：用于列表展示科室名称 */

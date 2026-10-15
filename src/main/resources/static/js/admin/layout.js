@@ -33,14 +33,18 @@
     chevron: svg('<path d="M9 6l6 6-6 6"/>', 14)
   };
 
-  /** 菜单树（一级 = 分组，二级 = 路由） */
+  /**
+   * 菜单树（一级 = 分组，二级 = 路由）
+   * roles：可见该菜单的角色；缺省表示所有后台角色可见。
+   * 财务只能看到「财务与报销」——菜单按角色渲染，越权路径后端仍会 403。
+   */
   var MENU = [
     {
-      key: 'workbench', title: '工作台', icon: 'dashboard',
+      key: 'workbench', title: '工作台', icon: 'dashboard', roles: ['ADMIN', 'DISPATCHER'],
       items: [{ path: '/dashboard', title: '首页概览', icon: 'dashboard' }]
     },
     {
-      key: 'orders', title: '工单业务管理', icon: 'clipboard',
+      key: 'orders', title: '工单业务管理', icon: 'clipboard', roles: ['ADMIN', 'DISPATCHER'],
       items: [
         { path: '/reports/pending', title: '待受理报修单', icon: 'clipboard', badge: 'pendingReports', badgeTone: 'tone-danger' },
         { path: '/work-orders', title: '工单管理', icon: 'wrench', badge: 'activeWork', badgeTone: 'tone-warn' },
@@ -48,11 +52,11 @@
       ]
     },
     {
-      key: 'finance', title: '财务与报销', icon: 'wallet',
+      key: 'finance', title: '财务与报销', icon: 'wallet', roles: ['ADMIN', 'DISPATCHER', 'FINANCE'],
       items: [{ path: '/reimbursements', title: '月度报销单', icon: 'wallet', badge: 'pendingSign', badgeTone: 'tone-primary' }]
     },
     {
-      key: 'system', title: '系统与基础数据配置', icon: 'building',
+      key: 'system', title: '系统与基础数据配置', icon: 'building', roles: ['ADMIN', 'DISPATCHER'],
       items: [
         { path: '/departments', title: '科室索引管理', icon: 'building' },
         { path: '/users', title: '用户管理', icon: 'users' },
@@ -60,6 +64,24 @@
       ]
     }
   ];
+
+  /** 当前角色可见的菜单（分组内项目全被过滤掉则整组隐藏） */
+  function visibleMenu() {
+    var role = Admin.store.roleCode();
+    return MENU.map(function (group) {
+      var items = group.items.filter(function (item) {
+        return !item.roles || item.roles.indexOf(role) >= 0;
+      });
+      if (!items.length) return null;
+      if (group.roles && group.roles.indexOf(role) < 0) return null;
+      return Object.assign({}, group, { items: items });
+    }).filter(Boolean);
+  }
+
+  /** 登录后的默认落地页（财务没有工作台，直接进月度报销单） */
+  function defaultPath() {
+    return Admin.store.roleCode() === 'FINANCE' ? '/reimbursements' : '/dashboard';
+  }
 
   var els = {};
   var state = { collapsed: false, mobileOpen: false, activePath: '', badges: {} };
@@ -69,7 +91,7 @@
 
   function buildSidebar() {
     var nav = ui.h('nav', { class: 'sidebar-nav' });
-    MENU.forEach(function (group) {
+    visibleMenu().forEach(function (group) {
       var items = ui.h('div', { class: 'menu-items' }, group.items.map(function (item) {
         return ui.h('div', {
           class: 'menu-item', dataset: { path: item.path }, title: item.title,
@@ -232,6 +254,8 @@
   Admin.layout = {
     MENU: MENU,
     ICONS: ICONS,
+    visibleMenu: visibleMenu,
+    defaultPath: defaultPath,
     mount: mount,
     setActive: setActive,
     setBreadcrumb: setBreadcrumb,

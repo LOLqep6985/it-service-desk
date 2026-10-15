@@ -7,7 +7,7 @@
   'use strict';
   var Admin = global.Admin = global.Admin || {};
 
-  var ROLE_LABEL = { ADMIN: '管理员', DISPATCHER: '调度员', REPAIRER: '维修工', REPORTER: '报修人' };
+  var ROLE_LABEL = { ADMIN: '管理员', DISPATCHER: '调度员', REPAIRER: '维修工', REPORTER: '报修人', FINANCE: '财务' };
 
   var state = {
     user: null,
@@ -25,10 +25,18 @@
   }
 
   function currentUser() { return state.user; }
+  function roleCode() { return (state.user && state.user.roleCode) || ''; }
+  /** 运维侧（管理员/调度员）：可见工单业务与系统配置 */
   function isAdminLike() {
-    var r = state.user && state.user.roleCode;
+    var r = roleCode();
     return r === 'ADMIN' || r === 'DISPATCHER';
   }
+  /** 可进入后台的角色：运维 + 财务（财务只能看财务与报销） */
+  function isBackendUser() {
+    return isAdminLike() || roleCode() === 'FINANCE';
+  }
+  /** 概览统计接口（/api/stats/dashboard）只对运维开放 */
+  function canViewStats() { return isAdminLike(); }
   function roleLabel() {
     var u = state.user;
     return (u && (u.role || ROLE_LABEL[u.roleCode])) || '';
@@ -81,7 +89,10 @@
   Admin.store = {
     init: init,
     currentUser: currentUser,
+    roleCode: roleCode,
     isAdminLike: isAdminLike,
+    isBackendUser: isBackendUser,
+    canViewStats: canViewStats,
     roleLabel: roleLabel,
     logout: logout,
     setBadges: setBadges,

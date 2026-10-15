@@ -4,7 +4,7 @@
  * - 静态资源（图标/manifest）：缓存优先
  * - /api/ 与 /uploads/ 一律不缓存（数据实时）
  */
-const CACHE = 'itsd-v5';
+const CACHE = 'itsd-v7';
 const APP_SHELL = [
   '/report.html',
   '/today.html',
@@ -14,7 +14,9 @@ const APP_SHELL = [
   '/admin.html',
   '/css/dept-cascade.css',
   '/css/admin-layout.css',
+  '/css/signature-pad.css',
   '/js/department-cascade.js',
+  '/js/signature-pad.js',
   '/js/admin/api.js',
   '/js/admin/store.js',
   '/js/admin/ui.js',

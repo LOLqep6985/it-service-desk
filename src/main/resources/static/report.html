@@ -11,6 +11,7 @@
   <link rel="icon" href="/icons/report-192.png">
   <link rel="apple-touch-icon" href="/icons/report-192.png">
   <link rel="stylesheet" href="/css/dept-cascade.css">
+  <link rel="stylesheet" href="/css/signature-pad.css">
   <title>科室报修 - IT运维工单系统</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -45,7 +46,7 @@
     .modal { background: #fff; border-radius: 12px; padding: 18px; width: 94vw; max-width: 440px; max-height: 90vh; overflow-y: auto; }
     .modal h3 { font-size: 16px; margin-bottom: 8px; }
     .modal .info { font-size: 13px; color: #555; background: #f8fafc; border-radius: 8px; padding: 10px; margin-bottom: 10px; line-height: 1.6; }
-    .canvas-box { border: 1px dashed #1d6fe0; border-radius: 8px; background: #fff; margin-top: 6px; }
+    /* 签名板 .sig-* 样式见 /css/signature-pad.css（组件共用） */
     canvas { width: 100%; height: 140px; display: block; touch-action: none; }
     .modal .actions { display: flex; gap: 8px; margin-top: 12px; }
     .modal .actions button { flex: 1; padding: 12px; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; }
@@ -147,12 +148,25 @@
       <label>被代签人姓名 *</label>
       <input id="delegatedName" placeholder="本应签字的护士长/主任姓名">
     </div>
-    <label>手写签名</label>
-    <div class="canvas-box">
-      <canvas id="signCanvas" width="780" height="260"></canvas>
+    <label>签名方式</label>
+    <div class="sig-tabs" id="sigTabs">
+      <button type="button" class="sig-tab active" data-mode="HANDWRITTEN">✍ 手写签名</button>
+      <button type="button" class="sig-tab" data-mode="TYPED">⌨ 输入姓名生成</button>
+    </div>
+    <div class="sig-canvas-wrap" id="sigWrap">
+      <canvas id="signCanvas" class="sig-canvas"></canvas>
+      <div class="sig-guide" id="sigGuide">请在此处签名</div>
+    </div>
+    <div class="sig-actions">
+      <button type="button" class="sig-btn" id="undoSign">撤销一笔</button>
+      <button type="button" class="sig-btn" id="clearSign">全部清除</button>
+    </div>
+    <div class="sig-mode-box" id="sigTypedBox">
+      <label>签字人姓名（用于生成签名）*</label>
+      <input class="sig-name-input" id="typedSignName" placeholder="如：王护士长">
+      <div class="sig-note warn">便捷模式：签字方式会记录为「输入姓名生成」；医院正式流程建议使用手写签名。</div>
     </div>
     <div class="actions">
-      <button class="btn-clear" id="clearSign">清除</button>
       <button class="btn-cancel" id="cancelSign">取消</button>
       <button class="btn-confirm" id="confirmSign">确认验收</button>
     </div>
@@ -172,10 +186,13 @@
 </div>
 
 <script src="/js/department-cascade.js"></script>
+<script src="/js/signature-pad.js"></script>
 <script>
   const REPORT_STATUS = { PENDING:'待受理', ACCEPTED:'已受理', DISPATCHED:'已派单', CANCELLED:'已取消' };
-  const WO_STATUS = { ASSIGNED:'已派单', IN_PROGRESS:'处理中', PENDING_ACCEPT:'待验收', COMPLETED:'已完成' };
+  const WO_STATUS = { ASSIGNED:'待接单', IN_PROGRESS:'维修中', PENDING_ACCEPT:'待签字', COMPLETED:'已完工' };
   const REIMB_STATUS = { PENDING_SIGN:'待签字', PENDING_REIMBURSE:'待报销', REIMBURSED:'已报销' };
+  const SIGN_TYPE = { HANDWRITTEN:'手写签名', TYPED:'输入姓名生成' };
+  function signTypeLabel(code) { return SIGN_TYPE[code] || '未记录'; }
   const bindCard = document.getElementById('bindCard');
   const formCard = document.getElementById('formCard');
   const acceptCard = document.getElementById('acceptCard');
@@ -191,6 +208,8 @@
   let selectedDeptId = null;   // 三级联动当前选中的科室（点击「绑定」后落库到 localStorage）
   let currentSignWoId = null;
   let currentReimbId = null;
+  // 服务端下发的可执行动作（动态权限）；用于签字前做一次前端校验
+  let currentSignActions = [];
 
   function esc(s) { return (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
@@ -426,7 +445,9 @@
       ]);
       const woJson = await woRes.json();
       if (woJson.code !== 0) { info.innerHTML = woJson.message; return; }
-      const wo = woJson.data;
+      // 详情响应结构：{ workOrder, allowedActions, reportNo, reimbursement }
+      const detail = woJson.data || {};
+      const wo = detail.workOrder || detail;
       const consJson = await consRes.json();
       const consumables = (consJson.data || []);
       const consHtml = consumables.length ? consumables.map(cn => cn.name + '×' + (cn.quantity || 1)).join('、') : '无';
@@ -438,9 +459,10 @@
         '<br><br><b>维修记录：</b>' + (wo.repairRecord || '未填写') +
         '<br><b>耗材：</b>' + consHtml +
         '<br><b>签字状态：</b>' + (wo.signStatus === 'SIGNED' ? '已签字' : '待签字') +
+        '<br><b>签字方式：</b>' + signTypeLabel(wo.signType) +
         '<br><b>签字人：</b>' + (wo.signedBy || '未填写') +
         '<br><b>签字时间：</b>' + ((wo.signedAt || '').replace('T',' ').slice(0,16) || '未填写') +
-        '<br><b>手写签名：</b>' + sigImg;
+        '<br><b>签名图片：</b>' + sigImg;
     } catch (e) {
       info.innerHTML = '加载失败：' + e.message;
     }
@@ -489,8 +511,9 @@
         '<br><br><b>合计金额：</b>¥' + (r.totalAmount == null ? '0.00' : Number(r.totalAmount).toFixed(2)) +
         '<br><b>状态：</b>' + (REIMB_STATUS[r.status] || r.status) +
         (r.signedBy ? '<br><b>签字人：</b>' + esc(r.signedBy) + ' · ' + ((r.signedAt || '').replace('T',' ').slice(0,16)) : '') +
+        (r.signatureUrl ? '<br><b>签字方式：</b>' + signTypeLabel(r.signType) : '') +
         (r.signatureUrl
-          ? '<br><b>手写签名：</b><div style="margin-top:6px;"><img src="' + r.signatureUrl + '" onclick="window.open(this.src)" style="max-width:100%;border:1px solid #ecf0f1;border-radius:6px;cursor:zoom-in;" alt="手写签名"></div>'
+          ? '<br><b>签名图片：</b><div style="margin-top:6px;"><img src="' + r.signatureUrl + '" onclick="window.open(this.src)" style="max-width:100%;border:1px solid #ecf0f1;border-radius:6px;cursor:zoom-in;" alt="签名图"></div>'
           : '') +
         '<br><br><b>包含工单（' + wos.length + '）：</b>' + woHtml;
     } catch (e) {
@@ -501,17 +524,11 @@
   async function openReimbSign(reimbId) {
     currentReimbId = reimbId;
     currentSignWoId = null;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    document.getElementById('signMsg').textContent = '';
-    document.getElementById('signMsg').style.color = '#d63031';
-    document.getElementById('delegateChk').checked = false;
-    document.getElementById('delegateRow').classList.remove('show');
-    document.getElementById('signerName').value = '';
-    document.getElementById('signerName').placeholder = '护士长/科室主任姓名';
-    document.getElementById('delegatedName').value = '';
     document.getElementById('signModalTitle').textContent = '报销单签字确认';
     document.getElementById('delegateRowWrap').style.display = 'none';
     signModal.classList.add('show');
+    resetSignPad();
+    requestAnimationFrame(function () { sigPad.resize(); });   // 弹窗显示后才能量到真实尺寸
     try {
       const res = await fetch('/api/reimbursements/' + reimbId + '?departmentId=' + departmentId);
       const json = await res.json();
@@ -530,47 +547,82 @@
   });
 
   // ---------- 签字 ----------
+  // 共用签名板（js/signature-pad.js）：修复画布尺寸/线宽/撤销问题，并支持「输入姓名生成」便捷模式
   const signModal = document.getElementById('signModal');
-  const canvas = document.getElementById('signCanvas');
-  const ctx = canvas.getContext('2d');
-  let drawing = false;
+  const sigPad = SignaturePad.create({
+    canvas: document.getElementById('signCanvas'),
+    height: 170,
+    lineWidth: 3,
+    onChange: function (s) {
+      document.getElementById('sigWrap').classList.toggle('has-ink', !s.empty);
+    }
+  });
 
-  canvas.addEventListener('pointerdown', e => { drawing = true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY); });
-  canvas.addEventListener('pointermove', e => { if (!drawing) return; ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke(); });
-  canvas.addEventListener('pointerup', () => { drawing = false; });
-  canvas.addEventListener('pointerleave', () => { drawing = false; });
+  function setSignMode(mode) {
+    sigPad.setMode(mode);
+    document.querySelectorAll('#sigTabs .sig-tab').forEach(function (btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-mode') === mode);
+    });
+    document.getElementById('sigTypedBox').classList.toggle('active', mode === 'TYPED');
+    document.getElementById('sigGuide').textContent = mode === 'TYPED' ? '输入姓名后自动生成签名' : '请在此处签名';
+    if (mode === 'TYPED') {
+      const typed = document.getElementById('typedSignName').value.trim();
+      if (typed) sigPad.setTypedName(typed);
+    }
+    document.getElementById('signMsg').textContent = '';
+  }
+
+  document.querySelectorAll('#sigTabs .sig-tab').forEach(function (btn) {
+    btn.addEventListener('click', function () { setSignMode(btn.getAttribute('data-mode')); });
+  });
+  document.getElementById('typedSignName').addEventListener('input', function (e) {
+    sigPad.setTypedName(e.target.value.trim());
+    document.getElementById('signMsg').textContent = '';
+  });
+  document.getElementById('undoSign').addEventListener('click', function () { sigPad.undo(); });
+  document.getElementById('clearSign').addEventListener('click', function () {
+    sigPad.clear();
+    document.getElementById('typedSignName').value = '';
+  });
 
   document.getElementById('delegateChk').addEventListener('change', (e) => {
     document.getElementById('delegateRow').classList.toggle('show', e.target.checked);
-  });
-
-  document.getElementById('clearSign').addEventListener('click', () => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
   });
 
   document.getElementById('cancelSign').addEventListener('click', () => {
     signModal.classList.remove('show');
   });
 
-  async function openSign(woId) {
-    currentSignWoId = woId;
-    currentReimbId = null;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  /** 打开签字弹窗时统一复位（含模式、姓名、代签、签名板） */
+  function resetSignPad() {
+    sigPad.clear();
+    currentSignActions = [];
+    document.getElementById('typedSignName').value = '';
     document.getElementById('signMsg').textContent = '';
     document.getElementById('signMsg').style.color = '#d63031';
-    document.getElementById('delegateChk').checked = false;
-    document.getElementById('delegateRow').classList.remove('show');
-    document.getElementById('delegateRowWrap').style.display = 'flex';
-    document.getElementById('signModalTitle').textContent = '签字验收';
     document.getElementById('signerName').value = '';
     document.getElementById('signerName').placeholder = '护士长/科室主任姓名';
     document.getElementById('delegatedName').value = '';
+    document.getElementById('delegateChk').checked = false;
+    document.getElementById('delegateRow').classList.remove('show');
+    setSignMode('HANDWRITTEN');
+  }
+
+  async function openSign(woId) {
+    currentSignWoId = woId;
+    currentReimbId = null;
+    document.getElementById('delegateRowWrap').style.display = 'flex';
+    document.getElementById('signModalTitle').textContent = '签字验收';
     signModal.classList.add('show');
+    resetSignPad();
+    requestAnimationFrame(function () { sigPad.resize(); });   // 弹窗显示后才能量到真实尺寸
     try {
       const res = await fetch('/api/work-orders/' + woId + '?departmentId=' + departmentId);
       const json = await res.json();
       if (json.code === 0) {
-        const wo = json.data;
+        const detail = json.data || {};
+        const wo = detail.workOrder || detail;
+        currentSignActions = detail.allowedActions || [];
         document.getElementById('signInfo').innerHTML =
           '工单#' + wo.id + ' · ' + (wo.title || '') +
           '<br>维修记录：' + (wo.repairRecord || '未填写');
@@ -579,50 +631,57 @@
   }
 
   document.getElementById('confirmSign').addEventListener('click', async () => {
+    const signMsgEl = document.getElementById('signMsg');
     const signerName = document.getElementById('signerName').value.trim();
     const isDelegate = document.getElementById('delegateChk').checked;
     const delegatedName = document.getElementById('delegatedName').value.trim();
-    if (!signerName) { document.getElementById('signMsg').textContent = '请填写签字人姓名'; return; }
-    if (currentReimbId == null && isDelegate && !delegatedName) { document.getElementById('signMsg').textContent = '请填写被代签人姓名'; return; }
-    // 判断是否画了签名
-    const hasSign = (() => {
-      const d = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-      for (let i = 3; i < d.length; i += 4) { if (d[i] !== 0) return true; }
-      return false;
-    })();
-    if (!hasSign) { document.getElementById('signMsg').textContent = '请先手写签名'; return; }
+    const signMode = sigPad.getMode();
+    if (!signerName) { signMsgEl.textContent = '请填写签字人姓名'; return; }
+    if (currentReimbId == null && isDelegate && !delegatedName) { signMsgEl.textContent = '请填写被代签人姓名'; return; }
+    // 服务端已判定不可签字时提前拦下（报销单签字走另一套权限，不做此校验）
+    if (currentReimbId == null && currentSignActions.length > 0 && currentSignActions.indexOf('SIGN') < 0) {
+      signMsgEl.textContent = '该工单当前不可签字（可能已被签字或状态已变更），请刷新后重试';
+      return;
+    }
+    if (signMode === 'TYPED') {
+      const typed = document.getElementById('typedSignName').value.trim();
+      if (!typed) { signMsgEl.textContent = '请输入姓名以生成签名'; return; }
+      sigPad.setTypedName(typed);
+    }
+    if (sigPad.isEmpty()) { signMsgEl.textContent = signMode === 'TYPED' ? '请输入姓名以生成签名' : '请先手写签名'; return; }
 
-    document.getElementById('signMsg').textContent = '提交中...';
+    signMsgEl.textContent = '提交中...';
     document.getElementById('confirmSign').disabled = true;
     try {
-      // 签名图片导出上传
-      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      // 导出签名图（组件已自动裁剪空白 + 留白）并上传
+      const blob = await sigPad.toBlob();
+      if (!blob) { signMsgEl.textContent = '签名生成失败，请重试'; document.getElementById('confirmSign').disabled = false; return; }
       const fd = new FormData();
       fd.append('file', blob, 'signature.png');
       const up = await (await fetch('/api/files/upload', { method: 'POST', body: fd })).json();
-      if (up.code !== 0) { document.getElementById('signMsg').textContent = up.message; document.getElementById('confirmSign').disabled = false; return; }
+      if (up.code !== 0) { signMsgEl.textContent = up.message; document.getElementById('confirmSign').disabled = false; return; }
       const signatureUrl = up.data.url;
       let json;
       if (currentReimbId != null) {
-        // 报销单签字：提交财务
+        // 报销单签字：提交财务（带签字方式）
         const res = await fetch('/api/reimbursements/' + currentReimbId + '/sign', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ departmentId, signerName, signatureUrl })
+          body: JSON.stringify({ departmentId, signerName, signatureUrl, signType: signMode })
         });
         json = await res.json();
       } else {
-        // 工单验收签字
+        // 工单验收签字（带签字方式）
         const res = await fetch('/api/work-orders/' + currentSignWoId + '/sign', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ departmentId, signerName, isDelegate, delegatedName, signatureUrl })
+          body: JSON.stringify({ departmentId, signerName, isDelegate, delegatedName, signatureUrl, signType: signMode })
         });
         json = await res.json();
       }
-      if (json.code !== 0) { document.getElementById('signMsg').textContent = json.message; document.getElementById('confirmSign').disabled = false; return; }
-      document.getElementById('signMsg').style.color = '#27ae60';
-      document.getElementById('signMsg').textContent = currentReimbId != null ? '报销单签字成功 ✓' : '验收签字成功 ✓';
+      if (json.code !== 0) { signMsgEl.textContent = json.message; document.getElementById('confirmSign').disabled = false; return; }
+      signMsgEl.style.color = '#27ae60';
+      signMsgEl.textContent = currentReimbId != null ? '报销单签字成功 ✓' : '验收签字成功 ✓';
       setTimeout(() => {
         signModal.classList.remove('show');
         document.getElementById('confirmSign').disabled = false;
@@ -632,7 +691,7 @@
         if (savedReimbId != null) { loadReimbursements(); } else { loadAccept(); }
       }, 1000);
     } catch (e) {
-      document.getElementById('signMsg').textContent = '网络错误：' + e.message;
+      signMsgEl.textContent = '网络错误：' + e.message;
       document.getElementById('confirmSign').disabled = false;
     }
   });

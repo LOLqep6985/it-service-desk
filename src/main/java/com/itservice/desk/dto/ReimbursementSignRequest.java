@@ -10,4 +10,6 @@ public class ReimbursementSignRequest {
     private String deviceCode;
     private String signerName;
     private String signatureUrl;
+    /** 签字方式：HANDWRITTEN（默认）/ TYPED */
+    private String signType;
 }

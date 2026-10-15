@@ -12,4 +12,6 @@ public class SignRequest {
     private Boolean isDelegate;
     private String delegatedName;
     private String signatureUrl;
+    /** 签字方式：HANDWRITTEN（默认）/ TYPED */
+    private String signType;
 }
