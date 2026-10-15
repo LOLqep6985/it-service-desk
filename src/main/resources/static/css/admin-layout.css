@@ -405,3 +405,87 @@ table.data tbody tr.empty-row td { text-align: center; color: var(--c-muted-2); 
   .grid-metrics { grid-template-columns: minmax(0, 1fr); }
   .user-chip .u-role { display: none; }
 }
+
+/* ============================================================
+   科室索引管理（#/departments）
+   院区三栏卡片 · 楼栋分区 · 楼层行内科室 chips 横向流式排列
+   ============================================================ */
+.dept-campus-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.dept-campus {
+  background: #f8fafc;
+  border: 1px solid #e5eaf1;
+  border-radius: 10px;
+  padding: 14px 16px;
+  min-width: 0;
+}
+.dept-campus-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #e5eaf1;
+}
+.dept-campus-title { font-size: 15px; font-weight: 700; color: #1f2937; }
+.dept-campus-head .c { font-size: 12px; color: #6b7280; }
+.dept-building { margin-bottom: 14px; }
+.dept-building:last-child { margin-bottom: 0; }
+.dept-building-name {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.dept-building-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1d6fe0;
+  padding-left: 8px;
+  border-left: 3px solid #1d6fe0;
+  line-height: 1.4;
+}
+.dept-building-count { font-size: 12px; color: #9aa4b2; }
+.dept-floor-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 0;
+}
+.dept-floor-row .floor-chip { flex: none; margin-top: 1px; }
+.dept-names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+.dept-name-chip {
+  display: inline-block;
+  max-width: 100%;
+  padding: 3px 10px;
+  background: #fff;
+  border: 1px solid #dfe5ec;
+  border-radius: 999px;
+  font-size: 12.5px;
+  color: #374151;
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
+  transition: border-color .15s, color .15s;
+}
+.dept-name-chip:hover {
+  border-color: #1d6fe0;
+  color: #1d6fe0;
+}
+/* 窄屏：院区改单列，楼层行允许换行 */
+@media (max-width: 1100px) {
+  .dept-campus-grid { grid-template-columns: minmax(0, 1fr); }
+  .dept-floor-row { flex-wrap: wrap; }
+}
