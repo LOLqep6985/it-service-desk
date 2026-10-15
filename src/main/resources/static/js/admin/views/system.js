@@ -189,7 +189,7 @@
         await paint(el);
       } catch (e) {
         el.querySelector('#system-body').innerHTML = '';
-        el.querySelector('#system-body').appendChild(ui.empty('加载失败：' + e.message, '⚠️'));
+        el.querySelector('#system-body').appendChild(ui.empty('加载失败：' + e.message));
       }
     }
   };

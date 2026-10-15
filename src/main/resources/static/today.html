@@ -18,14 +18,14 @@
     .header .user { font-size: 15px; font-weight: 600; }
     .header .logout { background: rgba(255,255,255,.2); border: none; color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 13px; }
     .container { max-width: 480px; margin: 0 auto; padding: 16px; }
-    .summary { font-size: 14px; color: #7f8c8d; margin-bottom: 12px; }
+    .summary { font-size: 14px; color: #6b7280; margin-bottom: 12px; }
     .campus-group { margin-bottom: 18px; }
     .campus-title { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; margin-bottom: 8px; }
     .campus-count { background: #1d6fe0; color: #fff; border-radius: 10px; font-size: 12px; padding: 2px 8px; }
-    .card { background: #fff; border-radius: 10px; padding: 14px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.06); cursor: pointer; }
+    .card { background: #fff; border-radius: 10px; padding: 16px; margin-bottom: 12px; cursor: pointer; }
     .card:active { background: #f8fafc; }
     .card .title { font-size: 16px; font-weight: 600; }
-    .card .meta { font-size: 13px; color: #7f8c8d; margin-top: 6px; line-height: 1.6; }
+    .card .meta { font-size: 13px; color: #6b7280; margin-top: 6px; line-height: 1.6; }
     .badge { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 4px; margin-left: 6px; }
     .badge.urgent { background: #ffe3e3; color: #d63031; }
     .accept-btn { background: #1d6fe0; color: #fff; border: none; border-radius: 6px; padding: 3px 10px; font-size: 12px; margin-top: 4px; cursor: pointer; }
@@ -89,7 +89,7 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
     const root = document.getElementById('groups');
     root.innerHTML = '';
     if (list.length === 0) {
-      root.innerHTML = '<div class="empty"><p>今天没有待处理任务 🎉</p></div>';
+      root.innerHTML = '<div class="empty"><p>今天没有待处理任务</p></div>';
       return;
     }
     campusOrder.forEach(campus => {

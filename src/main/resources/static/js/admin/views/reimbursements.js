@@ -106,7 +106,7 @@
         )
       ));
     } catch (e) {
-      drawer.setBody(ui.empty('加载失败：' + e.message, '⚠️'));
+      drawer.setBody(ui.empty('加载失败：' + e.message));
     }
   }
 

@@ -43,7 +43,7 @@
     var isForbidden = err && err.code === 403;
     return Admin.ui.empty(
       (isForbidden ? '无权限访问该页面：' : '页面加载失败：') + (err && err.message ? err.message : '') ,
-      isForbidden ? '🔒' : '⚠️'
+      isForbidden ? '禁' : '误'
     );
   }
 

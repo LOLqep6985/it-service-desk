@@ -16,12 +16,15 @@
     body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f2f4f7; color: #2c3e50; }
     .container { max-width: 420px; margin: 0 auto; padding: 60px 24px; }
     h1 { font-size: 24px; text-align: center; }
-    .sub { text-align: center; color: #7f8c8d; margin: 8px 0 32px; font-size: 14px; }
-    input { width: 100%; padding: 14px; margin-bottom: 14px; border: 1px solid #d0d5dd; border-radius: 8px; font-size: 16px; }
+    .sub { text-align: center; color: #6b7280; margin: 8px 0 32px; font-size: 14px; }
+    input { width: 100%; padding: 14px; margin-bottom: 14px; border: none; border-radius: 8px; font-size: 16px; background: #fff; }
+    input:focus { outline: 2px solid #1d6fe0; outline-offset: -1px; }
     button { width: 100%; padding: 16px; background: #1d6fe0; color: #fff; border: none; border-radius: 8px; font-size: 17px; font-weight: 600; }
     button:active { background: #155bbf; }
-    .msg { margin-top: 14px; text-align: center; color: #d63031; font-size: 14px; min-height: 20px; }
-    .hint { margin-top: 32px; padding: 14px; background: #fff; border-radius: 8px; font-size: 12px; color: #7f8c8d; line-height: 1.7; }
+    .msg { margin-top: 14px; text-align: center; color: #dc2626; font-size: 14px; min-height: 20px; }
+    details { margin-top: 28px; }
+    summary { cursor: pointer; color: #6b7280; font-size: 13px; }
+    .hint { margin-top: 10px; padding: 14px; background: #fff; border-radius: 8px; font-size: 13px; color: #6b7280; line-height: 1.8; }
   </style>
 </head>
 <body>
@@ -32,15 +35,18 @@
   <input id="password" type="password" placeholder="密码">
   <button id="loginBtn">登 录</button>
   <div id="msg" class="msg"></div>
-  <div class="hint">
-    演示账号：<br>
-    · 维修工：repairer1 / 123456（张工）<br>
-    · 维修工：repairer2 / 123456（李工）<br>
-    · 报修人：reporter1 / 123456（王护士）<br>
-    · 管理员：admin / admin123
-  </div>
-  <div class="hint" style="text-align:center;margin-top:16px;">
-    <a href="report.html" style="color:#1d6fe0;text-decoration:none;">🏥 科室免登录报修入口 →</a>
+  <details>
+    <summary>演示账号</summary>
+    <div class="hint">
+      维修工：repairer1 / 123456（张工）<br>
+      维修工：repairer2 / 123456（李工）<br>
+      报修人：reporter1 / 123456（王护士）<br>
+      管理员：admin / admin123<br>
+      财务：finance / 123456
+    </div>
+  </details>
+  <div style="margin-top:24px;text-align:center;">
+    <a href="report.html" style="color:#1d6fe0;text-decoration:none;font-size:14px;">科室免登录报修入口 →</a>
   </div>
 </div>
 <script>
