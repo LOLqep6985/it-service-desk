@@ -472,3 +472,51 @@
 - 动态权限示例（本次单测固化）：维修工在「待接单」→`[VIEW,ACCEPT]`、「维修中」→`[VIEW,REPAIR]`、「待签字」→`[VIEW]`（收窄为只读）；科室端在「待签字」→`[VIEW,SIGN]`，其它状态仅 `[VIEW]`
 - 迁移：新增 `sql/2026-10-15-finance-role.sql`（幂等 INSERT IGNORE，已执行）
 - 验证：见 `progress.md#S-015`（后端单测 17 项 + 财务权限 16 项 + 签字/动态权限 15 项 + 三套 UI 回归 + 批次 4 接口 24 项全通过）
+
+### D-012 | 2026-10-15：跨端状态同步缺口（**未决 / 待诊断**，最高优先级）
+
+- 状态：**open（待用户确认复现场景）**
+- 来源：用户复验 A 档后的直接反馈
+- **用户原话（逐字）**：> "完全错了，状态还是没有同步上。可能是是触发了上下文压缩。这样，你先保留项目进度，我切换对话进行项目推进。"
+- **已核实的事实（代码层面，可直接引用，无需重查）**：
+  1. 全仓库**没有任何状态推送或自动刷新机制**：`setInterval` 仅存在于 `report.html:381`（1 分钟防重倒计时）；**不存在** `EventSource`(SSE) / `WebSocket` / `visibilitychange` 监听
+  2. 维修端 `today.html`：只在页面加载时拉 `/api/work-orders/today` → 管理员派单后，维修工**不手动刷新就看不到新任务**
+  3. 科室端 `report.html`：`loadAccept()` / `loadCompleted()` 只在页面加载与自身操作回调中调用 → 维修工提交维修后，科室端**不刷新看不到「待签字」**
+  4. 后台 `admin.html`：视图切换时才重新拉数据；`Admin.refreshBadges()` 仅在 boot 与工单页 paint 后触发 → 科室签字后，**后台角标/列表不会自更新**
+  5. 综合：**任何一端的操作，其它两端都不会自动看到**
+- **根因（AI 取舍失误，应向用户承认）**：参考文档《设计重构.md》「实时同步机制」章节明确要求「使用 WebSocket 或 SSE 推送，而非前端轮询」；AI 在 A 档筛选时把「WebSocket / 消息队列」列入**不做**、把 SSE 与「页面重新获得焦点自动刷新」列入 **B 档可选**，而用户批准的只有 A 档 → **同步这件事一行代码都没做**。教训：被用户判定为"完全错了"的往往是**用户最直观能感受到的体验**（跨端看到同一个状态），而非权限矩阵这类结构性收益。
+- **待确认的两种可能（下一会话先问用户，不要直接开写）**：
+  1. **跨端同步缺口**（最可能）：期望「派单后维修端自动出现新任务 / 签字后后台自动更新」，实际必须手动刷新
+  2. **某端状态文案或映射不一致**：A3 统一了 5 处映射（后端 `WorkOrderStatus` label、`ui.js#STATUS.WORK_ORDER`、`today.html`、`detail.html`、`report.html`）——若属此类，需要用户提供具体页面 + 截图后逐处比对
+- **实现选项（按性价比，勿过度设计）**：
+  - a. **便宜版（约 10 行）**：页面重新可见/获得焦点时自动重新拉取 + 维修端下拉刷新
+  - b. **正式版（约 1 批次）**：Spring `SseEmitter` 单向推送（新报修 / 派单 / 状态变更），后台与维修端订阅 + 断线重连；**不做 WebSocket / STOMP / 消息队列**；部署时 Nginx 需对 SSE 关闭缓冲
+- 关联：`progress.md#S-016`、`handoff.md`「未解决：跨端状态同步」
+
+### D-013 | 2026-10-15：工单业务管理重构——报修单状态随工单流转同步 + 科室端历史列表整合
+
+- 状态：accepted（用户明确要求重构工单业务管理，且明确「不要过度设计」）
+- 来源：用户明确要求 + 模型诊断（实地核查代码 + 数据库现状）
+- 用户原话（逐字）：> "继续推进it-service-desk项目，尤其是工单业务管理方面，设计的比较混乱，工单状态没有同步，并且历史工单当中工单的最后状态应该是已完成。针对这一块，结合你的开发经验，进行重构，但是切记不要过度设计。"
+- **诊断结论（已核实，非推测）**：
+  1. **报修单状态"永远停在已派单"（数据层根因）**：`ReportService.dispatch()` 派单后 `report.status = DISPATCHED`，**之后再无任何代码更新它**。实测 R000001/R000013 的 report.status 都是 DISPATCHED，但对应工单早已 COMPLETED+SIGNED → 科室端「报修历史」永远显示「已派单」，看不到「已完成」。**这就是用户说的「历史工单的最后状态应该是已完成」**
+  2. **科室端 4 张分散卡片，设计混乱（展示层）**：report.html 原有 4 张并列卡片——待验收工单 / 已完成工单 / 月度报销单 / 本科室报修历史。其中"报修历史"(report表)与"已完成工单"(work_order表)讲的是同一批设备的不同生命周期阶段，用户得跨卡片对照才能拼出全貌
+- **取舍（不做清单，防过度设计）**：
+  - ❌ 报修单**不逐流转步回写**（不每步接单/维修中/待签字都更新 report）：report 只需表达「请求是否已了结」，工单细粒度流转在 WorkOrderStatus 维护；两者在「已完工」处汇合。逐步回写会与工单状态机重复耦合
+  - ❌ 不做 SSE/WebSocket 实时推送：本次诉求是工单业务管理的状态同步与历史展示，不是跨端实时推送；实时性留 Day7/后续版本再定
+  - ❌ 不加状态流水表、不合并 report/work_order 单表、不加已挂起/已驳回/已取消（D-011 已论证）
+- **改动（4 项最小改动，不新建表、不改数据模型）**：
+  1. **A 数据层（~15 行）**：`ReportStatus` 枚举去掉从未使用的 `ACCEPTED`、新增 `COMPLETED("已完成")`；`WorkOrderService.sign()` 签字完工时回写 `report.status = COMPLETED`（reportMapper 已注入）。状态机变为 `PENDING(待受理) → DISPATCHED(已派单/处理中) → COMPLETED(已完成)`
+  2. **B 科室端历史整合（~40 行）**：report.html 删掉独立的「已完成工单」卡片，将其信息并入「本科室报修与维修历史」单一列表——报修单为主轴，`loadHistory()` 并发拉 report + work_order，按 reportId 建索引，已完成报修单附带工单号+签字人+完成时间+查看详情；签字成功后刷新历史列表（原代码漏调 `loadHistory()`）
+  3. **C 后台状态映射（~5 行）**：`ui.js#STATUS.REPORT` 去 ACCEPTED 加 COMPLETED(success色)；`reports-history.js` 下拉选项去 ACCEPTED 加 COMPLETED + 副标题更新；`system.js` 报修单状态机图补 `→ COMPLETED` 终态
+  4. **D 迁移脚本**：`sql/2026-10-15-report-status-sync.sql` 幂等回填存量（工单 COMPLETED 的 report 从 DISPATCHED 更新为 COMPLETED；ACCEPTED 兜底转 DISPATCHED），已在当前库执行
+- 落地文件：
+  - 改：`model/ReportStatus.java`、`service/WorkOrderService.java`、`static/report.html`、`static/js/admin/ui.js`、`static/js/admin/views/reports-history.js`、`static/js/admin/views/system.js`、`static/service-worker.js`(itsd-v7→v8)
+  - 新增：`sql/2026-10-15-report-status-sync.sql`
+- 验证证据（8090 临时实例实跑闭环 + 三套前端回归 + JUnit）：
+  - 闭环：报修(R000014 PENDING)→派单(report=DISPATCHED/wo=ASSIGNED)→接单(IN_PROGRESS)→维修(PENDING_ACCEPT)→签字(wo=COMPLETED+SIGNED)→**查库 report.status=COMPLETED ✓**（这是核心验证点）
+  - 接口：科室端 `/api/reports/by-department` 返回 status=COMPLETED；后台 `/api/reports` 全部 COMPLETED；`/api/work-orders/by-department` 带工单号+签字人
+  - `mvn -Dmaven.repo.local=.m2repo test`：17 项全过（SignType 6 + WorkOrderAccess 11）
+  - 前端 jsdom：`test-frontend.js`(report/create/admin 语法+逻辑)、`test-admin-app.js`(8 大区块)、`test-sign-type.js`、`test-finance-api.js` 全部 ALL CHECKS PASSED
+  - 测试造数据已按 id>13(id>7) 清理，基线恢复：report 2(R000001/R000013)、work_order 2(#1/#7)、consumable 1、reimbursement 1
+- 关联：解决 `D-012` 中用户反馈的「历史工单的最后状态应该是已完成」这一具体诉求；`D-012` 的「跨端实时推送」部分仍未做（不在本次范围）→ `progress.md#S-017`

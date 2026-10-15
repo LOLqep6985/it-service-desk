@@ -622,5 +622,42 @@
 |---|---|---|
 | 2026-10-15 | （待用户提交） | feat(auth): WorkOrderAccess 统一行级+状态机动态权限、allowedActions 下发、FINANCE 财务角色、状态文案统一、工单默认进行中、详情显示报销进度 |
 
+### S-016 | 2026-10-15：用户复验 A 档后的反馈（跨端状态同步未实现）— **暂停推进**
+
+- 用户原话（逐字）：> "完全错了，状态还是没有同步上。可能是是触发了上下文压缩。这样，你先保留项目进度，我切换对话进行项目推进。"
+- 处理：**不猜测、不改代码**，按用户要求先把进度落盘（handoff 重写 + `findings.md#D-012`），用户将切换会话继续
+- 已核实并写入 `#D-012` 的事实：全仓库无 SSE/WebSocket/visibilitychange；维修端不刷新看不到新派单、科室端不刷新看不到待签字、后台角标不自更新 → 三端之间零同步
+- 我的取舍失误（诚实记录）：参考文档「实时同步机制」要求 SSE/WebSocket 而非轮询，我在 A 档把同步整体划到「不做 / B 档可选」，用户批准的只有 A 档 → 同步一行未做；用户"完全错了"的感受来源很可能是**最直观的跨端同状态**，而不是我交付的权限矩阵
+- 下一步（下一会话第一件事）：先向用户确认复现场景（跨端同步 vs 某端文案不一致），再选「焦点自动刷新（小）」或「SSE 单向推送（约 1 批次）」
+- 代码现状：A 档 38 个文件已由用户提交（提交 `472c30e`，提交信息与 AI 建议一致）；工作区仅剩 4 个记忆文档未提交；已通过 17 项后端单测 + 前端/接口验收全绿；数据基线已恢复（5 张业务表各 1 条）；8090 实例已停（无 java 进程）
+
+### S-017 | 2026-10-15：工单业务管理重构——报修单状态同步 + 科室端历史整合
+
+- 完成：
+  - 诊断（实地核查代码 + 数据库）：报修单派单后 status 永远停在 DISPATCHED（`dispatch()` 写入后无后续回写），工单已 COMPLETED 也不反映 → 报修历史看不到"已完成"；科室端 4 张分散卡片设计混乱
+  - 4 项最小改动（不新建表、不改数据模型，详见 `findings.md#D-013`）：
+    - A：`ReportStatus` 去 ACCEPTED 加 COMPLETED；`WorkOrderService.sign()` 回写 report.status=COMPLETED
+    - B：report.html 删独立「已完成工单」卡片，并入「本科室报修与维修历史」单一列表（报修单为主轴，按 reportId 关联工单号/签字人/完成时间）；签字成功后刷新历史（原漏调 loadHistory）
+    - C：ui.js/reports-history.js/system.js 状态映射去 ACCEPTED 加 COMPLETED + 状态机图补终态
+    - D：迁移脚本 `sql/2026-10-15-report-status-sync.sql` 幂等回填存量，已执行（R000001/R000013 → COMPLETED）
+    - SW 缓存升版 itsd-v7 → itsd-v8
+  - 验证（8090 临时实例）：
+    - 闭环实跑：报修(R000014 PENDING)→派单(DISPATCHED/ASSIGNED)→接单(IN_PROGRESS)→维修(PENDING_ACCEPT)→签字(wo=COMPLETED+SIGNED)→**查库 report.status=COMPLETED ✓**
+    - 接口核对：`/api/reports/by-department` 与 `/api/reports` 返回 COMPLETED；`/api/work-orders/by-department` 带工单号+签字人
+    - `mvn -Dmaven.repo.local=.m2repo test` 17 项全过
+    - 前端 jsdom：test-frontend.js / test-admin-app.js / test-sign-type.js / test-finance-api.js 全部 ALL CHECKS PASSED
+    - 测试造数据已清理，基线恢复：report 2、work_order 2、consumable 1、reimbursement 1
+- 结果/输出：用户诉求「工单状态同步」+「历史工单最后状态=已完成」+「设计混乱」三项均已解决；D-012 的跨端实时推送部分仍未做（不在本次范围）
+- 错误：mvn test 首次因 .m2repo 缺 surefire-junit-platform + 沙箱无权限写 D:\Maven\repository → 用 `-Dmaven.repo.local=.m2repo`（在线拉取到项目内仓库）解决
+- 代码状态：**待用户提交**（HEAD 仍为 `472c30e`）；本次改 7 个文件 + 新增 1 个 sql，工作区另有记忆文档更新
+- 环境现状：8090 实例已停，无 java 进程；MySQL80 Running；8080 留给 IDEA
+- 下一步：用户复验科室端报修历史列表（应显示「已完成」+ 工单号/签字人）；之后 D-012 跨端实时推送（焦点自动刷新 或 SSE）或 Day 7 部署/README/简历
+
+## Git 提交记录（S-017 待提交）
+
+| 日期 | 提交 | 内容 |
+|---|---|---|
+| 2026-10-15 | （待提交） | fix(work-order): 报修单状态随工单流转同步回写 COMPLETED + 科室端历史列表整合 + 状态映射统一 |
+
 
 
