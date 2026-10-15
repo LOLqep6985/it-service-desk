@@ -9,16 +9,18 @@
 
   var state = { rows: [], scope: 'ACTIVE', keyword: '', userMap: {} };
 
-  /** 进行中 = 未完工（待接单/维修中/待签字），与「历史归档」相对 */
-  var ACTIVE_STATUSES = ['ASSIGNED', 'IN_PROGRESS', 'PENDING_ACCEPT'];
+  /** 进行中 = 工单管理可见范围（待接单/维修中/待核价/待签字）；待报销/已报销属于工单历史 */
+  var ACTIVE_STATUSES = ['ASSIGNED', 'IN_PROGRESS', 'PENDING_PRICING', 'PENDING_SIGN'];
 
   var SCOPE_OPTIONS = [
     { value: 'ACTIVE', label: '进行中（默认）' },
     { value: 'ALL', label: '全部状态' },
     { value: 'ASSIGNED', label: '待接单' },
     { value: 'IN_PROGRESS', label: '维修中' },
-    { value: 'PENDING_ACCEPT', label: '待签字' },
-    { value: 'COMPLETED', label: '已完工' }
+    { value: 'PENDING_PRICING', label: '待核价' },
+    { value: 'PENDING_SIGN', label: '待签字' },
+    { value: 'PENDING_REIMBURSE', label: '待报销' },
+    { value: 'REIMBURSED', label: '已报销' }
   ];
 
   /** 列表默认只看进行中的工单，避免历史工单淹没当前任务 */
@@ -175,7 +177,23 @@
               ui.h('span', { text: reimbursement.month + ' 报销单 #' + reimbursement.id + ' · ' }),
               ui.statusBadge(ui.STATUS.REIMBURSEMENT, reimbursement.status))
             : '尚未纳入报销']
-        ])
+        ]),
+        // 月度报销按钮：待报销状态 + 有 REIMBURSE 权限时显示
+        ui.can(actions, 'REIMBURSE') ? ui.h('div', { class: 'detail-section' },
+          ui.h('button', {
+            class: 'btn btn-primary', style: { width: '100%' }, text: '确认月度报销（待报销 → 已报销）',
+            onclick: async function () {
+              try {
+                await Admin.api.post('/api/work-orders/' + wo.id + '/reimburse', {});
+                ui.toast('已报销', 'success');
+                if (onPriced) onPriced();
+                drawer.close();
+              } catch (e) {
+                ui.toast(e.message, 'error');
+              }
+            }
+          })
+        ) : null
       ));
     }
 

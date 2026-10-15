@@ -19,23 +19,26 @@ public class ReimbursementService {
     private final ConsumableMapper consumableMapper;
     private final DepartmentMapper departmentMapper;
     private final ReportMapper reportMapper;
+    private final WorkOrderService workOrderService;
 
     public ReimbursementService(ReimbursementMapper reimbursementMapper,
                                ReimbursementItemMapper reimbursementItemMapper,
                                WorkOrderMapper workOrderMapper,
                                ConsumableMapper consumableMapper,
                                DepartmentMapper departmentMapper,
-                               ReportMapper reportMapper) {
+                               ReportMapper reportMapper,
+                               WorkOrderService workOrderService) {
         this.reimbursementMapper = reimbursementMapper;
         this.reimbursementItemMapper = reimbursementItemMapper;
         this.workOrderMapper = workOrderMapper;
         this.consumableMapper = consumableMapper;
         this.departmentMapper = departmentMapper;
         this.reportMapper = reportMapper;
+        this.workOrderService = workOrderService;
     }
 
     /**
-     * 按月汇总已签字（COMPLETED + SIGNED）工单生成报销单，按科室分组。
+     * 按月汇总待报销（PENDING_REIMBURSE，即已签字验收）工单生成报销单，按科室分组。
      * 同一科室同一月份只生成一次；返回本次新生成的报销单列表。
      */
     public List<Reimbursement> generate(String month) {
@@ -49,8 +52,7 @@ public class ReimbursementService {
         LocalDateTime end = start.plusMonths(1);
 
         List<WorkOrder> signedOrders = workOrderMapper.selectList(new LambdaQueryWrapper<WorkOrder>()
-                .eq(WorkOrder::getStatus, WorkOrderStatus.COMPLETED)
-                .eq(WorkOrder::getSignStatus, SignStatus.SIGNED)
+                .eq(WorkOrder::getStatus, WorkOrderStatus.PENDING_REIMBURSE)
                 .ge(WorkOrder::getSignedAt, start)
                 .lt(WorkOrder::getSignedAt, end)
                 .orderByAsc(WorkOrder::getDepartmentId));
@@ -181,26 +183,24 @@ public class ReimbursementService {
         r.setStatus(ReimbursementStatus.REIMBURSED);
         r.setReimbursedAt(LocalDateTime.now());
         reimbursementMapper.updateById(r);
-        // 财务回填后把报销单内工单对应的报修单回写为「已报销」——整条报修链路闭环
-        syncReportsReimbursed(id);
+        // 财务回填后把报销单内工单推进为「已报销」（工单推进时同步回写报修单为已报销）
+        syncWorkOrdersReimbursed(id);
         return r;
     }
 
-    /** 按报销单明细反查工单 → 回写报修单状态为 REIMBURSED（幂等：只更新 COMPLETED 状态的报修单） */
-    private void syncReportsReimbursed(Long reimbursementId) {
+    /** 按报销单明细反查工单 → 逐条推进为已报销（幂等：workOrderService.reimburse 只推进待报销状态） */
+    private void syncWorkOrdersReimbursed(Long reimbursementId) {
         List<ReimbursementItem> items = reimbursementItemMapper.selectList(
                 new LambdaQueryWrapper<ReimbursementItem>()
                         .eq(ReimbursementItem::getReimbursementId, reimbursementId));
         for (ReimbursementItem item : items) {
             WorkOrder wo = workOrderMapper.selectById(item.getWorkOrderId());
-            if (wo == null || wo.getReportId() == null) {
+            if (wo == null) {
                 continue;
             }
-            Report report = reportMapper.selectById(wo.getReportId());
-            // 只有已完成（尚未报销）的报修单才推进；防御旧数据/重复回填
-            if (report != null && report.getStatus() == ReportStatus.COMPLETED) {
-                report.setStatus(ReportStatus.REIMBURSED);
-                reportMapper.updateById(report);
+            // 只推进待报销工单；已报销或其它状态跳过（防御重复回填）
+            if (wo.getStatus() == WorkOrderStatus.PENDING_REIMBURSE) {
+                workOrderService.reimburse(wo.getId());
             }
         }
     }

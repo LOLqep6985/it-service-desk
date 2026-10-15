@@ -161,17 +161,18 @@ public class WorkOrderService {
     public List<WorkOrder> listPendingAcceptByDepartment(Long departmentId) {
         return workOrderMapper.selectList(new LambdaQueryWrapper<WorkOrder>()
                 .eq(WorkOrder::getDepartmentId, departmentId)
-                .eq(WorkOrder::getStatus, WorkOrderStatus.PENDING_ACCEPT)
+                .eq(WorkOrder::getStatus, WorkOrderStatus.PENDING_SIGN)
                 .orderByDesc(WorkOrder::getCreatedAt));
     }
 
     public WorkOrder sign(Long id, String signerName, boolean isDelegate, String delegatedName,
                           String signatureUrl, String signType) {
         WorkOrder wo = getById(id);
-        if (wo.getStatus() != WorkOrderStatus.PENDING_ACCEPT) {
-            throw new IllegalArgumentException("该工单不在待验收状态");
+        if (wo.getStatus() != WorkOrderStatus.PENDING_SIGN) {
+            throw new IllegalArgumentException("该工单不在待签字状态");
         }
-        wo.setStatus(WorkOrderStatus.COMPLETED);
+        // 护士长签字验收后 → 待报销（移出工单管理，进入工单历史）
+        wo.setStatus(WorkOrderStatus.PENDING_REIMBURSE);
         wo.setCompletedAt(LocalDateTime.now());
         wo.setSignStatus(SignStatus.SIGNED);
         if (isDelegate && delegatedName != null && !delegatedName.isBlank()) {
@@ -183,11 +184,10 @@ public class WorkOrderService {
         wo.setSignatureUrl(signatureUrl);
         wo.setSignType(SignType.of(signType));
         workOrderMapper.updateById(wo);
-        // 工单完工时同步回写报修单终态，使报修历史列表反映真实进度
-        // （report 只需表达「请求已了结」，不逐流转步回写，避免与工单状态机重复耦合）
+        // 工单进入待报销（已签字验收）时同步报修单为已完成——报修请求已实质了结
         if (wo.getReportId() != null) {
             Report report = reportMapper.selectById(wo.getReportId());
-            if (report != null) {
+            if (report != null && report.getStatus() == ReportStatus.DISPATCHED) {
                 report.setStatus(ReportStatus.COMPLETED);
                 reportMapper.updateById(report);
             }
@@ -201,7 +201,11 @@ public class WorkOrderService {
     }
     public WorkOrder submitRepair(Long id, String record, List<ConsumableItem> consumables) {
         WorkOrder wo = getById(id);
-        wo.setStatus(WorkOrderStatus.PENDING_ACCEPT);
+        if (wo.getStatus() != WorkOrderStatus.IN_PROGRESS) {
+            throw new IllegalArgumentException("只有维修中的工单可以提交关闭");
+        }
+        // 维修提交关闭 → 待核价（等待管理员核价填金额）
+        wo.setStatus(WorkOrderStatus.PENDING_PRICING);
         wo.setRepairRecord(record);
         workOrderMapper.updateById(wo);
         if (consumables != null) {
@@ -217,6 +221,42 @@ public class WorkOrderService {
                 c.setIsIou(Boolean.TRUE.equals(item.getIsIou()));
                 c.setIouNo(item.getIouNo());
                 consumableMapper.insert(c);
+            }
+        }
+        return wo;
+    }
+
+    /**
+     * 管理员核价完成：填好金额后提交，工单从待核价 → 待签字。
+     * 耗材单价已在 pricing 接口写入；此动作只推进状态。
+     */
+    public WorkOrder completePricing(Long id) {
+        WorkOrder wo = getById(id);
+        if (wo.getStatus() != WorkOrderStatus.PENDING_PRICING) {
+            throw new IllegalArgumentException("只有待核价的工单可以完成核价");
+        }
+        wo.setStatus(WorkOrderStatus.PENDING_SIGN);
+        workOrderMapper.updateById(wo);
+        return wo;
+    }
+
+    /**
+     * 月度报销：把待报销工单推进为已报销。
+     * 由 ReimbursementService.reimburse() 在报销单回填时按明细逐条调用。
+     */
+    public WorkOrder reimburse(Long id) {
+        WorkOrder wo = getById(id);
+        if (wo.getStatus() != WorkOrderStatus.PENDING_REIMBURSE) {
+            throw new IllegalArgumentException("只有待报销的工单可以报销");
+        }
+        wo.setStatus(WorkOrderStatus.REIMBURSED);
+        workOrderMapper.updateById(wo);
+        // 工单已报销时同步报修单为已报销——整条报修链路最终闭环
+        if (wo.getReportId() != null) {
+            Report report = reportMapper.selectById(wo.getReportId());
+            if (report != null && report.getStatus() == ReportStatus.COMPLETED) {
+                report.setStatus(ReportStatus.REIMBURSED);
+                reportMapper.updateById(report);
             }
         }
         return wo;

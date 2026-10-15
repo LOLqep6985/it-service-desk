@@ -39,7 +39,7 @@
         Admin.ui.h('h2', { text: greeting() + '，' + (user.name || '管理员') }),
         Admin.ui.h('div', {
           class: 'sub',
-          text: dateText() + ' · 待受理 ' + stats.pendingReports + ' 单 · 待科室验收 ' + stats.pendingAcceptWorkOrders + ' 单'
+          text: dateText() + ' · 待受理 ' + stats.pendingReports + ' 单 · 待签字 ' + stats.pendingSignWorkOrders + ' 单'
         })
       ),
       Admin.ui.h('div', { class: 'hero-actions' },
@@ -70,11 +70,12 @@
       ui.metricCard({
         title: '进行中工单', value: stats.activeWorkOrders, unit: '单',
         icon: Admin.layout.ICONS.wrench, tone: 'warn',
-        hint: '已派单 ' + stats.assignedWorkOrders + ' · 处理中 ' + stats.inProgressWorkOrders
+        hint: '待接单 ' + stats.assignedWorkOrders + ' · 维修中 ' + stats.inProgressWorkOrders
+          + ' · 待核价 ' + stats.pendingPricingWorkOrders + ' · 待签字 ' + stats.pendingSignWorkOrders
       }),
       ui.metricCard({
-        title: '待科室验收', value: stats.pendingAcceptWorkOrders, unit: '单',
-        icon: Admin.layout.ICONS.history, tone: 'success', hint: '等待护士长签字确认'
+        title: '待签字', value: stats.pendingSignWorkOrders, unit: '单',
+        icon: Admin.layout.ICONS.history, tone: 'success', hint: '等待护士长签字验收'
       })
     );
     return grid;
@@ -193,7 +194,7 @@
       var stats = await Admin.api.get('/api/stats/dashboard');
       var [pendingReports, pendingAccept] = await Promise.all([
         Admin.api.get('/api/reports', { status: 'PENDING' }),
-        Admin.api.get('/api/work-orders', { status: 'PENDING_ACCEPT' })
+        Admin.api.get('/api/work-orders', { status: 'PENDING_SIGN' })
       ]);
       var userMap = {};
       try {

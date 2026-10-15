@@ -43,7 +43,7 @@
   <div id="groups"></div>
 </div>
 <script>
-  const WORK_ORDER_STATUS = { PENDING:'待受理', ASSIGNED:'待接单', IN_PROGRESS:'维修中', PENDING_ACCEPT:'待签字', COMPLETED:'已完工' };
+  const WORK_ORDER_STATUS = { ASSIGNED:'待接单', IN_PROGRESS:'维修中', PENDING_PRICING:'待核价', PENDING_SIGN:'待签字', PENDING_REIMBURSE:'待报销', REIMBURSED:'已报销' };
   const CAMPUS_LABEL = { LAOYUAN:'老院', XIYUAN:'西院', DONGYUAN:'东院' };
   const params = new URLSearchParams(location.search);
   const userId = params.get('userId');

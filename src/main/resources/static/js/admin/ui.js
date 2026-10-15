@@ -456,11 +456,12 @@
         CANCELLED: { label: '已取消', tone: 'cancelled' }
       },
       WORK_ORDER: {
-        PENDING: { label: '待受理', tone: 'pending' },
         ASSIGNED: { label: '待接单', tone: 'primary' },
         IN_PROGRESS: { label: '维修中', tone: 'warn' },
-        PENDING_ACCEPT: { label: '待签字', tone: 'warn' },
-        COMPLETED: { label: '已完工', tone: 'success' }
+        PENDING_PRICING: { label: '待核价', tone: 'warn' },
+        PENDING_SIGN: { label: '待签字', tone: 'warn' },
+        PENDING_REIMBURSE: { label: '待报销', tone: 'success' },
+        REIMBURSED: { label: '已报销', tone: 'success' }
       },
       REIMBURSEMENT: {
         PENDING_SIGN: { label: '待签字', tone: 'pending' },

@@ -97,7 +97,7 @@ public class SystemInfoController {
         counts.put("reports", count(reportMapper.selectCount(null)));
         counts.put("workOrders", count(workOrderMapper.selectCount(null)));
         counts.put("completedWorkOrders", count(workOrderMapper.selectCount(new LambdaQueryWrapper<WorkOrder>()
-                .eq(WorkOrder::getStatus, WorkOrderStatus.COMPLETED))));
+                .in(WorkOrder::getStatus, WorkOrderStatus.PENDING_REIMBURSE, WorkOrderStatus.REIMBURSED))));
         counts.put("pendingReports", count(reportMapper.selectCount(new LambdaQueryWrapper<Report>()
                 .eq(Report::getStatus, ReportStatus.PENDING))));
         data.put("counts", counts);
