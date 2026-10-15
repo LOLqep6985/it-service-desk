@@ -18,6 +18,8 @@
 - **D-013 工单业务管理重构**（报修单状态同步+历史整合）→ `findings.md#D-013`、`progress.md#S-017`
 - **D-014 报销闭环同步**（财务回填→已报销）→ `findings.md#D-014`、`progress.md#S-018`
 - **D-015 工单状态机重构**（严格对齐《工单全流程规则.md》6态）→ `findings.md#D-015`、`progress.md#S-019`
+- **D-016 科室索引修复**（搜索失焦根因=重建整卡；竖列根因=.dept-* CSS 类从未定义；院区三栏 grid 重排）→ `findings.md#D-016`、`progress.md#S-020`；**附带发现 department_head 全空**
+- **D-017 科室索引搜索移除**（用户裁定冗余，只留刷新按钮）→ `findings.md#D-017`、`progress.md#S-021`
 - 落地文件：`WorkOrderStatus.java`(6态去PENDING/COMPLETED加PENDING_PRICING/PENDING_REIMBURSE/REIMBURSED)、`WorkOrderService.java`(+completePricing/reimburse, sign→待报销, submitRepair→待核价)、`WorkOrderAccess.java`(+REIMBURSE)、`WorkOrderController.java`(pricing语义变更+/{id}/reimburse)、`ReimbursementService.java`(reimburse回填工单→已报销+注入WorkOrderService)、`StatsService`+`DashboardStats`+`SystemInfoController`、前端 ui.js/work-orders.js/system.js/dashboard.js/app.js/today/detail/report/reports-history、`sql/2026-10-15-workorder-status-machine.sql`+2个前置迁移、`WorkOrderAccessTest.java`(12项)、SW itsd-v10
 - 验证：三轮闭环实跑全绿（签字→待报销→已报销；7步状态机每步查库正确）+ mvn test + 前端四套回归
 - 工单状态机（严格6态）：待接单→维修中→待核价→待签字→待报销(移入历史)→已报销
@@ -52,7 +54,7 @@
 
 ## 下一步
 
-- **第 0 步（用户复验）**：工单管理页默认只显示进行中（待接单/维修中/待核价/待签字 4 态），切"待报销/已报销"看历史；工单详情在待报销状态显示「确认月度报销」按钮；系统信息页状态机图显示 6 态流转；科室端待签字列表+签字后历史显示。SW 已升 itsd-v10，首次打开 Ctrl+Shift+R
+- **第 0 步（用户复验）**：①科室索引页：无搜索框（D-017 已移除）、院区三栏卡片布局（楼栋蓝色分区、楼层行 chips 横排）、刷新按钮可用 ②工单管理默认进行中 4 态、切待报销/已报销看历史、详情报销按钮；系统信息页 6 态状态机图；科室端待签字列表。SW 已升 itsd-v12，首次打开 Ctrl+Shift+R
 - 复验通过后：**git 提交**（三条建议信息见 `progress.md` 的 Git 提交记录节，可合并或分开）
 - 之后 **D-012 跨端实时推送**（焦点自动刷新 ~10 行 / SSE 单向推送约 1 批次，二选一）或 **Day 7** 部署/README/简历
 - 常规回归（需先起 8090 实例）：`mvn -Dmaven.repo.local=.m2repo test`（17 项）→ `test-frontend.js` → `test-admin-app.js` → `test-sign-type.js` → `test-finance-api.js`（造数据后按 id 清理）

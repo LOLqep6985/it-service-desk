@@ -566,3 +566,31 @@
   - 前端 test-frontend/test-admin-app/test-finance-api/test-sign-type 全部 ALL CHECKS PASSED（测试断言已同步新状态机）
   - 存量迁移：工单#1→REIMBURSED、工单#7/#11/#12→PENDING_REIMBURSE
 - 关联：`findings.md#D-013`、`#D-014`、`progress.md#S-019`
+
+### D-016 | 2026-10-15：科室索引管理修复——搜索失焦 + 布局重排
+
+- 状态：accepted（用户明确要求，附截图指出两处问题）
+- 来源：用户明确要求
+- 用户原话（逐字）：> "科室索引管理板块：1.右边搜索功能有问题，赶紧修改 2.左边科室索引部分全为竖着一列并不好看，按照你的审美和理解，要让对科室信息管理人员一目了然，看着舒服。"
+- **诊断出的两个真实根因（已核实代码）**：
+  1. **搜索打一个字就失焦**：`onInput → paint(el)` 每次输入把整张卡片**连搜索框一起销毁重建** → DOM 引用变化、焦点丢失，无法连续输入
+  2. **竖着一列的原因**：departments.js 用的 `.dept-campus` / `.dept-building` / `.dept-floor-row` / `.dept-names` / `.dept-name-chip` 五个类在 admin-layout.css 里**从未定义**（floor-chip 在 dept-cascade.css，但 dept-* 系列哪儿都没有）→ 全部 div 块级堆叠成竖列
+- **修复**：
+  1. **搜索框只创建一次**：工具栏卡片在 render 时固定创建，输入只重绘 `#dept-content` 数据区（搜索框 DOM 引用不变、焦点保留）；卡片头计数 hint 手动同步；`departments.js` 裸引用 `DeptCascade` 改为 `window.DeptCascade`（更健壮）
+  2. **布局重排**：院区三栏卡片 grid（`repeat(auto-fit, minmax(320px,1fr))`）→ 楼栋分区（蓝色左边框标题 + 科室数）→ 楼层行（蓝色 floor-chip + 科室 chips 横向流式 flex-wrap、白底胶囊、hover 变蓝、超长省略号）；窄屏 ≤1100px 自动降单列
+- 新增专项测试：`.rdoc_inspect/test-departments-view.js`（15 项：视图注册/grid 结构/3 院区/6 楼栋/36 楼层行/68 chips/计数 hint/搜索不失焦/值保留/过滤 22/清空恢复 68/负责人搜索逻辑）
+- **附带发现**：department 表 `department_head` 字段**全部为空**（68/68）→ 负责人搜索逻辑正确但无数据可搜；悬停提示也不会显示负责人。若需要按负责人搜索/展示，需先维护科室负责人数据（可后续做基础数据编辑功能）
+- 测试断言同步：test-frontend.js 的 today/detail 状态映射断言从旧 5 态（PENDING_ACCEPT/COMPLETED）更新为 D-015 的 6 态（PENDING_PRICING/PENDING_SIGN/PENDING_REIMBURSE/REIMBURSED）——这是上轮状态机重构的测试遗留，本轮一并修
+- SW：itsd-v10 → itsd-v11
+- 验证：专项 15 项 ALL PASSED + test-frontend / test-admin-app 全部 ALL CHECKS PASSED
+- 关联：`progress.md#S-020`
+
+### D-017 | 2026-10-15：科室索引搜索功能移除（用户裁定冗余）
+
+- 状态：accepted（用户明确要求）
+- 来源：用户明确要求
+- 用户原话（逐字）：> "将该搜索功能删掉，我觉得有些冗余了，下面的列表信息就一目了然了，不需要这块的功能。"
+- 决策：科室索引页移除搜索框与过滤逻辑（filteredGroups/state.keyword/「当前筛选结果」指标卡改为「当前展示」），只保留「刷新」按钮。理由：院区→楼栋→楼层三级分类布局本身已一目了然，68 个科室规模下搜索无必要
+- 落地：重写 `js/admin/views/departments.js`（142→105 行）；专项测试改为断言「无搜索框 + 刷新可用」；test-admin-app 的「科室页有搜索框」断言同步反转；SW itsd-v11 → itsd-v12
+- 验证：专项 9 项 ALL PASSED + test-admin-app ALL PASSED
+- 关联：`progress.md#S-021`
