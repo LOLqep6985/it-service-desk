@@ -156,7 +156,7 @@ public class ReimbursementService {
         return data;
     }
 
-    public Reimbursement sign(Long id, String signerName, String signatureUrl) {
+    public Reimbursement sign(Long id, String signerName, String signatureUrl, String signType) {
         Reimbursement r = getById(id);
         if (r.getStatus() != ReimbursementStatus.PENDING_SIGN) {
             throw new IllegalArgumentException("该报销单不在待签字状态");
@@ -165,6 +165,7 @@ public class ReimbursementService {
         r.setSignedBy(signerName);
         r.setSignedAt(LocalDateTime.now());
         r.setSignatureUrl(signatureUrl);      // 手写签名留痕（与工单验收签字一致）
+        r.setSignType(SignType.of(signType)); // 签字方式留痕：手写 / 输入姓名生成
         reimbursementMapper.updateById(r);
         return r;
     }

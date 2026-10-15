@@ -4,9 +4,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.itservice.desk.dto.*;
 import com.itservice.desk.mapper.ConsumableMapper;
 import com.itservice.desk.mapper.DepartmentBindingMapper;
-import com.itservice.desk.mapper.ReportMapper;
 import com.itservice.desk.mapper.UserMapper;
 import com.itservice.desk.model.*;
+import com.itservice.desk.service.WorkOrderAccess;
 import com.itservice.desk.service.WorkOrderService;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,21 +17,21 @@ import java.util.List;
 public class WorkOrderController {
 
     private final WorkOrderService workOrderService;
+    private final WorkOrderAccess access;
     private final UserMapper userMapper;
     private final DepartmentBindingMapper bindingMapper;
     private final ConsumableMapper consumableMapper;
-    private final ReportMapper reportMapper;
 
     public WorkOrderController(WorkOrderService workOrderService,
+                                WorkOrderAccess access,
                                 UserMapper userMapper,
                                 DepartmentBindingMapper bindingMapper,
-                                ConsumableMapper consumableMapper,
-                                ReportMapper reportMapper) {
+                                ConsumableMapper consumableMapper) {
         this.workOrderService = workOrderService;
+        this.access = access;
         this.userMapper = userMapper;
         this.bindingMapper = bindingMapper;
         this.consumableMapper = consumableMapper;
-        this.reportMapper = reportMapper;
     }
 
     @PostMapping
@@ -71,6 +71,10 @@ public class WorkOrderController {
         if (user == null) {
             return ApiResponse.error(401, "未登录或登录已过期");
         }
+        // 今日任务是维修人员专属（管理员/调度员用后台工单列表，财务不接触工单）
+        if (user.getRole() != UserRole.REPAIRER) {
+            return ApiResponse.error(403, "无权限：今日任务仅维修人员可查看");
+        }
         List<WorkOrder> list = workOrderService.listTodayTasks(user.getId());
         return ApiResponse.ok(list);
     }
@@ -101,42 +105,25 @@ public class WorkOrderController {
                               @RequestParam(required = false) Long departmentId,
                               @RequestParam(required = false) String deviceCode) {
         WorkOrder wo = workOrderService.getById(id);
-        // 科室端免登录：科室必须匹配
+        // 科室端免登录（按科室做行级过滤）或登录用户（按角色做行级过滤）
         Long deptId = resolveDepartmentId(departmentId, deviceCode);
+        User user = resolveUserByToken(token);
         if (deptId != null) {
             if (!deptId.equals(wo.getDepartmentId())) {
                 return ApiResponse.error(403, "无权查看该工单");
             }
-            return ApiResponse.ok(wo);
+        } else {
+            if (user == null) {
+                return ApiResponse.error(401, "未登录或登录已过期");
+            }
+            if (!access.canView(user, wo)) {
+                return ApiResponse.error(403, "无权查看该工单");
+            }
         }
-        // 登录用户：管理员/调度员看全部；维修工仅本人工单；报修人仅自己提交的报修单对应工单
-        User user = resolveUserByToken(token);
-        if (user == null) {
-            return ApiResponse.error(401, "未登录或登录已过期");
-        }
-        if (!canView(wo, user)) {
-            return ApiResponse.error(403, "无权查看该工单");
-        }
-        return ApiResponse.ok(wo);
-    }
-
-    /** 工单详情可见性：防止越权查看他人工单 */
-    private boolean canView(WorkOrder wo, User user) {
-        if (user.getRole() == UserRole.ADMIN || user.getRole() == UserRole.DISPATCHER) {
-            return true;
-        }
-        if (user.getRole() == UserRole.REPAIRER) {
-            return user.getId().equals(wo.getAssigneeId());
-        }
-        // 报修人：直接创建的工单，或其报修单派单后生成的工单
-        if (user.getId().equals(wo.getCreatorId())) {
-            return true;
-        }
-        if (wo.getReportId() != null) {
-            Report report = reportMapper.selectById(wo.getReportId());
-            return report != null && user.getId().equals(report.getCreatorId());
-        }
-        return false;
+        // 动态权限由服务端计算后下发，前端按钮据此渲染
+        WorkOrderDetail detail = workOrderService.buildDetail(wo);
+        detail.setAllowedActions(access.allowedActions(user, deptId, wo));
+        return ApiResponse.ok(detail);
     }
 
     @GetMapping("/{id}/consumables")
@@ -156,10 +143,7 @@ public class WorkOrderController {
         if (user == null) {
             return ApiResponse.error(401, "未登录或登录已过期");
         }
-        boolean allowed = user.getRole() == UserRole.ADMIN
-                || user.getRole() == UserRole.DISPATCHER
-                || (user.getRole() == UserRole.REPAIRER && user.getId().equals(wo.getAssigneeId()));
-        if (!allowed) {
+        if (!access.canView(user, wo)) {
             return ApiResponse.error(403, "无权查看该工单的耗材记录");
         }
         return ApiResponse.ok(workOrderService.listConsumables(id));
@@ -172,14 +156,11 @@ public class WorkOrderController {
         if (user == null) {
             return ApiResponse.error(401, "未登录或登录已过期");
         }
-        if (user.getRole() != UserRole.REPAIRER) {
-            return ApiResponse.error(403, "无权限：只有维修人员可以接单");
+        WorkOrder wo = workOrderService.getById(id);
+        if (!access.allowedActions(user, null, wo).contains(WorkOrderAccess.ACCEPT)) {
+            return ApiResponse.error(403, "无权限接单：只有被指派的维修人员在「待接单」状态可以接单");
         }
         try {
-            WorkOrder wo = workOrderService.getById(id);
-            if (!user.getId().equals(wo.getAssigneeId())) {
-                return ApiResponse.error(403, "该工单不是派给你的");
-            }
             return ApiResponse.ok(workOrderService.accept(id));
         } catch (IllegalArgumentException e) {
             return ApiResponse.error(e.getMessage());
@@ -194,16 +175,12 @@ public class WorkOrderController {
         if (user == null) {
             return ApiResponse.error(401, "未登录或登录已过期");
         }
-        if (user.getRole() != UserRole.REPAIRER) {
-            return ApiResponse.error(403, "无权限：只有维修人员可以提交维修记录");
+        WorkOrder wo = workOrderService.getById(id);
+        if (!access.allowedActions(user, null, wo).contains(WorkOrderAccess.REPAIR)) {
+            return ApiResponse.error(403, "无权限提交维修记录：只有被指派的维修人员在「维修中」状态可以提交");
         }
         try {
-            WorkOrder wo0 = workOrderService.getById(id);
-            if (!user.getId().equals(wo0.getAssigneeId())) {
-                return ApiResponse.error(403, "该工单不是派给你的");
-            }
-            WorkOrder wo = workOrderService.submitRepair(id, req.getRecord(), req.getConsumables());
-            return ApiResponse.ok(wo);
+            return ApiResponse.ok(workOrderService.submitRepair(id, req.getRecord(), req.getConsumables()));
         } catch (IllegalArgumentException e) {
             return ApiResponse.error(e.getMessage());
         }
@@ -216,13 +193,14 @@ public class WorkOrderController {
             return ApiResponse.error(401, "请选择有效的科室");
         }
         WorkOrder wo = workOrderService.getById(id);
-        if (!deptId.equals(wo.getDepartmentId())) {
-            return ApiResponse.error(403, "无权操作该工单");
+        // 科室端签字：仅本科室 + 仅「待签字」状态（状态机动态权限）
+        if (!access.allowedActions(null, deptId, wo).contains(WorkOrderAccess.SIGN)) {
+            return ApiResponse.error(403, "该工单当前不可签字（仅本科室在「待签字」状态可签字）");
         }
         try {
             boolean isDelegate = Boolean.TRUE.equals(req.getIsDelegate());
             return ApiResponse.ok(workOrderService.sign(id, req.getSignerName(), isDelegate,
-                    req.getDelegatedName(), req.getSignatureUrl()));
+                    req.getDelegatedName(), req.getSignatureUrl(), req.getSignType()));
         } catch (IllegalArgumentException e) {
             return ApiResponse.error(e.getMessage());
         }
@@ -236,7 +214,8 @@ public class WorkOrderController {
         if (user == null) {
             return ApiResponse.error(401, "未登录或登录已过期");
         }
-        if (user.getRole() != UserRole.ADMIN && user.getRole() != UserRole.DISPATCHER) {
+        WorkOrder woForPrice = workOrderService.getById(id);
+        if (!access.allowedActions(user, null, woForPrice).contains(WorkOrderAccess.PRICE)) {
             return ApiResponse.error(403, "无权限：只有管理员或调度员可以核价");
         }
         if (req.getConsumables() != null) {

@@ -89,6 +89,7 @@
           detailRow('合计金额', ui.h('b', { text: ui.money(r.totalAmount) })),
           detailRow('状态', ui.statusBadge(ui.STATUS.REIMBURSEMENT, r.status)),
           detailRow('签字人', r.signedBy || '未签字'),
+          detailRow('签字方式', ui.signTypeBadge(r.signType)),
           detailRow('签字时间', r.signedAt ? ui.fmtTime(r.signedAt) : '未签字'),
           r.reimbursedAt ? detailRow('报销时间', ui.fmtTime(r.reimbursedAt)) : null
         ),
@@ -96,7 +97,7 @@
           ui.h('h4', { text: '签字留痕' }),
           r.signatureUrl
             ? ui.h('div', { class: 'detail-photo' },
-              ui.h('img', { src: r.signatureUrl, alt: '手写签名', onclick: function (e) { global.open(e.target.src, '_blank'); } }))
+              ui.h('img', { src: r.signatureUrl, alt: '签名图', onclick: function (e) { global.open(e.target.src, '_blank'); } }))
             : ui.h('div', { style: { color: '#95a5a6', fontSize: '13px' }, text: '无签名图片（历史单据签字时未启用留痕）' })
         ),
         ui.h('div', { class: 'detail-section' },

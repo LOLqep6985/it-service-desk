@@ -7,18 +7,32 @@
   var Admin = global.Admin = global.Admin || {};
   Admin.views = Admin.views || {};
 
-  var state = { rows: [], status: '', keyword: '', userMap: {} };
+  var state = { rows: [], scope: 'ACTIVE', keyword: '', userMap: {} };
 
-  var STATUS_OPTIONS = [
-    { value: '', label: '全部状态' },
-    { value: 'ASSIGNED', label: '已派单' },
-    { value: 'IN_PROGRESS', label: '处理中' },
-    { value: 'PENDING_ACCEPT', label: '待验收' },
-    { value: 'COMPLETED', label: '已完成' }
+  /** 进行中 = 未完工（待接单/维修中/待签字），与「历史归档」相对 */
+  var ACTIVE_STATUSES = ['ASSIGNED', 'IN_PROGRESS', 'PENDING_ACCEPT'];
+
+  var SCOPE_OPTIONS = [
+    { value: 'ACTIVE', label: '进行中（默认）' },
+    { value: 'ALL', label: '全部状态' },
+    { value: 'ASSIGNED', label: '待接单' },
+    { value: 'IN_PROGRESS', label: '维修中' },
+    { value: 'PENDING_ACCEPT', label: '待签字' },
+    { value: 'COMPLETED', label: '已完工' }
   ];
 
+  /** 列表默认只看进行中的工单，避免历史工单淹没当前任务 */
+  function visibleRows() {
+    if (state.scope === 'ALL') return state.rows;
+    if (state.scope === 'ACTIVE') {
+      return state.rows.filter(function (w) { return ACTIVE_STATUSES.indexOf(w.status) >= 0; });
+    }
+    return state.rows.filter(function (w) { return w.status === state.scope; });
+  }
+
   async function load() {
-    state.rows = await Admin.api.get('/api/work-orders', state.status ? { status: state.status } : null) || [];
+    // 一次取全量后在浏览器端按范围过滤（含「进行中」这种多状态区间；服务端分页为已知待优化项）
+    state.rows = await Admin.api.get('/api/work-orders') || [];
     try {
       await Admin.store.loadUsers(true);
       state.userMap = Admin.store.userMap();
@@ -64,6 +78,16 @@
     async function fill() {
       var report = null;
       var consumables = [];
+      var actions = [];
+      var reportNo = reportNoOf(wo);
+      var reimbursement = null;
+      // 服务端计算的动作集合（动态权限）：前端按钮据此渲染
+      try {
+        var detail = await Admin.api.get('/api/work-orders/' + wo.id);
+        actions = (detail && detail.allowedActions) || [];
+        if (detail && detail.reportNo) reportNo = detail.reportNo;
+        if (detail) reimbursement = detail.reimbursement;
+      } catch (e) { /* 拉取失败时退化为只读展示 */ }
       try {
         if (wo.reportId) {
           report = await Admin.api.get('/api/reports/' + wo.reportId);
@@ -80,21 +104,25 @@
               ui.h('thead', null, ui.h('tr', null,
                 ui.h('th', { text: '耗材' }), ui.h('th', { text: '数量' }), ui.h('th', { text: '实际单价（核价）' }))),
               ui.h('tbody', null, consumables.map(function (c) {
-                var input = ui.h('input', {
-                  class: 'input input-sm', type: 'number', step: '0.01', style: { width: '110px' },
-                  value: c.unitPrice === null || c.unitPrice === undefined ? '' : c.unitPrice,
-                  placeholder: '未核价', dataset: { id: c.id }
-                });
+                // 核价是管理员/调度员的动作（PRICE）：无权限时只读展示
+                var priceCell = ui.can(actions, 'PRICE')
+                  ? ui.h('input', {
+                    class: 'input input-sm', type: 'number', step: '0.01', style: { width: '110px' },
+                    value: c.unitPrice === null || c.unitPrice === undefined ? '' : c.unitPrice,
+                    placeholder: '未核价', dataset: { id: c.id }
+                  })
+                  : ui.h('span', { text: c.unitPrice === null || c.unitPrice === undefined ? '未核价' : ui.money(c.unitPrice) });
                 return ui.h('tr', null,
                   ui.h('td', { text: c.name || '-' }),
                   ui.h('td', { text: c.quantity === null || c.quantity === undefined ? 1 : c.quantity }),
-                  ui.h('td', null, input)
+                  ui.h('td', null, priceCell)
                 );
               }))
             )
           ),
           ui.h('button', {
             class: 'btn btn-primary btn-sm', style: { marginTop: '10px' }, text: '保存核价',
+            hidden: !ui.can(actions, 'PRICE'),
             onclick: async function () {
               var items = [];
               Array.prototype.forEach.call(drawer.bodyEl.querySelectorAll('input[data-id]'), function (inp) {
@@ -116,7 +144,7 @@
       drawer.setBody(ui.h('div', null,
         section('基本信息', [
           ['工单ID', wo.id],
-          ['报修单号', reportNoOf(wo)],
+          ['报修单号', reportNo],
           ['科室', wo.departmentName || (report && report.departmentName)],
           ['设备名称', (report && report.deviceName) || wo.title],
           ['报修人', report && report.reporterName],
@@ -137,9 +165,16 @@
           ['签字状态', wo.signStatus === 'SIGNED'
             ? ui.badge('已签字', 'success')
             : ui.badge('待签字', 'pending')],
+          ['签字方式', ui.signTypeBadge(wo.signType)],
           ['签字人', wo.signedBy],
           ['签字时间', wo.signedAt ? ui.fmtTime(wo.signedAt) : '未签字'],
-          ['手写签名', photoBlock(wo.signatureUrl, '手写签名')]
+          ['签名图片', photoBlock(wo.signatureUrl, '签名图')],
+          // 财务剥离：待报销不是工单状态，工单只展示它被纳入的报销单进度
+          ['报销进度', reimbursement
+            ? ui.h('span', null,
+              ui.h('span', { text: reimbursement.month + ' 报销单 #' + reimbursement.id + ' · ' }),
+              ui.statusBadge(ui.STATUS.REIMBURSEMENT, reimbursement.status))
+            : '尚未纳入报销']
         ])
       ));
     }
@@ -153,22 +188,22 @@
     var ui = Admin.ui;
     await load();
 
-    var statusSelect = ui.h('select', {
-      class: 'input input-sm', style: { width: '130px' },
-      onchange: function (e) { state.status = e.target.value; refresh(el); }
-    }, STATUS_OPTIONS.map(function (o) {
-      return ui.h('option', { value: o.value, text: o.label, selected: o.value === state.status });
+    var scopeSelect = ui.h('select', {
+      class: 'input input-sm', style: { width: '150px' },
+      onchange: function (e) { state.scope = e.target.value; refresh(el); }
+    }, SCOPE_OPTIONS.map(function (o) {
+      return ui.h('option', { value: o.value, text: o.label, selected: o.value === state.scope });
     }));
 
     var list = ui.listSection({
       title: '工单管理',
-      hint: '（派单后生成）',
+      hint: '（派单后生成；默认只显示进行中）',
       searchPlaceholder: '搜索工单号 / 标题 / 科室 / 维修工',
       searchFields: ['id', 'title', 'departmentName'],
-      rows: state.rows,
-      empty: '暂无工单',
+      rows: visibleRows(),
+      empty: state.scope === 'ACTIVE' ? '当前没有进行中的工单' : '暂无工单',
       pageSize: 10,
-      controls: statusSelect,
+      controls: scopeSelect,
       extra: ui.h('button', {
         class: 'btn btn-ghost btn-sm', text: '刷新',
         onclick: function () { refresh(el); }

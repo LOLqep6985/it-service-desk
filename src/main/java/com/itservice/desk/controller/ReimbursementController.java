@@ -38,8 +38,8 @@ public class ReimbursementController {
         if (user == null) {
             return ApiResponse.error(401, "未登录或登录已过期");
         }
-        if (user.getRole() != UserRole.ADMIN && user.getRole() != UserRole.DISPATCHER) {
-            return ApiResponse.error(403, "无权限：只有管理员或调度员可以生成报销单");
+        if (!isReimbursementStaff(user)) {
+            return ApiResponse.error(403, "无权限：只有管理员、调度员或财务可以生成报销单");
         }
         try {
             List<Reimbursement> created = reimbursementService.generate(month);
@@ -57,8 +57,8 @@ public class ReimbursementController {
         if (user == null) {
             return ApiResponse.error(401, "未登录或登录已过期");
         }
-        if (user.getRole() != UserRole.ADMIN && user.getRole() != UserRole.DISPATCHER) {
-            return ApiResponse.error(403, "无权限：只有管理员或调度员可以查看报销单");
+        if (!isReimbursementStaff(user)) {
+            return ApiResponse.error(403, "无权限：只有管理员、调度员或财务可以查看报销单");
         }
         return ApiResponse.ok(reimbursementService.listAll(status));
     }
@@ -101,8 +101,8 @@ public class ReimbursementController {
         if (user == null) {
             return ApiResponse.error(401, "未登录或登录已过期");
         }
-        if (user.getRole() != UserRole.ADMIN && user.getRole() != UserRole.DISPATCHER) {
-            return ApiResponse.error(403, "无权限：只有管理员或调度员可以查看报销单");
+        if (!isReimbursementStaff(user)) {
+            return ApiResponse.error(403, "无权限：只有管理员、调度员或财务可以查看报销单");
         }
         try {
             return ApiResponse.ok(reimbursementService.getDetail(id));
@@ -123,7 +123,7 @@ public class ReimbursementController {
             return ApiResponse.error(403, "无权操作该报销单");
         }
         try {
-            return ApiResponse.ok(reimbursementService.sign(id, req.getSignerName(), req.getSignatureUrl()));
+            return ApiResponse.ok(reimbursementService.sign(id, req.getSignerName(), req.getSignatureUrl(), req.getSignType()));
         } catch (IllegalArgumentException e) {
             return ApiResponse.error(e.getMessage());
         }
@@ -137,8 +137,8 @@ public class ReimbursementController {
         if (user == null) {
             return ApiResponse.error(401, "未登录或登录已过期");
         }
-        if (user.getRole() != UserRole.ADMIN && user.getRole() != UserRole.DISPATCHER) {
-            return ApiResponse.error(403, "无权限：只有管理员或调度员可以操作报销单");
+        if (!isReimbursementStaff(user)) {
+            return ApiResponse.error(403, "无权限：只有管理员、调度员或财务可以操作报销单");
         }
         try {
             return ApiResponse.ok(reimbursementService.reimburse(id));
@@ -163,6 +163,15 @@ public class ReimbursementController {
         }
         DepartmentBinding b = findActiveBinding(deviceCode);
         return b == null ? null : b.getDepartmentId();
+    }
+
+    /**
+     * 报销单的管理端角色：管理员 / 调度员 / 财务。
+     * 财务是独立岗位（只能看与处理报销单，不接触工单与系统配置）——见 findings D-011 权限矩阵。
+     */
+    private boolean isReimbursementStaff(User user) {
+        UserRole role = user.getRole();
+        return role == UserRole.ADMIN || role == UserRole.DISPATCHER || role == UserRole.FINANCE;
     }
 
     private User resolveUser(String token) {

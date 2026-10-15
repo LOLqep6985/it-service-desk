@@ -70,7 +70,7 @@
   const saved = localStorage.getItem('itsdUser');
   const user = saved ? JSON.parse(saved) : {};
   const token = user.token || '';
-  const WORK_ORDER_STATUS = { PENDING:'待派单', ASSIGNED:'已派单', IN_PROGRESS:'处理中', PENDING_ACCEPT:'待验收', COMPLETED:'已完成' };
+  const WORK_ORDER_STATUS = { PENDING:'待受理', ASSIGNED:'待接单', IN_PROGRESS:'维修中', PENDING_ACCEPT:'待签字', COMPLETED:'已完工' };
   const CAMPUS_LABEL = { LAOYUAN:'老院', XIYUAN:'西院', DONGYUAN:'东院' };
   const isRepairer = user.roleCode === 'REPAIRER';
   const card = document.getElementById('card');
@@ -146,7 +146,10 @@
     const res = await fetch('/api/work-orders/' + id, { headers: { 'X-Token': token } });
     const json = await res.json();
     if (json.code !== 0) { card.innerHTML = json.message; return; }
-    const wo = json.data;
+    // 详情响应结构：{ workOrder, allowedActions, reportNo, reimbursement }
+    const detail = json.data || {};
+    const wo = detail.workOrder || detail;
+    const allowed = detail.allowedActions || [];
     const statusLabel = WORK_ORDER_STATUS[wo.status] || wo.status;
     const signLabel = wo.signStatus === 'SIGNED' ? '已签字' : '待签字';
     const rows = [
@@ -169,8 +172,13 @@
 
     repairBox.style.display = 'none';
     acceptBox.style.display = 'none';
-    if (isRepairer && wo.status === 'ASSIGNED') {
+    // 动作可见性由服务端 allowedActions 决定（动态权限：派单后可接单，待签字后只读）
+    if (allowed.indexOf('REPAIR') >= 0) {
+      repairBox.style.display = 'block';
+    } else if (allowed.indexOf('ACCEPT') >= 0) {
       acceptBox.style.display = 'block';
+    } else if (isRepairer && wo.status === 'ASSIGNED') {
+      acceptBox.style.display = 'block';   // 兜底：老接口/字段缺失时保持原行为
     } else if (isRepairer && wo.status === 'IN_PROGRESS') {
       repairBox.style.display = 'block';
     }

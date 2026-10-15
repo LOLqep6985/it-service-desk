@@ -32,4 +32,6 @@ public class WorkOrder {
     private String signedBy;
     private LocalDateTime signedAt;
     private String signatureUrl;
+    /** 签字方式：HANDWRITTEN（手写）/ TYPED（输入姓名生成） */
+    private SignType signType;
 }

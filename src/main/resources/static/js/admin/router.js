@@ -12,6 +12,7 @@
   var routes = [];
   var current = null;      // { route, query, destroy }
   var hooks = {};
+  var fallbackPath = '/dashboard';   // 由 start(roleDefaultPath) 设定：财务落地到 /reimbursements
 
   function register(route) {
     if (!route || !route.path) return;
@@ -20,7 +21,7 @@
 
   function normalize(hash) {
     var raw = String(hash || '').replace(/^#/, '');
-    if (!raw || raw === '/') return { path: '/dashboard', query: {} };
+    if (!raw || raw === '/') return { path: fallbackPath, query: {} };
     var qIdx = raw.indexOf('?');
     var path = qIdx >= 0 ? raw.slice(0, qIdx) : raw;
     var query = {};
@@ -50,10 +51,10 @@
     var loc = normalize(global.location.hash);
     var route = match(loc.path);
 
-    // 未知路由 → 回工作台
+    // 未知路由 → 回落到该角色的默认页（财务为 /reimbursements）
     if (!route) {
-      if (loc.path !== '/dashboard') {
-        global.location.hash = '#/dashboard';
+      if (loc.path !== fallbackPath) {
+        global.location.hash = '#' + fallbackPath;
         return;
       }
       return;
@@ -88,8 +89,9 @@
   }
 
   function start(defaultPath) {
+    fallbackPath = defaultPath || '/dashboard';
     if (!global.location.hash) {
-      global.location.hash = '#' + (defaultPath || '/dashboard');
+      global.location.hash = '#' + fallbackPath;
     }
     global.addEventListener('hashchange', render);
     return render();

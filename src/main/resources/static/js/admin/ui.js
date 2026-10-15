@@ -417,10 +417,28 @@
     };
   }
 
+  /* ---------------- 工单动作（服务端 allowedActions 下发，前端不再硬编码状态判断） ---------------- */
+  var ACTION_LABEL = {
+    VIEW: '查看', ACCEPT: '接单', REPAIR: '提交维修记录', PRICE: '核价', SIGN: '签字验收'
+  };
+  function actionLabel(code) { return ACTION_LABEL[code] || code; }
+  function can(actions, code) { return Array.isArray(actions) && actions.indexOf(code) >= 0; }
+
+  /* ---------------- 签字方式（审计留痕） ---------------- */
+  var SIGN_TYPE_LABEL = { HANDWRITTEN: '手写签名', TYPED: '输入姓名生成' };
+
+  /** 签字方式徽标：TYPED 用 warn 色提醒是便捷模式；历史数据（NULL）显示「未记录」 */
+  function signTypeBadge(code) {
+    var label = SIGN_TYPE_LABEL[code];
+    if (!label) return badge('未记录', 'muted');
+    return badge(label, code === 'TYPED' ? 'warn' : 'primary');
+  }
+
   Admin.ui = {
     esc: esc, h: h, append: append,
     fmtTime: fmtTime, money: money, fmtDate: fmtDate,
-    badge: badge, statusBadge: statusBadge,
+    badge: badge, statusBadge: statusBadge, signTypeBadge: signTypeBadge,
+    actionLabel: actionLabel, can: can, ACTION_LABEL: ACTION_LABEL,
     card: card, metricCard: metricCard, dataTable: dataTable,
     trendBars: trendBars, distBars: distBars,
     drawer: drawer, modal: modal, confirm: confirm,
@@ -437,11 +455,11 @@
         CANCELLED: { label: '已取消', tone: 'cancelled' }
       },
       WORK_ORDER: {
-        PENDING: { label: '待派单', tone: 'pending' },
-        ASSIGNED: { label: '已派单', tone: 'primary' },
-        IN_PROGRESS: { label: '处理中', tone: 'warn' },
-        PENDING_ACCEPT: { label: '待验收', tone: 'warn' },
-        COMPLETED: { label: '已完成', tone: 'success' }
+        PENDING: { label: '待受理', tone: 'pending' },
+        ASSIGNED: { label: '待接单', tone: 'primary' },
+        IN_PROGRESS: { label: '维修中', tone: 'warn' },
+        PENDING_ACCEPT: { label: '待签字', tone: 'warn' },
+        COMPLETED: { label: '已完工', tone: 'success' }
       },
       REIMBURSEMENT: {
         PENDING_SIGN: { label: '待签字', tone: 'pending' },

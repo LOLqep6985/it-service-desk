@@ -1,0 +1,50 @@
+/* ============================================================================
+ * 签名板样式（signature-pad.css）—— 与 js/signature-pad.js 配套
+ * 使用方：report.html（工单验收签字 / 月度报销单签字）
+ * 说明：引导文字与基准线画在 CSS 层，不进画布，因此导出图里不会出现
+ * ========================================================================== */
+
+.sig-tabs { display: flex; gap: 6px; margin: 6px 0 8px; }
+.sig-tab {
+  flex: 1; padding: 8px 10px; font-size: 13px; cursor: pointer;
+  border: 1px solid #d0d5dd; background: #fff; color: #555; border-radius: 8px;
+}
+.sig-tab.active { background: #e8f8ef; border-color: #27ae60; color: #1e8449; font-weight: 600; }
+
+.sig-canvas-wrap {
+  position: relative; border: 1px dashed #1d6fe0; border-radius: 8px;
+  background: #fff; overflow: hidden;
+}
+/* 基准签名线（仅在未落笔时可见） */
+.sig-canvas-wrap::after {
+  content: ''; position: absolute; left: 8%; right: 8%; bottom: 38px;
+  border-bottom: 1px solid #e6eaee; pointer-events: none;
+}
+.sig-canvas-wrap.has-ink::after { display: none; }
+.sig-guide {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: #c7d0da; font-size: 14px; letter-spacing: 2px; pointer-events: none; user-select: none;
+}
+.sig-canvas-wrap.has-ink .sig-guide { display: none; }
+.sig-canvas {
+  display: block; width: 100%; height: 170px;
+  touch-action: none;              /* 触屏/手写笔必需：禁止页面滚动抢事件 */
+  cursor: crosshair;
+  background: transparent;
+}
+
+.sig-actions { display: flex; gap: 8px; margin-top: 8px; }
+.sig-btn {
+  padding: 6px 12px; font-size: 13px; border-radius: 6px; cursor: pointer;
+  border: 1px solid #d0d5dd; background: #fff; color: #2c3e50;
+}
+.sig-btn:active { background: #f4f6f8; }
+
+.sig-note { font-size: 12px; color: #95a5a6; line-height: 1.6; margin-top: 6px; }
+.sig-note.warn { color: #b9770e; }
+.sig-name-input {
+  width: 100%; padding: 11px; border: 1px solid #d0d5dd; border-radius: 8px;
+  font-size: 15px; margin-top: 2px;
+}
+.sig-mode-box { display: none; }
+.sig-mode-box.active { display: block; }

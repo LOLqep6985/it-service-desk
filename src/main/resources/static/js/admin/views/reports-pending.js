@@ -68,7 +68,7 @@
 
     var list = ui.listSection({
       title: '待受理报修单',
-      hint: '（待派单）',
+      hint: '（待受理）',
       searchPlaceholder: '搜索报修单号 / 科室 / 设备 / 报修人',
       searchFields: ['reportNo', 'departmentName', 'deviceName', 'reporterName', 'problemDesc'],
       rows: state.rows,

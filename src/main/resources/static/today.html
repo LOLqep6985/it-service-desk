@@ -43,7 +43,7 @@
   <div id="groups"></div>
 </div>
 <script>
-  const WORK_ORDER_STATUS = { PENDING:'待派单', ASSIGNED:'已派单', IN_PROGRESS:'处理中', PENDING_ACCEPT:'待验收', COMPLETED:'已完成' };
+  const WORK_ORDER_STATUS = { PENDING:'待受理', ASSIGNED:'待接单', IN_PROGRESS:'维修中', PENDING_ACCEPT:'待签字', COMPLETED:'已完工' };
   const CAMPUS_LABEL = { LAOYUAN:'老院', XIYUAN:'西院', DONGYUAN:'东院' };
   const params = new URLSearchParams(location.search);
   const userId = params.get('userId');
@@ -52,7 +52,7 @@
   const token = user.token || '';
 
   // 角色兜底：非维修工不应停留在今日任务页
-  if (user.roleCode === 'ADMIN' || user.roleCode === 'DISPATCHER') {
+  if (user.roleCode === 'ADMIN' || user.roleCode === 'DISPATCHER' || user.roleCode === 'FINANCE') {
     window.location.href = 'admin.html?userId=' + (userId || user.userId);
   } else if (user.roleCode === 'REPORTER') {
     window.location.href = 'create.html?userId=' + (userId || user.userId);

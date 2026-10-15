@@ -441,3 +441,186 @@
 | 日期 | 提交 | 内容 |
 |---|---|---|
 | 2026-10-14 | （待用户提交） | fix: 修复 5 条已知限制（报销签字留痕/维修端状态/防重口径/工单越权/密码BCrypt）+ 迁移脚本 |
+
+### S-009 | 2026-10-15：清空业务数据以便用户跑完整闭环 + 空数据预检
+
+- 需求来源：用户明确要求
+- 用户原话（逐字）：> "我现在为了验证全流程，需要你将所有的工单，不管是已完成/未完成的订单数据，都全部清除，我要跑一遍完整的"报修-->分配工单-->完成工单-->科室签字-->后台显示工单完成(额外的-->总结每月报销单)"。"
+- 执行（先备份后删除）：
+  - **备份**：`mysqldump` 导出 5 张业务表 → `.rdoc_inspect/backup/demo-data-20261015-010733.sql`（15,215 字节，可回滚）
+  - **清空**（按依赖顺序）：`reimbursement_item` → `reimbursement` → `consumable` → `work_order` → `report`，并 `ALTER TABLE ... AUTO_INCREMENT = 1` 重置编号（下次报修从 R000001 开始）
+  - **保留**：`sys_user` 5 个演示账号、`department` 68 个科室、`department_binding`（0 行）
+  - 清理前：report 22 / work_order 16 / consumable 10 / reimbursement 2 / reimbursement_item 5；清理后全部为 0
+  - `uploads/` 保留 6 个历史文件（共 15.9 KB），已成孤儿但不会被界面引用；未删除，等用户决定
+- 验证（新增空数据预检脚本 `test-empty-state.js`）→ **ALL CHECKS PASSED（21 项）**：
+  - 接口：指标全 0、本月报销 ¥0.00、近 7 日趋势 7 点全 0、报修/工单/报销列表为空、科室仍 68、用户仍 5
+  - 后台 8 页空态：工作台 4 卡显示「0单」无 undefined/NaN、趋势 7 根 0 值柱、待办区空态文案；待受理/工单/历史/报销页空态占位行正确；报销页 4 张统计卡仍渲染；科室页 6 栋分组不受影响；用户页 5 行；系统信息页正常
+  - **全流程无未捕获脚本错误**
+- 错误：
+  - 空态断言误写（把 `.empty-row` 占位行也算作数据行，期望 0 行）| 解决：断言改为「占位行 1 + 数据行 0」
+- 里程碑进展：为 M5 最终全流程演示准备干净数据基线
+- 下一步：用户手动跑闭环；随后 Day 7 部署 + README + 简历
+
+## Git 提交记录（S-009 追加）
+
+| 日期 | 提交 | 内容 |
+|---|---|---|
+| 2026-10-15 | （无需提交） | 仅数据操作：清空业务表（代码与文档无变更） |
+
+### S-010 | 2026-10-15：今日收尾（保存进度，明日继续）
+
+- 完成：
+  - 核对工作区：代码已全部提交至 `9e8f12f`（批次 1-4 依次为 `0f27158`、`4f39c5a`、`4caec14`、`9e8f12f`）；**工作区仅剩 2 个项目记忆文档待提交**
+  - 更新状态层：`handoff.md`（当前状态 + 数据现状 + 已完成 S-009 + 下一步）、`task_plan.md`（当前阶段、重构批次表补提交号并标记 complete、`Next Step` 改为「明天从这里开始」、已完成与待办刷新）
+- 更正（supersedes：`S-009` 的 Git 提交记录行）：
+  - S-009 写「（无需提交）仅数据操作，代码与文档无变更」——**只对数据库操作本身成立**；该轮实际产出了 2 个记忆文档改动（`progress.md`、`handoff.md`），需要提交
+- 明日开始的顺序（交给新会话）：
+  1. 按 `handoff.md` 的「回读顺序」恢复：`AGENTS.md` → `.active_plan` → `handoff.md` → `task_plan.md`
+  2. 优先等用户「完整闭环」的反馈；若要排查，先复现再定位（不猜、不盲改）
+  3. 进入 **Day 7**：先向用户确认部署目标（本机 Docker 演示 or 内网 Linux + HTTPS），再做部署配置 + README 重写 + 简历项目描述
+- 环境提醒（沿用既有教训）：临时验证实例一律用 **8090** 并在结束后 `Stop-Process` 清理 java；**8080 留给用户在 IDEA 启动**；`mvn package` 前必须先停应用，否则 repackage 会因 jar 被占用而失败
+- 里程碑进展：无新功能开发；为 M5 收尾（部署 + 简历）做准备
+- 下一步：见 `handoff.md` 的「下一步」段
+
+## Git 提交记录（S-010 追加）
+
+| 日期 | 提交 | 内容 |
+|---|---|---|
+| 2026-10-15 | （待用户提交） | docs(plans): 记录业务数据清空与空数据预检（S-009）+ 今日收尾交接（S-010） |
+
+### S-011 | 2026-10-15：会话切换交接（用户切换到新会话，模型不变：DeepSeek V4.1 flash）
+
+- 交接原因：用户即将**切换新会话**继续开发，模型仍为 **DeepSeek V4.1 flash**
+- 核对到的实际状态（切换前最后一次确认）：
+  - **代码**：全部已提交，HEAD = `9e8f12f`（批次 1-4 依次为 `0f27158`、`4f39c5a`、`4caec14`、`9e8f12f`）
+  - **工作区**：仅 3 个项目记忆文档未提交（`handoff.md`、`progress.md`、`task_plan.md`）
+  - **环境变化（重要）**：`MySQL80` 服务当前 **Stopped**（StartType = Manual），3306 无监听、无 mysqld 进程 → **新会话开工前必须先以管理员身份启动 MySQL80**（沙箱无权限启动服务；用户在服务管理器或管理员终端执行 `net start MySQL80`）
+  - **数据**：MySQL 停止前最后一次核对为「5 张业务表均 0 行；sys_user 5、department 68」——数据已持久化，服务重启后仍在（停止期间无法再核对，故以该值为准）
+  - **时间点说明**：本条记录时，会话内日期已跨到 2026-10-15
+- 交接文档更新：`handoff.md` 增加「交接原因 + 环境现状（MySQL 已停止）」；`task_plan.md` 的 `Next Step` 首条改为「先启动 MySQL80」
+- 新会话恢复方式（用户可直接粘贴给新会话）：
+  `继续 it-service-desk 项目（路径 D:\DeepSeek_data\gradaute_space\it-service-desk）。按 project-memory skill（v3）恢复状态：读项目根 AGENTS.md → .dsh/plans/.active_plan → .dsh/plans/it-service-desk/handoff.md → task_plan.md。注意：MySQL80 服务当前是停止的，需要你先确认已启动。`
+- 下一步：①启动 MySQL80 ②用户跑完整闭环并反馈 ③确认部署目标后进入 Day 7（部署 + README + 简历）
+
+## Git 提交记录（S-011 追加）
+
+| 日期 | 提交 | 内容 |
+|---|---|---|
+| 2026-10-15 | （待用户提交） | docs(plans): 会话切换交接（S-011）—— HEAD 状态、环境现状（MySQL 停止）与恢复方式 |
+
+### S-012 | 2026-10-15：用户实跑闭环验证结果（数据核对）
+
+- 背景：用户启动 MySQL80 后实跑了一遍完整闭环，AI 通过数据库 + uploads 目录核对实际结果
+- 环境核对：
+  - `MySQL80` **Running**，3306 已监听（PID 10784）——注意：`Get-NetTCPConnection` 在本机对 3306/8090 都报 0，**该 cmdlet 在本环境不可靠**，应以 `netstat -ano` / `Test-NetConnection` 为准（本会话曾因此误判）
+  - **应用当前未运行**：无任何 java 进程、8080 未监听（用户跑完闭环后已关闭，或尚未再次启动）
+- 实跑结果（来自库中数据，时间 2026-10-15 01:15 ~ 01:19）：
+  | 步骤 | 证据 | 结论 |
+  |---|---|---|
+  | ①科室报修 | report id=1 / **R000001** / 急救中心-一层-EICU(56) / 张华 / 打印机 / 缺墨 / `DISPATCHED` | ✅ 编号已从 1 重新开始 |
+  | ②管理员派单 | work_order id=1「打印机报修」/ assignee=3(张工) / 01:15:51 | ✅ |
+  | ③维修完成 | work_order `status=COMPLETED`、`repair_record=碳粉1支`；consumable 碳粉×1 | ✅ |
+  | ④科室签字（**代签**） | `signed_by=方彦博(由张华代签)`、`signature_url=/uploads/09b525d5….png`（01:17:37，文件确实存在 11,448 字节） | ✅ 代签 + 签名留痕 |
+  | ⑤管理员核价 | consumable `unit_price=40.00` | ✅ |
+  | ⑥生成月度报销单 | reimbursement id=1 / 2026-10 / dept 56 / **¥40.00** / `PENDING_REIMBURSE`；reimbursement_item 关联工单#1 | ✅ 金额与核价一致 |
+  | ⑦科室签字报销单 | `signed_by=方彦博`、`signed_at=01:19:01`、`signature_url=/uploads/e178da1d….png`（文件存在 11,428 字节） | ✅ **D-009 修复项在真实使用中生效**（原先签名会丢） |
+  | ⑧财务回填 | `reimbursed_at=NULL` | ⏳ **尚未执行（最后一步）** |
+- 意义：M5 的「签字 + 报销闭环」在修复后首次由用户实跑验证通过（报销单签名留痕、代签、核价均为真实数据证据）
+- 遗留：工作区 3 个记忆文档仍待用户提交；`uploads/` 现有 8 个文件（6 个历史孤儿 + 2 个本次有效签名）
+- 下一步：用户启动应用 → 完成第 ⑧ 步「财务回填」→ 工作台核对指标；随后 Day 7
+
+## Git 提交记录（S-012 追加）
+
+| 日期 | 提交 | 内容 |
+|---|---|---|
+| 2026-10-15 | （无需提交） | 仅为数据核对记录，无代码/文档变更 |
+
+### S-013 | 2026-10-15：闭环最后一步「财务回填」已执行并全量核对（**闭环 100% 跑通**）
+
+- 背景：用户要求 AI 用临时实例（8090）把第 ⑧ 步「财务回填」跑掉并核对界面与指标
+- 执行动作（**数据被真实修改，属用户明确要求的验证**）：
+  - `POST /api/reimbursements/1/reimburse`（token-1）→ 报销单 #1 由 `PENDING_REIMBURSE` 变为 **`REIMBURSED`**，`reimbursed_at = 2026-10-15 15:14:29`
+  - 验证脚本：`.rdoc_inspect/verify-reimburse.js`（真实后端 + jsdom 界面）
+- 验证结果 → **ALL CHECKS PASSED（24 项）**：
+  - 回填前：报销单#1 待报销、本月金额 ¥40.00、**闭环中间态清零**（待受理 0 / 进行中 0 / 待验收 0）
+  - 回填后：待报销 1→0、已报销 0→1；详情 `REIMBURSED` + **保留签字留痕**（`/uploads/e178da1d….png`）+ 关联工单 1 条
+  - 权限复核：李工查张工工单 **403**、张工查本人 **200**、维修工查报销单 **403**（D-009 修复项在真实数据上生效）
+  - 界面核对：工作台四卡（今日新增 1 / 待受理 0 / 进行中 0 / 待验收 0）、报销概览显示 **¥40.00 与已报销 1**、侧栏待签字角标隐藏；报销页状态「已报销」且**不再显示「财务回填」按钮**；详情抽屉出现「报销时间」并**展示手写签名图**；无未捕获脚本错误
+- 意义：**M5 的「签字 + 报销闭环」全流程（报修→派单→维修+耗材→科室签字[代签]→核价→月报销→科室签字→财务回填）已在修复后由用户实跑 + AI 核对，100% 通过**，且每一步都有数据库/文件/界面三层证据
+- 环境：临时实例已关闭（无残留 java 进程），8080 留给用户在 IDEA 使用
+- 数据现状：report=1、work_order=1、reimbursement=1（一条完整闭环的演示数据，可继续用于演示/截图）
+- 下一步：Day 7 部署 + README + 简历（部署目标待用户确认）
+
+## Git 提交记录（S-013 追加）
+
+| 日期 | 提交 | 内容 |
+|---|---|---|
+| 2026-10-15 | （无需提交） | 仅数据与验证操作：财务回填 + 闭环核对（代码/文档无变更） |
+
+### S-014 | 2026-10-15：签字体验改造（签名板重写 + 输入姓名生成 + 签字方式留痕）
+
+- 需求来源：用户反馈「科室签字用鼠标不好操作、不好演示」→ AI 先诊断缺陷再给方案 → 用户选定方案（详见 `findings.md#D-010`）
+- 完成：
+  - **新建共用组件**：`static/js/signature-pad.js`（约 250 行）+ `static/css/signature-pad.css`；修复 3 个缺陷：画布像素=显示尺寸×DPR（setTransform 对齐 CSS 像素）、线宽 3+圆头圆角、逐笔撤销/贝塞尔平滑/CSS 引导层/导出自动裁剪
+  - **双模式**：手写（默认）+ 输入姓名生成（楷体斜体自适应字号），同一画布与上传链路
+  - **签字方式留痕**：`model/SignType` 枚举（容错 `of()`）+ `work_order.sign_type` / `reimbursement.sign_type` + 两个 DTO 加 `signType` + 服务/控制器透传；科室端两个签字入口带 `signType`，科室端详情与后台两处详情展示签字方式徽标
+  - `report.html`：签字弹窗重构（模式标签页 + 画布 + 撤销/清除 + 姓名输入 + 提示），删除旧 `<canvas width=780>` 死代码与 `.canvas-box` 样式
+  - **首个后端单元测试** `src/test/java/com/itservice/desk/model/SignTypeTest.java`；系统信息页「无后端单测」限制改写
+  - 迁移脚本 `sql/2026-10-15-sign-type.sql`（幂等，已执行）；SW `itsd-v5 → itsd-v6` 并纳入 2 个新资源
+- 验证（证据）：
+  - **组件专项** `test-signature-pad.js`（jsdom + 记录型 2D 上下文）→ **22 项全通过**：画布 400×170（dpr1）/800×340（dpr2）+ `setTransform` 正确；**点可视中心落笔即 (200,85)**（证明坐标不再挤压到左上角）；线宽 3、圆头圆角、≥3 点走贝塞尔；撤销/单击圆点；`contentBox` 精确框出墨迹 `{100,40,51,21}`；导出裁剪为 **79×49** 且起点含 14px 留白；TYPED 模式 `fillText` 传入姓名、居中 (200,85)、`italic` + `KaiTi` 字体
+  - **端到端** `test-sign-type.js`（真实后端，跑完**自动 SQL 清理**）→ **11 项全通过**：工单签字 `sign_type` 落库=TYPED、科室端与后台接口均返回、报销单签字同样落库、历史 NULL 值不报错
+  - **回归**：`test-frontend.js`（新增签名板接入/双模式/带 signType/展示签字方式 4 项断言 + 「签字板交互」小节 9 项）**全通过**；`test-admin-app.js`（新增工单与报销单「签字方式」断言）**全通过**
+  - **后端单测**：`mvn test` → **Tests run: 6, Failures: 0, Errors: 0**（首次跑需联网拉 `surefire-junit-platform:2.22.2`，已入 `.m2repo`）
+  - HTTP：`/js/signature-pad.js`(application/javascript)、`/css/signature-pad.css`(text/css) 200；SW 已 `itsd-v6`
+  - 构建：`mvn package` → BUILD SUCCESS（含测试）
+- 错误：
+  - 测试桩把计数器与方法同名（`stroke`）导致 `ctx.stroke` 被自增成数字 → 改名 `strokeCount`
+  - 组件测试断言写错两处：文字用的是 CSS 逻辑坐标（应为 200,85 而非 800 画布中心）；裁剪发生在**离屏画布**的新上下文（不该在源画布上下文找 `drawImage`）
+  - `SignTypeTest` 引用了未实现的 `PHOTO` → 编译失败；按"只保留实际支持范围"删除该断言，并同步移除前端 `SIGN_TYPE` 映射里的 PHOTO 死配置
+  - `test-admin-app.js` 三处断言不兼容零值（角标为 0 时元素隐藏、空态占位行被当数据行、待受理为空时无派单按钮）→ 改为兼容「有数据/空数据」两种状态
+- 里程碑进展：M5 收尾前的体验改造（用户实跑闭环后的反馈项）
+- 下一步：用户复验签字体验；随后 Day 7 部署 + README + 简历
+
+## Git 提交记录（S-014 追加）
+
+| 日期 | 提交 | 内容 |
+|---|---|---|
+| 2026-10-15 | （待用户提交） | feat(sign): 签名板重写（画布/线宽/撤销/自动裁剪）+ 输入姓名生成 + sign_type 留痕 + 首个后端单测 |
+
+### S-015 | 2026-10-15：权限体系落地（A 档 5 项：动态权限 + 财务角色 + 文案/过滤 + 关系显式化 + 报销进度）
+
+- 需求来源：用户提供《设计重构.md》参考并强调「不要过度设计、挂起/驳回/取消 后续版本再加」→ AI 逐条筛选出 A 档 → 用户「A 档全做」（决策与权限矩阵见 `findings.md#D-011`）
+- 完成：
+  - **A1 权限单一事实来源**：新增 `service/WorkOrderAccess`（`canView` 行级 + `allowedActions` 状态机动态）；`WorkOrderController` 的 6 个入口全部改走该类；详情接口改为 `WorkOrderDetail{workOrder, allowedActions, reportNo, reimbursement}`
+  - **A2 FINANCE 角色**：`UserRole.FINANCE` + 账号 `finance/123456`；报销单四个接口放行财务（`isReimbursementStaff`）；后台菜单 `visibleMenu()` 按角色渲染、`defaultPath()` 财务落地报销单；`today.html` 角色兜底补 FINANCE；`login.html` 改为按角色直达（报修人→create、维修工→today、其余→admin）
+  - **A3 文案统一 + 范围过滤**：五处状态映射统一为 待受理/待接单/维修中/待签字/已完工；工单管理默认「进行中」，下拉含 全部/单状态
+  - **A4 关系显式化**：详情返回服务端 `reportNo`；待受理页副标题说明派单后转工单
+  - **A5 报销进度**：详情抽屉新增「报销进度」行（按 reimbursement_item 反查）
+  - 前端：`ui.js` 新增 `ACTION_LABEL/actionLabel/can` 与签字方式徽标；工单详情核价按钮与输入框按 `allowedActions` 的 PRICE 渲染；`store.js` 拆出 `roleCode/isBackendUser/canViewStats`
+  - 迁移：`sql/2026-10-15-finance-role.sql`（幂等，已执行）；SW `itsd-v6 → itsd-v7`
+- 验证（证据）：
+  - **后端单测 17 项全通过**：`SignTypeTest` 6 + 新增 `WorkOrderAccessTest` 11（管理员/调度员全量+PRICE、维修工三态 ACCEPT/REPAIR/收窄只读、非本人不可见、科室端 SIGN 与其它状态仅 VIEW、跨科室拒绝、报修人按报修单归属、财务不接触工单、匿名拒绝）
+  - **财务权限边界** `test-finance-api.js` **16 项全通过**：财务可登录/可看报销单/可回填（已报销单据被业务状态拦下而非权限拦下）；工单列表·工单详情·今日任务·报修单池·用户·系统信息·概览统计**全部 403**；管理员权限回归正常、登录响应不含密码
+  - **签字 + 动态权限** `test-sign-type.js` **15 项全通过**：待签字阶段科室端动作集 `[VIEW,SIGN]`、维修工收窄 `[VIEW]`、签字后科室端 `[VIEW]`；管理员 `[VIEW,PRICE]`；`reportNo` 与报销进度字段随详情返回
+  - **UI 回归**：`test-admin-app.js`（新增 工单默认「进行中」不含已完工、范围 6 选项、报销进度行、核价按钮可见、**财务角色 8 项**：仅 1 个菜单分组/仅月度报销单/默认落地 `#/reimbursements`/无角标请求/无脚本错误）**全通过**；`test-frontend.js`（新增状态文案统一断言）**全通过**；`test-signature-pad.js` 22 项**全通过**
+  - **接口 E2E** `test-batch4-api.js` 24 项**全通过**（覆盖改造后的 accept/repair/pricing/sign 与详情归属校验）
+  - 数据基线：验收后清理测试数据，5 张业务表恢复为各 1 条（`report/work_order/consumable/reimbursement/reimbursement_item`，max_id=1），`sys_user=6`、`department=68`
+- 错误：
+  - **`/api/work-orders/today` 缺角色校验**：财务调用返回 200 空列表（虽无数据泄露，但权限模型不一致）→ 补「仅维修人员可查看」，由 `test-finance-api.js` 抓出
+  - `SignTypeTest` 编译失败（引用未实现的 `PHOTO`）→ 按实际支持范围删断言并同步移除前端死配置
+  - `test-admin-app.js` 三处断言不兼容数据状态（角标为 0 时元素隐藏、空态占位行被当数据行、待受理为空时无派单按钮）→ 改为兼容「有数据/空数据」
+  - `test-batch4-api.js` **不可重跑**（3 分钟内相同报修被防重口径拦截）→ 描述加时间戳，使脚本可反复执行
+  - 进程管理踩坑：`Start-Process -WindowStyle Hidden` 启动的实例未生效（端口被前台诊断实例占用），前台 `java ... | Select-Object -First N` 会留下存活进程 → 统一改用**后台作业**启动 + 轮询探活
+  - `verify-reimburse.js` 是**一次性状态依赖脚本**（需要存在待报销的报销单），在已全部报销的数据上必然失败；其 24 项结果已记录于 `#S-013`，不作为常规回归
+- 里程碑进展：M5 的权限体系与状态机动态权限完成（简历可讲：RBAC + 行级 + 字段可见性 + 状态机动态权限 + 财务剥离）
+- 下一步：用户复验后台（尤其财务账号）；随后 Day 7 部署 + README + 简历
+
+## Git 提交记录（S-015 追加）
+
+| 日期 | 提交 | 内容 |
+|---|---|---|
+| 2026-10-15 | （待用户提交） | feat(auth): WorkOrderAccess 统一行级+状态机动态权限、allowedActions 下发、FINANCE 财务角色、状态文案统一、工单默认进行中、详情显示报销进度 |
+
+
+

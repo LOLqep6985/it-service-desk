@@ -7,8 +7,9 @@
   var Admin = global.Admin = global.Admin || {};
   var doc = global.document;
 
-  /** 侧栏角标：取自概览统计接口；失败不阻塞页面 */
+  /** 侧栏角标：取自概览统计接口；财务无该权限、失败也不阻塞页面 */
   Admin.refreshBadges = async function () {
+    if (!Admin.store.canViewStats || !Admin.store.canViewStats()) return null;
     try {
       var s = await Admin.api.get('/api/stats/dashboard');
       Admin.store.setBadges({
@@ -25,8 +26,8 @@
   async function boot() {
     Admin.store.init();
 
-    if (!Admin.store.isAdminLike()) {
-      global.alert('请以管理员或调度员身份登录');
+    if (!Admin.store.isBackendUser()) {
+      global.alert('请以运维或财务身份登录');
       global.location.href = 'login.html';
       return;
     }
@@ -47,7 +48,8 @@
     doc.getElementById('layout').hidden = false;
 
     Admin.refreshBadges();
-    await Admin.router.start('/dashboard');
+    // 财务没有工作台：默认落地到月度报销单
+    await Admin.router.start(Admin.layout.defaultPath());
   }
 
   if (doc.readyState === 'loading') {
