@@ -172,7 +172,7 @@
     var mask = h('div', { class: 'drawer-mask' });
     var panel = h('div', { class: 'drawer' },
       h('div', { class: 'drawer-header' }, titleEl,
-        h('button', { class: 'close', text: '✕', onclick: close })),
+        h('button', { class: 'close', text: '×', onclick: close })),
       bodyEl
     );
     doc.body.appendChild(mask);
@@ -266,7 +266,7 @@
 
   function empty(text, icon) {
     return h('div', { class: 'empty' },
-      h('span', { class: 'empty-icon', text: icon || '📭' }),
+      h('span', { class: 'empty-icon', text: icon || '' }),
       text || '暂无数据'
     );
   }

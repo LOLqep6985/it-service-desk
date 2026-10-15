@@ -642,3 +642,28 @@
   - 新增专项 test-history-cost.js（10 项 ALL PASSED）
 - 数据状态：用户全流程验证中（R000001 已完成/报销单#1 待报销）；测试造的 61 天前数据已清理
 - 关联：`progress.md#S-023`
+
+### D-020 | 2026-10-15：前端去 slop 重构（design-taste-frontend skill 走查）
+
+- 状态：accepted（用户明确要求"AI 味太重、界面俗套"重构，三端同等力度）
+- 来源：用户明确要求 + design-taste-frontend skill（tasteskill v2）
+- 用户原话（逐字）：> "我的想法是将我的这个项目用该skill进行前端的重构，现在的前端AI味道太重了，并且界面也很俗套"
+- **诊断（lint 55 文件 + inspect 三页截图）**：
+  - 44 FAIL：28 resting 阴影 / 12 细线 / 16 描边盒 / 4 渐变 / 28 emoji / 1 对比度不足 / 4 100vh
+  - 截图肉眼：所有页面同款"均值页"（居中窄卡+软阴影+灰底），桌面 1440 右侧大片空白（内容锁死 480px）
+- **skill 匹配度判断（诚实记录）**：tasteskill 设计目标是落地页/营销页（hero 大图/scroll 叙事/4 张真实图 floor/live thing）。it-service-desk 是 B 端后台+移动工单，硬套落地页机制是错配。**取 skill 的高价值部分**（家规 no-slop + lint/inspect 量化 + type/colour/layout laws），**不取**落地页专属机制（idea sentence/found 真实图 floor/scroll motion——医院内网无外网图源且功能页不需要）
+- **改造（三端同等力度，纯视觉层）**：
+  1. **共享基座 admin-layout.css**：删全部 resting 阴影（28→0，浮层 drawer/modal/toast 保留 --shadow-overlay 并标 taste-skill-ignore）；删 hairline（topbar/menu-item/detail-row 改 tone-step inset 或空间分隔）；删 4 渐变（侧栏实色/hero 实色/趋势柱实色/骨架脉冲）；删描边盒（card/metric/input/btn-ghost 改底色 tone-step）；100vh→100dvh；字号对比拉大（page-head 18→22px，metric value 26→30px，正文 14→15px）
+  2. **admin 视图层**：5 处 emoji 清零（🔒→禁/⚠️→误/✕→×/📭→空/✍⌨ 删）；router/ui/reimbursements/system.js
+  3. **科室端 report.html**：card 去阴影；input/tag 去描边改底色；history-item 去虚线；cost-row 去虚线；签名图去 border；header 绿 #27ae60→#15803d（对比度 4.5:1+）；6 处 emoji 清零；#7f8c8d/#95a5a6→#6b7280（对比度修复）
+  4. **create/today/detail/login**：同款 shadow/border/emoji 清理；字号拉大；login 演示账号框改 `<details>` 折叠（默认收起，安全+美观）；login 补 finance 账号
+  5. **dept-cascade.css / signature-pad.css**：picker 浮层阴影合规标 ignore；picker-value/floor-chip 去描边；签名板基准线 + 输入框 border 改底色
+  6. SW itsd-v14 → itsd-v15
+- **验证**：
+  - lint 全量：44 FAIL → **0 FAIL**（6 WARN 均合规：padStart 用于月份格式化、签名板基准线/输入框）
+  - inspect report.html：5 FAIL（shadow/contrast/hairline/few-pictures/still-page）→ **对比度类 0 FAIL**；剩 few-pictures/still-page 2 项是落地页专属要求，对内网工具页不适用，报告声明豁免
+  - mvn test 通过；前端 test-frontend/test-admin-app/test-departments-view/test-history-cost 全部 ALL PASSED
+  - 踩坑：mvn clean 失败（jar 被占用）→ 改 mvn package（不 clean）+ 停 java 后等更久
+- **不做清单（防过度设计）**：不引外网图片（医院内网）、不加 scroll 动效叙事、不做 hero 大图、不碰后端/业务逻辑
+- 落地文件：admin-layout.css、dept-cascade.css、signature-pad.css、report.html、create.html、today.html、detail.html、login.html、js/admin/{router,ui}.js、views/{reimbursements,system}.js、service-worker.js
+- 关联：`progress.md#S-024`

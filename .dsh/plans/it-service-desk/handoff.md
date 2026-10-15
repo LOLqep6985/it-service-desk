@@ -22,6 +22,7 @@
 - **D-017 科室索引搜索移除**（用户裁定冗余，只留刷新按钮）→ `findings.md#D-017`、`progress.md#S-021`
 - **D-018 签字弹窗费用明细**（核价后费用对签字人透明：耗材×数量×单价+合计，未核价标红）→ `findings.md#D-018`、`progress.md#S-022`；**数据库已清空配合用户全流程验证**（备份 business-data-20261015-214245.sql）；⚠️ 曾误杀用户 8080 实例（教训：杀进程必须按端口定位）
 - **D-019 UI文案+详情费用+数据留存**（按《数据留存策略.md》：报修记录标题/详情弹窗费用/报修60天+报销180天查询过滤，不删数据）→ `findings.md#D-019`、`progress.md#S-023`
+- **D-020 前端去 slop 重构**（design-taste-frontend skill：44 FAIL→0，删阴影/细线/描边/渐变/emoji，对比度修复，字号拉大，三端同等力度）→ `findings.md#D-020`、`progress.md#S-024`；SW itsd-v15
 - 落地文件：`WorkOrderStatus.java`(6态去PENDING/COMPLETED加PENDING_PRICING/PENDING_REIMBURSE/REIMBURSED)、`WorkOrderService.java`(+completePricing/reimburse, sign→待报销, submitRepair→待核价)、`WorkOrderAccess.java`(+REIMBURSE)、`WorkOrderController.java`(pricing语义变更+/{id}/reimburse)、`ReimbursementService.java`(reimburse回填工单→已报销+注入WorkOrderService)、`StatsService`+`DashboardStats`+`SystemInfoController`、前端 ui.js/work-orders.js/system.js/dashboard.js/app.js/today/detail/report/reports-history、`sql/2026-10-15-workorder-status-machine.sql`+2个前置迁移、`WorkOrderAccessTest.java`(12项)、SW itsd-v10
 - 验证：三轮闭环实跑全绿（签字→待报销→已报销；7步状态机每步查库正确）+ mvn test + 前端四套回归
 - 工单状态机（严格6态）：待接单→维修中→待核价→待签字→待报销(移入历史)→已报销

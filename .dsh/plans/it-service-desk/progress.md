@@ -750,5 +750,16 @@
 - 代码状态：**待用户提交**（连同 D-013~D-018 改动）
 - 下一步：用户复验（详情弹窗费用 + 报修记录文案 + 留存过滤）→ git 提交 → D-012 实时推送 或 Day 7
 
+### S-024 | 2026-10-15：前端去 slop 重构（design-taste-frontend skill 走查）
+
+- 完成（详见 `findings.md#D-020`）：
+  - 诊断：lint 44 FAIL + inspect 三页截图，确认"AI 味"=28 阴影/12 细线/16 描边/4 渐变/28 emoji/对比度不足
+  - 三端同等力度清理：共享基座（admin-layout.css）+ admin 视图层 + 科室端 + 维修端 + login + dept-cascade/signature-pad 组件
+  - lint 全量 44→0 FAIL；inspect 对比度类 0 FAIL（剩 few-pictures/still-page 落地页专属要求，内网工具页豁免）
+  - mvn test + 前端四套回归全部 ALL PASSED；SW itsd-v15
+- 错误：mvn clean 多次失败（jar 被占用）→ 停 java 后等待不够；改 mvn package（不 clean）+ 等更久解决
+- 代码状态：**待用户提交**（连同 D-013~D-019 改动）
+- 下一步：用户复验去 slop 后的视觉 → git 提交 → Day 7
+
 
 

@@ -12,11 +12,11 @@
     .header .back { background: rgba(255,255,255,.2); border: none; color: #fff; padding: 6px 14px; border-radius: 6px; font-size: 14px; }
     .header .t { font-size: 16px; font-weight: 600; }
     .container { max-width: 480px; margin: 0 auto; padding: 16px; }
-    .card { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
-    .card h2 { font-size: 17px; margin-bottom: 4px; }
-    .tip { font-size: 12px; color: #95a5a6; margin-bottom: 8px; }
-    label { display: block; font-size: 13px; color: #7f8c8d; margin: 12px 0 6px; }
-    input, select, textarea { width: 100%; padding: 12px; border: 1px solid #d0d5dd; border-radius: 8px; font-size: 15px; box-sizing: border-box; }
+    .card { background: #fff; border-radius: 10px; padding: 18px; }
+    .card h2 { font-size: 19px; margin-bottom: 6px; font-weight: 600; }
+    .tip { font-size: 13px; color: #6b7280; margin-bottom: 8px; }
+    label { display: block; font-size: 13px; color: #4b5563; margin: 14px 0 6px; }
+    input, select, textarea { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 15px; box-sizing: border-box; background: #f0f2f5; }
     textarea { min-height: 70px; line-height: 1.5; }
     button.submit { width: 100%; padding: 15px; background: #1d6fe0; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; margin-top: 16px; }
     button.submit:disabled { background: #b0b8c1; }
@@ -120,7 +120,7 @@
       const json = await res.json();
       if (json.code !== 0) { msg.textContent = json.message; submitBtn.disabled = false; return; }
       msg.style.color = '#27ae60';
-      msg.textContent = '报修单已提交，待管理员受理 ✓';
+      msg.textContent = '报修单已提交，待管理员受理';
       // 报修人停留本页，可继续报修其他设备
     } catch (e) {
       msg.textContent = '网络错误：' + e.message + '（内容已保留，请重试）';

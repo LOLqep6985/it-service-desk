@@ -18,17 +18,16 @@
     .header .back { background: rgba(255,255,255,.2); border: none; color: #fff; padding: 6px 14px; border-radius: 6px; font-size: 14px; }
     .header .t { font-size: 16px; font-weight: 600; }
     .container { max-width: 480px; margin: 0 auto; padding: 16px; }
-    .card { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
-    .card h2 { font-size: 18px; margin-bottom: 10px; }
-    .row { display: flex; justify-content: space-between; padding: 7px 0; font-size: 14px; border-bottom: 1px dashed #ecf0f1; }
-    .row:last-child { border-bottom: none; }
-    .row .k { color: #7f8c8d; }
+    .card { background: #fff; border-radius: 10px; padding: 18px; }
+    .card h2 { font-size: 19px; margin-bottom: 12px; font-weight: 600; }
+    .row { display: flex; justify-content: space-between; padding: 9px 0; font-size: 14px; }
+    .row .k { color: #6b7280; }
     .row .v { text-align: right; max-width: 65%; }
-    .badge { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 4px; background: #e8f4fd; color: #1d6fe0; }
-    .badge.sign-pending { background: #fff3cd; color: #856404; }
-    .form { background: #fff; border-radius: 10px; padding: 16px; margin-top: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
-    .form h3 { font-size: 16px; margin-bottom: 10px; }
-    textarea, input[type=text], input[type=number] { width: 100%; padding: 10px; border: 1px solid #d0d5dd; border-radius: 8px; font-size: 14px; }
+    .badge { display: inline-block; font-size: 12px; padding: 3px 9px; border-radius: 4px; background: #e8f4fd; color: #1d6fe0; }
+    .badge.sign-pending { background: #fef3e2; color: #b9770e; }
+    .form { background: #fff; border-radius: 10px; padding: 18px; margin-top: 14px; }
+    .form h3 { font-size: 16px; margin-bottom: 12px; font-weight: 600; }
+    textarea, input[type=text], input[type=number] { width: 100%; padding: 10px; border: none; border-radius: 8px; font-size: 14px; background: #f0f2f5; }
     textarea { min-height: 80px; line-height: 1.5; }
     .consumable-row { display: flex; gap: 6px; margin-bottom: 8px; align-items: center; flex-wrap: wrap; }
     .consumable-row input { flex: 1; min-width: 70px; }
@@ -49,7 +48,7 @@
   <div class="card" id="card">加载中...</div>
   <div class="form" id="acceptBox" style="display:none;">
     <h3>确认接单</h3>
-    <p style="font-size:13px;color:#7f8c8d;">接单后开始处理，请尽快到场确认。</p>
+    <p style="font-size:13px;color:#6b7280;">接单后开始处理，请尽快到场确认。</p>
     <button class="primary green" id="acceptBtn">接单</button>
     <div class="msg" id="acceptMsg"></div>
   </div>
@@ -106,7 +105,7 @@
     div.innerHTML =
       '<input type="text" class="c-name" placeholder="耗材名（如硒鼓）">' +
       '<input type="number" class="c-qty" placeholder="数量" style="max-width:70px;">' +
-      '<button class="add-row" onclick="this.parentNode.remove()">✕</button>';
+      '<button class="add-row" onclick="this.parentNode.remove()">×</button>';
     document.getElementById('consumableRows').appendChild(div);
   }
   addConsumableRow();
@@ -134,7 +133,7 @@
       const json = await res.json();
       if (json.code !== 0) { repairMsg.textContent = json.message; document.getElementById('submitBtn').disabled = false; return; }
       repairMsg.style.color = '#27ae60';
-      repairMsg.textContent = '已提交科室验收，等待护士长签字 ✓';
+      repairMsg.textContent = '已提交科室验收，等待护士长签字';
       setTimeout(() => { window.location.href = 'today.html?userId=' + userId; }, 1200);
     } catch (e) {
       repairMsg.textContent = '网络错误：' + e.message;
