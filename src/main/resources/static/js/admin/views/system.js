@@ -123,8 +123,12 @@
             ui.h('div', { class: 'detail-row' }, ui.h('span', { class: 'v' },
               ui.statusBadge(ui.STATUS.WORK_ORDER, 'ASSIGNED'), ' → ',
               ui.statusBadge(ui.STATUS.WORK_ORDER, 'IN_PROGRESS'), ' → ',
-              ui.statusBadge(ui.STATUS.WORK_ORDER, 'PENDING_ACCEPT'), ' → ',
-              ui.statusBadge(ui.STATUS.WORK_ORDER, 'COMPLETED')))
+              ui.statusBadge(ui.STATUS.WORK_ORDER, 'PENDING_PRICING'), ' → ',
+              ui.statusBadge(ui.STATUS.WORK_ORDER, 'PENDING_SIGN'), ' → ',
+              ui.statusBadge(ui.STATUS.WORK_ORDER, 'PENDING_REIMBURSE'), ' → ',
+              ui.statusBadge(ui.STATUS.WORK_ORDER, 'REIMBURSED'))),
+            ui.h('div', { class: 'detail-row' }, ui.h('span', { class: 'v' },
+              ui.h('span', { style: { color: '#7f8c8d', fontSize: '13px' }, text: '待接单→维修中→待核价→待签字→待报销（移入历史）→已报销' })))
           ),
           ui.h('div', { class: 'detail-section' },
             ui.h('h4', { text: '报销单' }),

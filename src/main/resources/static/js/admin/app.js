@@ -14,7 +14,7 @@
       var s = await Admin.api.get('/api/stats/dashboard');
       Admin.store.setBadges({
         pendingReports: s.pendingReports || 0,
-        activeWork: (s.activeWorkOrders || 0) + (s.pendingAcceptWorkOrders || 0),
+        activeWork: s.activeWorkOrders || 0,
         pendingSign: s.monthReimbursementPendingSign || 0
       });
       return s;

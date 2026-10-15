@@ -60,8 +60,11 @@ public class StatsService {
         /* 工单 */
         s.setAssignedWorkOrders(countWorkOrdersByStatus(WorkOrderStatus.ASSIGNED));
         s.setInProgressWorkOrders(countWorkOrdersByStatus(WorkOrderStatus.IN_PROGRESS));
-        s.setActiveWorkOrders(s.getAssignedWorkOrders() + s.getInProgressWorkOrders());
-        s.setPendingAcceptWorkOrders(countWorkOrdersByStatus(WorkOrderStatus.PENDING_ACCEPT));
+        s.setPendingPricingWorkOrders(countWorkOrdersByStatus(WorkOrderStatus.PENDING_PRICING));
+        s.setPendingSignWorkOrders(countWorkOrdersByStatus(WorkOrderStatus.PENDING_SIGN));
+        // 进行中 = 工单管理可见的 4 态合计（待接单/维修中/待核价/待签字）
+        s.setActiveWorkOrders(s.getAssignedWorkOrders() + s.getInProgressWorkOrders()
+                + s.getPendingPricingWorkOrders() + s.getPendingSignWorkOrders());
 
         YearMonth ym = YearMonth.now();
         LocalDateTime monthStart = ym.atDay(1).atStartOfDay();
@@ -96,8 +99,9 @@ public class StatsService {
     }
 
     private long countCompletedWorkOrdersBetween(LocalDateTime start, LocalDateTime end) {
+        // 已签字验收 = 待报销 + 已报销（工单完成签字后进入历史）
         Long c = workOrderMapper.selectCount(new LambdaQueryWrapper<WorkOrder>()
-                .eq(WorkOrder::getStatus, WorkOrderStatus.COMPLETED)
+                .in(WorkOrder::getStatus, WorkOrderStatus.PENDING_REIMBURSE, WorkOrderStatus.REIMBURSED)
                 .ge(WorkOrder::getCompletedAt, start)
                 .lt(WorkOrder::getCompletedAt, end));
         return c == null ? 0L : c;

@@ -70,7 +70,7 @@
   const saved = localStorage.getItem('itsdUser');
   const user = saved ? JSON.parse(saved) : {};
   const token = user.token || '';
-  const WORK_ORDER_STATUS = { PENDING:'待受理', ASSIGNED:'待接单', IN_PROGRESS:'维修中', PENDING_ACCEPT:'待签字', COMPLETED:'已完工' };
+  const WORK_ORDER_STATUS = { ASSIGNED:'待接单', IN_PROGRESS:'维修中', PENDING_PRICING:'待核价', PENDING_SIGN:'待签字', PENDING_REIMBURSE:'待报销', REIMBURSED:'已报销' };
   const CAMPUS_LABEL = { LAOYUAN:'老院', XIYUAN:'西院', DONGYUAN:'东院' };
   const isRepairer = user.roleCode === 'REPAIRER';
   const card = document.getElementById('card');
@@ -164,7 +164,9 @@
       ['联系电话', esc(wo.contactPhone)],
       ['创建时间', fmtTime(wo.createdAt)]
     ];
-    if (wo.status === 'COMPLETED') {
+    // 维修提交关闭后（待核价及之后）显示维修记录与完成时间
+    var afterRepair = ['PENDING_PRICING', 'PENDING_SIGN', 'PENDING_REIMBURSE', 'REIMBURSED'].indexOf(wo.status) >= 0;
+    if (afterRepair) {
       rows.push(['维修记录', esc(wo.repairRecord)]);
       rows.push(['完成时间', fmtTime(wo.completedAt)]);
     }

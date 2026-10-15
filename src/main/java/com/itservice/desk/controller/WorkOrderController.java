@@ -216,8 +216,9 @@ public class WorkOrderController {
         }
         WorkOrder woForPrice = workOrderService.getById(id);
         if (!access.allowedActions(user, null, woForPrice).contains(WorkOrderAccess.PRICE)) {
-            return ApiResponse.error(403, "无权限：只有管理员或调度员可以核价");
+            return ApiResponse.error(403, "无权限：只有管理员或调度员在「待核价」状态可以核价");
         }
+        // 写入耗材单价
         if (req.getConsumables() != null) {
             for (PricingItem item : req.getConsumables()) {
                 Consumable c = consumableMapper.selectById(item.getId());
@@ -227,7 +228,28 @@ public class WorkOrderController {
                 }
             }
         }
-        return ApiResponse.ok(workOrderService.listConsumables(id));
+        // 核价完成，推进状态：待核价 → 待签字
+        WorkOrder updated = workOrderService.completePricing(id);
+        return ApiResponse.ok(updated);
+    }
+
+    /** 月度报销：把待报销工单推进为已报销（管理员/调度员） */
+    @PostMapping("/{id}/reimburse")
+    public ApiResponse reimburse(@PathVariable Long id,
+                                  @RequestHeader(value = "X-Token", required = false) String token) {
+        User user = resolveUserByToken(token);
+        if (user == null) {
+            return ApiResponse.error(401, "未登录或登录已过期");
+        }
+        WorkOrder wo = workOrderService.getById(id);
+        if (!access.allowedActions(user, null, wo).contains(WorkOrderAccess.REIMBURSE)) {
+            return ApiResponse.error(403, "无权限：只有管理员或调度员在「待报销」状态可以报销");
+        }
+        try {
+            return ApiResponse.ok(workOrderService.reimburse(id));
+        } catch (IllegalArgumentException e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
     private DepartmentBinding findActiveBinding(String deviceCode) {

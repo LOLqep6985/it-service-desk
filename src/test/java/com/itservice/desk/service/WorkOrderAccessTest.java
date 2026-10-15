@@ -58,14 +58,29 @@ class WorkOrderAccessTest {
     }
 
     @Test
-    @DisplayName("管理员/调度员：全部工单可见，可核价")
-    void adminAndDispatcherSeeAll() {
-        WorkOrder wo = order(WorkOrderStatus.IN_PROGRESS, 3L, 13L, 5L);
+    @DisplayName("管理员/调度员：待核价时可核价，其它进行中状态只读")
+    void adminAndDispatcherCanPriceWhenPricing() {
         for (UserRole role : Arrays.asList(UserRole.ADMIN, UserRole.DISPATCHER)) {
             User u = user(1L, role);
-            assertTrue(access.canView(u, wo), role + " 应可见全部工单");
+            // 待核价：VIEW + PRICE
+            WorkOrder pricing = order(WorkOrderStatus.PENDING_PRICING, 3L, 13L, 5L);
             assertEquals(Arrays.asList(WorkOrderAccess.VIEW, WorkOrderAccess.PRICE),
-                    actions(access, u, null, wo), role + " 动作应为 VIEW+PRICE");
+                    actions(access, u, null, pricing), role + " 待核价动作应为 VIEW+PRICE");
+            // 维修中：仅 VIEW（核价是待核价时才有）
+            WorkOrder inProg = order(WorkOrderStatus.IN_PROGRESS, 3L, 13L, 5L);
+            assertEquals(Collections.singletonList(WorkOrderAccess.VIEW),
+                    actions(access, u, null, inProg), role + " 维修中应仅 VIEW");
+        }
+    }
+
+    @Test
+    @DisplayName("管理员/调度员：待报销时可报销")
+    void adminCanReimburseWhenPendingReimburse() {
+        for (UserRole role : Arrays.asList(UserRole.ADMIN, UserRole.DISPATCHER)) {
+            User u = user(1L, role);
+            WorkOrder wo = order(WorkOrderStatus.PENDING_REIMBURSE, 3L, 13L, 5L);
+            assertEquals(Arrays.asList(WorkOrderAccess.VIEW, WorkOrderAccess.REIMBURSE),
+                    actions(access, u, null, wo), role + " 待报销动作应为 VIEW+REIMBURSE");
         }
     }
 
@@ -87,9 +102,9 @@ class WorkOrderAccessTest {
     }
 
     @Test
-    @DisplayName("状态机动态权限：提交维修（待签字）后维修工权限收窄为只读")
+    @DisplayName("状态机动态权限：提交维修（待核价）后维修工权限收窄为只读")
     void repairerBecomesReadOnlyAfterSubmit() {
-        WorkOrder wo = order(WorkOrderStatus.PENDING_ACCEPT, 3L, 13L, 5L);
+        WorkOrder wo = order(WorkOrderStatus.PENDING_PRICING, 3L, 13L, 5L);
         User u = user(3L, UserRole.REPAIRER);
         assertTrue(access.canView(u, wo));
         assertEquals(Collections.singletonList(WorkOrderAccess.VIEW), actions(access, u, null, wo));
@@ -106,16 +121,16 @@ class WorkOrderAccessTest {
 
     @Test
     @DisplayName("科室端：本科室待签字工单可签字")
-    void departmentCanSignPendingAccept() {
-        WorkOrder wo = order(WorkOrderStatus.PENDING_ACCEPT, 3L, 13L, 5L);
+    void departmentCanSignPendingSign() {
+        WorkOrder wo = order(WorkOrderStatus.PENDING_SIGN, 3L, 13L, 5L);
         assertEquals(Arrays.asList(WorkOrderAccess.VIEW, WorkOrderAccess.SIGN), actions(access, null, 13L, wo));
     }
 
     @Test
     @DisplayName("科室端：未到待签字状态时没有签字权（动态权限）")
-    void departmentCannotSignBeforePendingAccept() {
+    void departmentCannotSignBeforePendingSign() {
         for (WorkOrderStatus status : Arrays.asList(WorkOrderStatus.ASSIGNED, WorkOrderStatus.IN_PROGRESS,
-                WorkOrderStatus.COMPLETED)) {
+                WorkOrderStatus.PENDING_PRICING, WorkOrderStatus.PENDING_REIMBURSE)) {
             WorkOrder wo = order(status, 3L, 13L, 5L);
             assertEquals(Collections.singletonList(WorkOrderAccess.VIEW), actions(access, null, 13L, wo),
                     status + " 时科室端仅可查看");
@@ -125,7 +140,7 @@ class WorkOrderAccessTest {
     @Test
     @DisplayName("科室端与登录用户均无法越权访问其他科室工单")
     void otherDepartmentIsDenied() {
-        WorkOrder wo = order(WorkOrderStatus.PENDING_ACCEPT, 3L, 13L, 5L);
+        WorkOrder wo = order(WorkOrderStatus.PENDING_SIGN, 3L, 13L, 5L);
         assertTrue(actions(access, null, 14L, wo).isEmpty(), "别的科室不能看也不能签");
         assertTrue(actions(access, user(9L, UserRole.REPORTER), null, wo).isEmpty(), "无关报修人不可见");
     }

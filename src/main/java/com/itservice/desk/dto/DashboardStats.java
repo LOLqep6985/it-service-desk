@@ -30,11 +30,13 @@ public class DashboardStats {
     private long assignedWorkOrders;
     /** 处理中 */
     private long inProgressWorkOrders;
-    /** 进行中合计 = 已派单 + 处理中 */
+    /** 待核价 */
+    private long pendingPricingWorkOrders;
+    /** 待签字 */
+    private long pendingSignWorkOrders;
+    /** 进行中合计 = 待接单 + 维修中 + 待核价 + 待签字（工单管理可见范围） */
     private long activeWorkOrders;
-    /** 待科室验收 */
-    private long pendingAcceptWorkOrders;
-    /** 本月已完成工单数（按 completed_at 落在本月） */
+    /** 本月已签字验收工单数（待报销 + 已报销，按 completed_at 落在本月） */
     private long completedThisMonth;
 
     /* ---------------- 本月报销 ---------------- */

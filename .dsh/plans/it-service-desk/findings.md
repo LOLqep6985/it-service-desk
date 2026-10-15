@@ -532,3 +532,37 @@
 - SW：itsd-v8 → itsd-v9
 - 验证证据（8090 实例端到端实跑）：生成报销单#9（含工单#7→R000013）→ 科室签字 → 财务回填 → 查库 R000013/R000016 均 REIMBURSED ✓；`mvn test` 通过；test-frontend/test-admin-app/test-finance-api 全部 ALL CHECKS PASSED；测试数据已清理，基线恢复（R000001=已报销 对应报销单#1，R000013=已完成，报销单 1 张）
 - 关联：`findings.md#D-013`、`progress.md#S-018`
+
+### D-015 | 2026-10-15：工单状态机重构——严格对齐《工单全流程规则.md》6 态
+
+- 状态：accepted（用户提供规则文件，明确要求严格按规则设计；4 个关键决策点经 ask_user_question 确认：6态/核价独立/签字→待报销移入历史/报修单粗粒度同步）
+- 来源：用户明确要求 + 规则文件《工单全流程规则.md》
+- 用户原话（逐字）：> "严格按照上述流程进行设计，先给出你的设计方案。"
+- **规则与现状的差距（已核实代码）**：
+  - 规则要求 6 态：待接单/维修中/待核价/待签字/待报销/已报销；旧代码 5 态：待受理(未用)/待接单/维修中/待签字/已完工——缺待核价/待报销，已完工≠已报销
+  - 规则步骤4：维修提交关闭→待核价，管理员核价→待签字；旧代码核价在详情随时改，与状态机脱钩
+  - 规则步骤5：签字→待报销（移入历史）；旧代码签字→已完工
+- **状态机重构**：
+  - `WorkOrderStatus` 严格 6 态：`ASSIGNED(待接单)/IN_PROGRESS(维修中)/PENDING_PRICING(待核价)/PENDING_SIGN(待签字)/PENDING_REIMBURSE(待报销)/REIMBURSED(已报销)`，去掉 PENDING/COMPLETED
+  - 流转：派单→待接单→接单→维修中→提交关闭→待核价→核价→待签字→签字→待报销(移入历史)→月度报销→已报销
+  - 核价提升为状态机正式一环：`pricing` 接口从"随时改价"变为"核价完成推进状态 PENDING_PRICING→PENDING_SIGN"
+  - 签字后→PENDING_REIMBURSE（待报销，移出工单管理）；月度报销→REIMBURSED
+- **报修单粗粒度同步**（保持，不逐态回写）：
+  - 工单 PENDING_REIMBURSE（已签字验收）时 report→COMPLETED（已完成）
+  - 工单 REIMBURSED（已报销）时 report→REIMBURSED（已报销）
+  - 工单的待核价/待签字中间态不回写报修单（避免耦合）
+- **页面可见性**（方案A，工单管理状态下拉覆盖，不新建视图）：
+  - 工单管理默认"进行中"= 待接单+维修中+待核价+待签字（4态）；下拉可切"待报销/已报销"看历史
+  - 即"待报销/已报销移出工单管理"的语义 = 默认不显示，切下拉才看
+- 落地文件：
+  - 后端：`WorkOrderStatus.java`(6态)、`WorkOrderService.java`(submitRepair→待核价/completePricing→待签字/sign→待报销/reimburse→已报销+回写report)、`WorkOrderAccess.java`(PRICE在待核价/SIGN在待签字/新增REIMBURSE在待报销)、`WorkOrderController.java`(pricing语义变更+新增/{id}/reimburse)、`ReimbursementService.java`(reimburse回填时工单→已报销+注入WorkOrderService)、`StatsService.java`+`DashboardStats.java`(指标口径用新枚举)、`SystemInfoController.java`
+  - 前端：`ui.js`(STATUS.WORK_ORDER 6态)、`work-orders.js`(ACTIVE 4态/下拉8选项/核价按钮待核价才显示/新增报销按钮)、`system.js`(状态机图)、`dashboard.js`(待签字字段)、`app.js`(activeWork)、`today.html`/`detail.html`/`report.html`(WO_STATUS映射)、`reports-history.js`
+  - 迁移：`sql/2026-10-15-workorder-status-machine.sql`(幂等映射存量：PENDING_ACCEPT→PENDING_SIGN、COMPLETED+SIGNED+已报销→REIMBURSED、COMPLETED+SIGNED+未报销→PENDING_REIMBURSE、COMPLETED+UNSIGNED→PENDING_PRICING)，已执行
+  - 单测：`WorkOrderAccessTest.java`(12项，新增 REIMBURSE 权限测试)
+  - SW itsd-v9 → itsd-v10
+- 验证证据（8090 实跑闭环 7 步全绿）：
+  - 报修(PENDING)→派单(工单ASSIGNED/报修DISPATCHED)→接单(IN_PROGRESS)→维修提交(PENDING_PRICING)→核价(PENDING_SIGN)→签字(PENDING_REIMBURSE/报修COMPLETED)→月度报销(工单REIMBURSED/报修REIMBURSED) ✓
+  - mvn test 通过（WorkOrderAccess 12 项）
+  - 前端 test-frontend/test-admin-app/test-finance-api/test-sign-type 全部 ALL CHECKS PASSED（测试断言已同步新状态机）
+  - 存量迁移：工单#1→REIMBURSED、工单#7/#11/#12→PENDING_REIMBURSE
+- 关联：`findings.md#D-013`、`#D-014`、`progress.md#S-019`
