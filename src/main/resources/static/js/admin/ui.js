@@ -450,8 +450,8 @@
     STATUS: {
       REPORT: {
         PENDING: { label: '待受理', tone: 'pending' },
-        ACCEPTED: { label: '已受理', tone: 'dispatched' },
         DISPATCHED: { label: '已派单', tone: 'dispatched' },
+        COMPLETED: { label: '已完成', tone: 'success' },
         CANCELLED: { label: '已取消', tone: 'cancelled' }
       },
       WORK_ORDER: {

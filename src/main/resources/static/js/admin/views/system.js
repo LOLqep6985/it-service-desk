@@ -115,8 +115,8 @@
           ui.h('div', { class: 'detail-section' },
             ui.h('h4', { text: '报修单' }),
             ui.h('div', { class: 'detail-row' }, ui.h('span', { class: 'v' },
-              ui.statusBadge(ui.STATUS.REPORT, 'PENDING'), ' → ', ui.statusBadge(ui.STATUS.REPORT, 'DISPATCHED'),
-              ui.h('span', { style: { color: '#7f8c8d', marginLeft: '8px' }, text: '（派单即生成工单；取消为终态）' })))
+              ui.statusBadge(ui.STATUS.REPORT, 'PENDING'), ' → ', ui.statusBadge(ui.STATUS.REPORT, 'DISPATCHED'), ' → ', ui.statusBadge(ui.STATUS.REPORT, 'COMPLETED'),
+              ui.h('span', { style: { color: '#7f8c8d', marginLeft: '8px' }, text: '（派单即生成工单；工单签字完工后回写为已完成；取消为终态）' })))
           ),
           ui.h('div', { class: 'detail-section' },
             ui.h('h4', { text: '工单' }),

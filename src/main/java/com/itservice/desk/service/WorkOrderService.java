@@ -183,6 +183,15 @@ public class WorkOrderService {
         wo.setSignatureUrl(signatureUrl);
         wo.setSignType(SignType.of(signType));
         workOrderMapper.updateById(wo);
+        // 工单完工时同步回写报修单终态，使报修历史列表反映真实进度
+        // （report 只需表达「请求已了结」，不逐流转步回写，避免与工单状态机重复耦合）
+        if (wo.getReportId() != null) {
+            Report report = reportMapper.selectById(wo.getReportId());
+            if (report != null) {
+                report.setStatus(ReportStatus.COMPLETED);
+                reportMapper.updateById(report);
+            }
+        }
         return wo;
     }
     public List<Consumable> listConsumables(Long workOrderId) {
