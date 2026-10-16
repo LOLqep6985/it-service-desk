@@ -52,6 +52,15 @@
     .masthead .kicker { font-size: 13px; color: var(--c-muted); letter-spacing: .12em; }
     .masthead h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; color: var(--c-text); margin-top: 6px; line-height: 1.2; }
     .masthead .sub { font-size: 14px; color: var(--c-muted); margin-top: 6px; }
+    /* 窄屏：操作按钮换行到标题下方独占一行，标题占满整行横向排布；
+       科室名长时字号自动收缩（clamp 上限随宽度，长标题由 JS 再降一档） */
+    @media (max-width: 600px) {
+      .masthead { flex-wrap: wrap; }
+      .masthead-main { flex: 1 1 100%; min-width: 0; }
+      .masthead-actions { flex: 1 1 100%; margin-left: 0; padding-top: 10px; justify-content: flex-end; }
+      .masthead h1 { font-size: clamp(20px, 6vw, 26px); }
+      .masthead h1.long-title { font-size: clamp(16px, 4.6vw, 20px); }
+    }
 
     .container { max-width: 560px; margin: 0 auto; padding: 20px 20px 48px; }
 
@@ -298,7 +307,11 @@
     historyCard.style.display = 'block';
     document.getElementById('rebindBtn').style.display = 'inline-flex';
     const building = buildingOf(dept);
-    document.getElementById('mastTitle').textContent = esc(shortNameOf(dept)) + ' · 报修台';
+    const mastTitle = document.getElementById('mastTitle');
+    const title = esc(shortNameOf(dept)) + ' · 报修台';
+    mastTitle.textContent = title;
+    // 标题超过 9 个字符（长科室名）降一档字号，避免换行成竖字
+    mastTitle.classList.toggle('long-title', title.length > 9);
     document.getElementById('mastSub').textContent =
       campusLabel(dept.campus) + (building ? ' · ' + building : '') + ' · 负责人：' + (dept.departmentHead || '未设置');
     document.getElementById('deptBox').innerHTML =
@@ -348,9 +361,9 @@
     location.href = 'report.html';
   });
 
-  // 退出：离开科室端回登录页（科室端免登录，退出后可在登录页切换其它角色账号）
+  // 退出：离开科室端回登录页（用 replace，避免浏览器返回键又回到本科室报修台）
   document.getElementById('exitBtn').addEventListener('click', () => {
-    location.href = 'login.html';
+    location.replace('login.html');
   });
 
   // 初始化：加载科室列表 → 三级联动（院区→楼栋→科室）→ 恢复本地绑定；支持 ?departmentId= 快捷绑定（扫码入口预留）

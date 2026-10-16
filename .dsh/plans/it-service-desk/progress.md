@@ -867,3 +867,27 @@
 - 备注：用户已自行用财务账号回填成功（报销单 #1/#3 均已闭环），证明上一轮 SW 网络优先改造解决了"改动不生效"
 - 数据：仅清理验证造的 report#5/work_order#5/reimbursement#4 与其签名图；用户数据 report#1/#3、work_order#1/#3、reimbursement#1/#3 及 4 张签名图完好（无孤儿）
 - 8080 已释放
+
+### S-035 | 2026-10-16：浏览器返回键防重入（退出即不可回退）
+
+- 需求（用户）：浏览器返回键本质上也是一种退出登录操作 —— 退出后按返回键不得回到已登录界面
+- 三层防护（见 findings D-023）：① 退出改 location.replace（页面移出历史）② pageshow(persisted) 重校验登录态，失效静默跳登录页（guard.js 统一实现，app.js 适配后台 SPA）③ 服务端 *.html 下发 no-store 禁止缓存复用
+- 体验区分：无凭证→静默跳转；角色不符→弹提示后强制退出
+- 验证：新增 .rdoc_inspect/verify-back-key.js 11/11（含响应头 no-store、replace 静态检查、三端 bfcache 踢出、登录态有效时不误踢）；回归 verify-ui.js 19/19、verify-roles-ui.js 11/11、verify-reimburse-ui.js 15/15、mvn test 18/18
+- 测试健壮性：verify-roles-ui.js 对「无待报销数据」改为明确 SKIP，避免把数据状态误报为功能回归
+- 数据：清理回归造的 report#6/work_order#6/reimbursement#5 及其签名图，并按引用关系删除 1 个孤儿图；用户数据 report#1/#3、work_order#1/#3、reimbursement#1/#3 与 4 张被引用签名图完好
+- 8080 已释放
+### S-036 | 2026-10-16：会话收尾与交接落盘（project-memory）
+
+- 恢复状态：读 .active_plan → task_plan.md / handoff.md / progress.md 近节 + git log/status/diff
+- git 对账（本次会话提交归属）：
+  - 1e826bd style(admin): 指标卡行自适应拉伸与统一间距与卡面边线（S-027）
+  - 89d2e6a feat(三端): PWA安装引导+入口二维码+端间角色隔离与统一退出（S-025）
+  - a642d1e feat(notify): 企业微信群机器人派单通知（S-026）
+  - 8d82857 feat(ui): 科室端退出按钮与管理端同款样式、登录页支持回车登录（S-028）
+  - b92fb40 refactor(权限): 报销职责分离（一次补提交，含 S-029~S-034：ui.confirm 竞态修复、清库、设备照片移除、uploads 清理、SW 网络优先、职责分离；19 files changed）
+  - 本轮 S-035 的 7 个文件仍未提交：WebConfig.java、guard.js、admin/app.js、admin/store.js、report.html、findings.md、progress.md
+- 状态层重写：handoff.md 改为指针式（含未提交清单、六轮改动指针表、本地验证脚本入口、回读顺序）；task_plan.md 更新「当前阶段 / Next Step / 已完成 / 待办」
+- 事实层仅追加：findings.md#D-021~D-023、progress.md#S-025~S-036 历史条目未改写
+- 环境与数据核对：无 java 进程、8080/8099 空闲、MySQL80 Running；report#1/#3、work_order#1/#3、reimbursement#1/#3 均 REIMBURSED；账号 6、科室 68；uploads 4 个文件全部被引用（无孤儿）
+- 未写入任何密钥；.rdoc_inspect/ 与 uploads/ 均在 .gitignore 中

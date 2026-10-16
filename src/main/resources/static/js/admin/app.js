@@ -26,11 +26,27 @@
   async function boot() {
     Admin.store.init();
 
-    if (!Admin.store.isBackendUser()) {
-      global.alert('当前账户角色无权访问管理后台，请用管理员/调度员/财务账号登录。即将返回登录页。');
-      global.location.href = 'login.html';
+    var user = Admin.store.currentUser();
+    if (!user || !user.token) {
+      // 未登录（含退出后按浏览器返回键回到本页）→ 静默回登录页，不弹提示
+      global.location.replace('login.html');
       return;
     }
+    if (!Admin.store.isBackendUser()) {
+      global.alert('当前账户角色无权访问管理后台，请用管理员/调度员/财务账号登录。即将返回登录页。');
+      global.location.replace('login.html');
+      return;
+    }
+
+    // 浏览器返回/前进键：页面可能从往返缓存(bfcache)恢复且脚本不重跑 —— 重新校验登录态
+    global.addEventListener('pageshow', function (e) {
+      if (!e.persisted) return;
+      Admin.store.init();
+      var u = Admin.store.currentUser();
+      if (!u || !u.token || !Admin.store.isBackendUser()) {
+        global.location.replace('login.html');
+      }
+    });
 
     // 注册各视图路由（视图文件自行挂到 Admin.views，新增视图无需改本文件）
     var views = Admin.views || {};

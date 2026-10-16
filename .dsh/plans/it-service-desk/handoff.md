@@ -5,70 +5,93 @@
 
 ## 当前状态
 
-- 计划：it-service-desk
-- 阶段：Day 1-6 完成；后台重构 4 批次完成；权限 A 档完成；**工单状态机重构（D-015）严格对齐《工单全流程规则.md》6 态** → `findings.md#D-013`/`#D-014`/`#D-015`、`progress.md#S-017`/`#S-018`/`#S-019`
-- 里程碑：M0-M4 ✅；M5 闭环 ✅；**工单状态机终态闭环 = 待接单→维修中→待核价→待签字→待报销→已报销；报修单 = 待受理→已派单→已完成→已报销**
-- 状态：**本次改动已完成并自测全绿，待用户复验与提交**
-- 代码状态：HEAD 仍为 `472c30e`（A 档）；本次改 7 个文件 + 新增 1 个 sql + 记忆文档，**均未提交**（git commit/push 由用户手动）
-- 环境现状：MySQL80 Running（3306）；8080 留给 IDEA；8090 临时实例已停，无 java 进程
-- 数据现状：report 2（R000001/R000013 均 COMPLETED）、work_order 2（#1/#7 均 COMPLETED+SIGNED）、consumable 1、reimbursement 1（2026-10 ¥40 已报销）；sys_user 6 个、department 68 个
+- 计划：it-service-desk（`.active_plan` 指向本目录）
+- 阶段：Day 1-6 完成；**2026-10-16 完成 6 轮前端/权限/安全改动（S-025~S-035）**；**Day 7（部署/README/简历）未开始**
+- 里程碑：M0-M4 ✅；M5 进行中（签字+报销闭环已实跑验证，差部署/README/简历）→ `task_plan.md#里程碑`
+- 代码状态：HEAD = `b92fb40`（一次补提交，含 S-025~S-034 全部改动）；**本轮 S-035 共 9 个文件未提交（5 代码 + 4 记忆）**
+- 环境：MySQL80 Running(3306)；**无 java 进程**；8080 空闲（留给用户在 IDEA 启动）；8099 未占用
+- 数据：report#1/#3、work_order#1/#3、reimbursement#1/#3 均 `REIMBURSED`；`sys_user` 6、`department` 68；`uploads/` 4 个文件**全部被 DB 引用，无孤儿**
 
-## 本次改动（2026-10-15，三轮）
+## 本轮未提交改动（S-035，共 9 文件 = 5 代码 + 4 记忆）
 
-- **D-013 工单业务管理重构**（报修单状态同步+历史整合）→ `findings.md#D-013`、`progress.md#S-017`
-- **D-014 报销闭环同步**（财务回填→已报销）→ `findings.md#D-014`、`progress.md#S-018`
-- **D-015 工单状态机重构**（严格对齐《工单全流程规则.md》6态）→ `findings.md#D-015`、`progress.md#S-019`
-- **D-016 科室索引修复**（搜索失焦根因=重建整卡；竖列根因=.dept-* CSS 类从未定义；院区三栏 grid 重排）→ `findings.md#D-016`、`progress.md#S-020`；**附带发现 department_head 全空**
-- **D-017 科室索引搜索移除**（用户裁定冗余，只留刷新按钮）→ `findings.md#D-017`、`progress.md#S-021`
-- **D-018 签字弹窗费用明细**（核价后费用对签字人透明：耗材×数量×单价+合计，未核价标红）→ `findings.md#D-018`、`progress.md#S-022`；**数据库已清空配合用户全流程验证**（备份 business-data-20261015-214245.sql）；⚠️ 曾误杀用户 8080 实例（教训：杀进程必须按端口定位）
-- **D-019 UI文案+详情费用+数据留存**（按《数据留存策略.md》：报修记录标题/详情弹窗费用/报修60天+报销180天查询过滤，不删数据）→ `findings.md#D-019`、`progress.md#S-023`
-- **D-020 前端去 slop 重构**（design-taste-frontend skill：44 FAIL→0，删阴影/细线/描边/渐变/emoji，对比度修复，字号拉大，三端同等力度）→ `findings.md#D-020`、`progress.md#S-024`；SW itsd-v15
-- 落地文件：`WorkOrderStatus.java`(6态去PENDING/COMPLETED加PENDING_PRICING/PENDING_REIMBURSE/REIMBURSED)、`WorkOrderService.java`(+completePricing/reimburse, sign→待报销, submitRepair→待核价)、`WorkOrderAccess.java`(+REIMBURSE)、`WorkOrderController.java`(pricing语义变更+/{id}/reimburse)、`ReimbursementService.java`(reimburse回填工单→已报销+注入WorkOrderService)、`StatsService`+`DashboardStats`+`SystemInfoController`、前端 ui.js/work-orders.js/system.js/dashboard.js/app.js/today/detail/report/reports-history、`sql/2026-10-15-workorder-status-machine.sql`+2个前置迁移、`WorkOrderAccessTest.java`(12项)、SW itsd-v10
-- 验证：三轮闭环实跑全绿（签字→待报销→已报销；7步状态机每步查库正确）+ mvn test + 前端四套回归
-- 工单状态机（严格6态）：待接单→维修中→待核价→待签字→待报销(移入历史)→已报销
-- 报修单状态机（粗粒度）：待受理→已派单→已完成→已报销
+→ `progress.md#S-035`、`#S-036`、`findings.md#D-023`
+
+| 文件 | 一句话改动 |
+|---|---|
+| `src/main/java/com/itservice/desk/config/WebConfig.java` | HTML/`/` 下发 `Cache-Control: no-store` |
+| `src/main/resources/static/js/guard.js` | 退出改 `location.replace` + `pageshow(persisted)` 重校验 |
+| `src/main/resources/static/js/admin/app.js` | 未登录静默跳转（不再弹窗）+ bfcache 重校验 |
+| `src/main/resources/static/js/admin/store.js` | `logout()` 改 `location.replace` |
+| `src/main/resources/static/report.html` | 科室端「退出」改 `location.replace` |
+| `.dsh/plans/it-service-desk/findings.md` | 追加 `#D-023` |
+| `.dsh/plans/it-service-desk/progress.md` | 追加 `#S-035`、`#S-036` |
+| `.dsh/plans/it-service-desk/task_plan.md` | 状态层重写（当前阶段/Next Step/已完成/待办） |
+| `.dsh/plans/it-service-desk/handoff.md` | 状态层重写（本文件） |
+
+建议提交信息（代码 + 记忆一起提交）：
+`fix(安全): 退出登录改用 replace + bfcache 重校验 + HTML no-store，防止返回键重入已登录界面`
+
+## 2026-10-16 六轮改动（全部已提交，除 S-035）
+
+| 轮次 | 一句话 | 指针 |
+|---|---|---|
+| S-025 | PWA 安装引导 + 三端入口二维码 + 端间角色隔离与统一退出 | `findings.md#D-021`、`progress.md#S-025`，提交 `89d2e6a` |
+| S-026 | 企业微信群机器人派单通知（配置驱动，默认关闭） | `progress.md#S-026`，提交 `a642d1e` |
+| S-027 | 指标卡行自适应拉伸 + 统一间距与卡面边线 | `progress.md#S-027`，提交 `1e826bd` |
+| S-028 | 科室端退出按钮（管理端同款）+ 登录页回车登录 | `progress.md#S-028`，提交 `8d82857` |
+| S-029 | 修 `ui.confirm` Promise 竞态（财务回填静默失效） | `progress.md#S-029`，提交 `b92fb40` |
+| S-030 | 清库恢复初始状态（含备份） | `progress.md#S-030`，提交 `b92fb40` |
+| S-031 | **彻底移除设备照片功能**（前后端+数据库） | `progress.md#S-031`、`sql/2026-10-16-drop-device-photo.sql` |
+| S-032 | 清理 uploads 孤儿文件（移入备份） | `progress.md#S-032` |
+| S-033 | **SW 静态资源改网络优先**（根治"改了不生效"） | `progress.md#S-033`、`findings.md#D-021` |
+| S-034 | **报销职责分离**：生成归运维、回填归财务 | `findings.md#D-022`、`progress.md#S-034`，提交 `b92fb40` |
+| S-035 | 浏览器返回键防重入（三层防护） | `findings.md#D-023`、`progress.md#S-035`，**未提交** |
+
+## Next Step（从这里开始）
+
+1. **用户复验 S-035**：IDEA 启动 8080 → 强刷 → 登录后台 → 点右上角退出 → 按返回键（Alt+←）→ 应仍在登录页
+2. **git 提交本轮 9 文件**（5 代码 + 4 记忆，建议信息见上）
+3. **（未开工，二选一）**
+   - 配置企微 webhook 并点「系统信息 → 发送测试通知」验证派单通知 → `progress.md#S-026`
+   - 或进入 **Day 7**：部署配置（Docker/Nginx）+ README + 简历项目描述 → `task_plan.md#Next-Step`
+4. 长期残留：**D-012 跨端实时推送**未做 → `findings.md#D-012`
 
 ## 不能碰的约束（必读）
 
-- Maven 双仓库（IDEA 用 D:\Maven\repository；沙箱 CLI 用 .m2repo + 代理 7890 + JAVA_HOME=jdk17）→ `findings.md`「Maven 双仓库说明」
-- Git commit/push 由**用户手动**在 VSCode 完成，AI 只提供摘要与建议提交信息 → `findings.md`「Git 工作流变更」
-- 科室端已去掉设备码，接口一律用 `departmentId`（保留 deviceCode 兼容）→ `findings.md#D-002`
-- 项目记忆按 project-memory **v3** 规范：findings/progress 只追加、handoff 指针式 → `findings.md#D-001`
-- mvn test 在沙箱需用 `-Dmaven.repo.local=.m2repo`（surefire-junit-platform 需在线拉到项目内仓库；沙箱无权限写 D:\Maven\repository）
+- Maven 双仓库：IDEA 用 `D:\Maven\repository`；沙箱 CLI 用 `-Dmaven.repo.local=.m2repo`，且**必须** `JAVA_HOME=D:\DevTools\Java\jdk17`（默认 JAVA_HOME 是 jdk8，报"无效目标发行版 17"）→ `findings.md`「Maven 双仓库说明」
+- **`mvn package` 前必须先停掉占用 `target/desk-0.1.0.jar` 的 java 进程**，否则报 `Unable to rename ... .jar.original`
+- Git commit/push 由**用户手动**完成，AI 只给摘要与建议提交信息 → `findings.md`「Git 工作流变更」
+- 科室端接口一律用 `departmentId`（`deviceCode` 仅兼容保留）→ `findings.md#D-002`
+- 记忆规范：`findings.md`/`progress.md` 只追加，`handoff.md`/`task_plan.md` 可重写 → `findings.md#D-001`
+- **改动前端后无需再 bump SW 版本**（已是网络优先）；但首次仍建议 Ctrl+Shift+R → `findings.md#D-021`、`progress.md#S-033`
+- 权限矩阵：报销**生成**=管理员/调度员，**回填**=仅财务；工单级报销入口已移除 → `findings.md#D-022`
+- 设备照片功能已**彻底移除**（含 `report.device_photo` 列），不要再加回 → `progress.md#S-031`
 
-## 已完成
+## 数据与环境事实
 
-- 三端全流程闭环（报修→派单→维修→签字→核价→月度报销→财务回填）→ `progress.md` 各 Day 会话节
-- PWA 化 + 三级联动组件化 + 后台信息架构重构 4 批次 + 5 条已知限制修复 + 签字体验改造 + 权限 A 档 → `findings.md#D-004`~`#D-011`
-- **本次：报修单状态随工单流转同步回写 + 科室端历史列表整合** → `findings.md#D-013`、`progress.md#S-017`
+- 演示账号（BCrypt，见 `data.sql`）：`admin/admin123`、`dispatcher/123456`、`repairer1/123456`、`repairer2/123456`、`reporter1/123456`、`finance/123456`
+- 备份目录 `.rdoc_inspect/backup/`：`business-data-20261016-150758.sql`（清库前全量）、`business-data-20261015-214245.sql`、`demo-data-20261015-010733.sql`、`orphan-uploads-20261016-153443/`（16 个孤儿图，可整目录删）
+- 企微通知配置位：`application.yml` 的 `notify.wecom.webhook` + `notify.public-host`（**当前为空=功能关闭**）→ `progress.md#S-026`
+- 用户机器内网地址：`10.31.67.107`（二维码/通知链接需用它，不能用 localhost）
 
-## 未完成与阻塞点
+## 本地验证工具（`.rdoc_inspect/` 已被 gitignore，仅本机可用）
 
-- **D-012 跨端实时推送（残留）**：用户本次诉求是工单业务管理的状态同步与历史展示，已解决；但「派单后维修端自动看到/签字后后台自动更新」这类实时性仍未做 → `findings.md#D-012`
-- Day 7：部署配置（Docker/Nginx）+ README 完善 + 简历项目描述 + 最终演示 → `task_plan.md#Next-Step`
-- 可选体验优化：科室端列表分页、报销单 PDF 导出、基础数据管理（科室/用户增删改）
-
-## 关键约束与决策
-
-- 决策与踩坑全表 → `findings.md`
-- 关键用户原话（设备码废弃/两级下拉）→ `#D-002`；（三级联动+楼层）→ `#D-004`；（后台重构方案）→ `#D-006`；（5 条限制修复）→ `#D-009`；（签字改造）→ `#D-010`；（权限 A 档不做什么）→ `#D-011`；（状态同步未决）→ `#D-012`；（工单业务重构）→ `#D-013`；（报销闭环同步）→ `#D-014`；（工单状态机6态重构）→ `#D-015`
-- 环境事实（MySQL 账号、上传目录、演示账号、8090/8080 约定）→ `progress.md#S-010` 与 `findings.md`
-- 演示账号密码：admin/admin123、dispatcher/123456、repairer1/123456、repairer2/123456、reporter1/123456、finance/123456（BCrypt 哈希，见 data.sql）
-
-## 下一步
-
-- **第 0 步（用户复验）**：用户正在全流程验证（R000001 已完成/报销单#1 待报销）——**需先重启 IDEA 的 8080**（此前被误杀）；科室端：报修记录标题改为「报修记录（仅展示近 2 个月）」、详情弹窗新增「报修费用」区（耗材×数量×单价+合计）、签字弹窗费用明细（D-018）；科室索引无搜索框+三栏布局；工单管理 4 态+报销按钮；系统信息 6 态状态机图。SW 已升 itsd-v14，首次打开 Ctrl+Shift+R
-- 复验通过后：**git 提交**（三条建议信息见 `progress.md` 的 Git 提交记录节，可合并或分开）
-- 之后 **D-012 跨端实时推送**（焦点自动刷新 ~10 行 / SSE 单向推送约 1 批次，二选一）或 **Day 7** 部署/README/简历
-- 常规回归（需先起 8090 实例）：`mvn -Dmaven.repo.local=.m2repo test`（17 项）→ `test-frontend.js` → `test-admin-app.js` → `test-sign-type.js` → `test-finance-api.js`（造数据后按 id 清理）
+| 脚本 | 覆盖 | 前置 |
+|---|---|---|
+| `verify-back-key.js` | 返回键防重入（11 项） | 8080 运行 |
+| `verify-roles-ui.js` | 角色按钮可见性（11 项） | 8080 运行；无「待报销」数据时相关项自动 SKIP |
+| `verify-reimburse-ui.js` | 财务回填 + 跨端同步（15 项） | 8080 运行；需存在「待报销」单，可用 `TARGET_REIMB_ID=<id>` 指定目标 |
+| `verify-ui.js` | 科室端/登录页（19 项） | 需先起 `temp-static-server.js`(8099) |
+| `temp-static-server.js` | 8099 临时静态服务 | 验完必须关闭 |
+| `patch_*.mjs` / `test-*.js` | 历史批次脚本（旧） | 参考即可 |
 
 ## 回读顺序（细节不够时按此顺序）
 
-1. `findings.md` 的 **D-013（本次工单业务重构）、D-012（跨端推送残留）、D-011（权限不做什么）**
-2. `progress.md` 最近两节（S-017 本次、S-016 用户复验反馈）
-3. `git log --oneline -10`（A 档 HEAD=`472c30e`；本次改动待提交）
+1. `findings.md` 的 **D-023（返回键）、D-022（职责分离）、D-021（PWA/SW/三端）**
+2. `progress.md` 最近 3 节（S-035、S-034、S-033）
+3. `git log --oneline -8`（HEAD=`b92fb40`；S-035 待提交）
 
 ## 建议技能
 
-- project-memory：自动恢复项目状态（v3 规范）
-- u1-ocr-parser-pro：如需解析文档
+- project-memory：恢复/落盘项目状态
+- design-taste-frontend：前端视觉改造时（历史用于 D-020 去 slop）

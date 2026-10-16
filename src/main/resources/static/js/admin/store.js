@@ -41,9 +41,10 @@
     var u = state.user;
     return (u && (u.role || ROLE_LABEL[u.roleCode])) || '';
   }
+  /** 退出登录：清凭证 + replace 回登录页（replace 使浏览器返回键无法回到已登录页面） */
   function logout() {
     try { localStorage.removeItem('itsdUser'); } catch (e) { /* ignore */ }
-    global.location.href = 'login.html';
+    global.location.replace('login.html');
   }
 
   function setBadges(badges) {

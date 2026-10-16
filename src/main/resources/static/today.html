@@ -77,6 +77,7 @@
       background: var(--dk-accent); color: var(--dk-accent-ink);
       border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer;
     }
+    .accept-btn:disabled { opacity: .6; cursor: wait; }
 
     .empty { text-align: center; color: var(--dk-text-2); padding: 80px 0; }
     .empty p { font-size: 15px; }
@@ -147,18 +148,26 @@
           + '<div class="title">' + wo.title + urgent + '</div>'
           + '<div class="meta"><b>' + wo.location + '</b> · ' + wo.contactPerson + '</div>'
           + '<div class="meta">' + wo.departmentName + ' · ' + (WORK_ORDER_STATUS[wo.status] || '') + '</div>'
-          + (wo.status === 'ASSIGNED' ? '<button class="accept-btn" onclick="event.stopPropagation();acceptOrder(' + wo.id + ')">接单</button>' : '')
+          + (wo.status === 'ASSIGNED' ? '<button class="accept-btn" onclick="event.stopPropagation();acceptOrder(' + wo.id + ', this)">接单</button>' : '')
           + '</div>';
       });
       root.appendChild(div);
     });
   }
 
-  async function acceptOrder(id) {
-    const res = await fetch('/api/work-orders/' + id + '/accept', { method: 'POST', headers: { 'X-Token': token } });
-    const json = await res.json();
-    if (json.code !== 0) { alert(json.message); return; }
-    load();
+  async function acceptOrder(id, btn) {
+    if (btn) btn.disabled = true; // 防连点重复接单
+    try {
+      const res = await fetch('/api/work-orders/' + id + '/accept', { method: 'POST', headers: { 'X-Token': token } });
+      const json = await res.json();
+      if (json.code !== 0) { alert(json.message); if (btn) btn.disabled = false; return; }
+      // 接单成功 → 提示后短延时直接进工单详情，无需再手动点
+      btn.textContent = '已接单，正在打开…';
+      setTimeout(function () { openDetail(id); }, 500);
+    } catch (e) {
+      alert('网络异常，请重试');
+      if (btn) btn.disabled = false;
+    }
   }
 
   function openDetail(id) {
