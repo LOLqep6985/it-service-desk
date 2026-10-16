@@ -38,8 +38,8 @@ public class ReimbursementController {
         if (user == null) {
             return ApiResponse.error(401, "未登录或登录已过期");
         }
-        if (!isReimbursementStaff(user)) {
-            return ApiResponse.error(403, "无权限：只有管理员、调度员或财务可以生成报销单");
+        if (!isOpsStaff(user)) {
+            return ApiResponse.error(403, "无权限：只有管理员或调度员可以生成报销单（财务负责回填，不参与生成）");
         }
         try {
             List<Reimbursement> created = reimbursementService.generate(month);
@@ -129,7 +129,7 @@ public class ReimbursementController {
         }
     }
 
-    /** 管理员/调度员：财务回填（标记已报销） */
+    /** 财务回填（资金动作）：**仅财务**可操作；回填后报销单与单内工单、报修单状态同步推进 */
     @PostMapping("/{id}/reimburse")
     public ApiResponse reimburse(@PathVariable Long id,
                                  @RequestHeader(value = "X-Token", required = false) String token) {
@@ -137,8 +137,8 @@ public class ReimbursementController {
         if (user == null) {
             return ApiResponse.error(401, "未登录或登录已过期");
         }
-        if (!isReimbursementStaff(user)) {
-            return ApiResponse.error(403, "无权限：只有管理员、调度员或财务可以操作报销单");
+        if (!isFinance(user)) {
+            return ApiResponse.error(403, "无权限：财务回填由财务岗位操作，管理员/调度员只负责生成报销单");
         }
         try {
             return ApiResponse.ok(reimbursementService.reimburse(id));
@@ -167,11 +167,25 @@ public class ReimbursementController {
 
     /**
      * 报销单的管理端角色：管理员 / 调度员 / 财务。
-     * 财务是独立岗位（只能看与处理报销单，不接触工单与系统配置）——见 findings D-011 权限矩阵。
+     * 职责分离（见 findings D-011 / D-022）：
+     *   - 生成报销单：运维侧（管理员/调度员）按月汇总，财务不参与生成
+     *   - 财务回填：仅财务可操作（资金动作，运维侧不得代填）
+     *   - 查看列表/详情：三种角色都可（财务需要看单，运维需要看进度）
      */
     private boolean isReimbursementStaff(User user) {
         UserRole role = user.getRole();
         return role == UserRole.ADMIN || role == UserRole.DISPATCHER || role == UserRole.FINANCE;
+    }
+
+    /** 运维侧（管理员/调度员）：负责生成报销单 */
+    private boolean isOpsStaff(User user) {
+        UserRole role = user.getRole();
+        return role == UserRole.ADMIN || role == UserRole.DISPATCHER;
+    }
+
+    /** 财务：唯一可执行「财务回填」的角色 */
+    private boolean isFinance(User user) {
+        return user.getRole() == UserRole.FINANCE;
     }
 
     private User resolveUser(String token) {

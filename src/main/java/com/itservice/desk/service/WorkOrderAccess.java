@@ -19,11 +19,13 @@ import java.util.Set;
  * 规则一览（对齐《工单全流程规则.md》）：
  * | 角色            | 可见范围              | 可执行动作                                                    |
  * |-----------------|-----------------------|---------------------------------------------------------------|
- * | 管理员/调度员   | 全部工单              | VIEW + 待核价时 PRICE + 待报销时 REIMBURSE                    |
+ * | 管理员/调度员   | 全部工单              | VIEW + 待核价时 PRICE                                         |
  * | 维修工          | 仅派给自己的工单      | VIEW + 待接单时 ACCEPT + 维修中时 REPAIR                      |
  * | 报修人          | 仅自己的报修单产生的工单 | VIEW                                                        |
  * | 科室端(免登录)  | 仅本科室工单          | VIEW + 待签字时 SIGN                                          |
- * | 财务            | 不可见工单            | —（只管报销单）                                               |
+ * | 财务            | 不可见工单            | —（只在「月度报销单」页面做财务回填）                          |
+ *
+ * 职责分离：工单不承担报销动作 —— 报销由财务整张报销单回填，回填后单内工单自动推进为已报销。
  *
  * 动态权限示例：维修工被派单后从「只读」变「可接单」，接单后可「提交维修」，
  * 提交后（待签字）他又变回只读 —— 这个收敛完全由状态决定，不需要额外配置。
@@ -38,7 +40,6 @@ public class WorkOrderAccess {
     public static final String REPAIR = "REPAIR";
     public static final String PRICE = "PRICE";
     public static final String SIGN = "SIGN";
-    public static final String REIMBURSE = "REIMBURSE";
 
     private final ReportMapper reportMapper;
 
@@ -99,12 +100,9 @@ public class WorkOrderAccess {
         UserRole role = user.getRole();
         if (role == UserRole.ADMIN || role == UserRole.DISPATCHER) {
             actions.add(VIEW);
-            // 核价（待核价时）/ 报销（待报销时）
+            // 核价（待核价时）；报销不在工单层：由财务对整张报销单回填后自动推进
             if (wo.getStatus() == WorkOrderStatus.PENDING_PRICING) {
                 actions.add(PRICE);
-            }
-            if (wo.getStatus() == WorkOrderStatus.PENDING_REIMBURSE) {
-                actions.add(REIMBURSE);
             }
             return new ArrayList<>(actions);
         }

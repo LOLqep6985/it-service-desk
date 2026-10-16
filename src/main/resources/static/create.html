@@ -59,8 +59,6 @@
     <input id="reporterName" placeholder="如：李护士">
     <label>设备名称 *</label>
     <input id="deviceName" placeholder="如：打印机、电脑、显示器">
-    <label>设备照片链接（可选）</label>
-    <input id="devicePhoto" placeholder="可粘贴图片链接，或使用科室端拍照上传">
     <label>问题描述</label>
     <textarea id="problemDesc" placeholder="如：卡纸、缺墨、不亮、打不开机"></textarea>
     <label>科室负责人</label>
@@ -118,7 +116,6 @@
     const dept = cascade.selected();
     const reporterName = document.getElementById('reporterName').value.trim();
     const deviceName = document.getElementById('deviceName').value.trim();
-    const devicePhoto = document.getElementById('devicePhoto').value.trim();
     const problemDesc = document.getElementById('problemDesc').value.trim();
     const departmentHead = document.getElementById('departmentHead').value.trim();
     if (!dept || !reporterName || !deviceName) {
@@ -131,7 +128,7 @@
       const res = await fetch('/api/reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Token': token },
-        body: JSON.stringify({ departmentId: dept.id, reporterName, deviceName, devicePhoto, problemDesc, departmentHead })
+        body: JSON.stringify({ departmentId: dept.id, reporterName, deviceName, problemDesc, departmentHead })
       });
       const json = await res.json();
       if (json.code !== 0) { msg.textContent = json.message; submitBtn.disabled = false; return; }

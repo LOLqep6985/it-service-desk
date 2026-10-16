@@ -17,7 +17,6 @@ public class Report {
     private String departmentName;
     private String reporterName;
     private String deviceName;
-    private String devicePhoto;
     private String problemDesc;
     private String departmentHead;
     private ReportStatus status;

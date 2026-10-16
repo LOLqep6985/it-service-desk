@@ -1,10 +1,11 @@
 /* IT 运维工单系统 Service Worker
  * 策略：
- * - 页面导航：网络优先（保证内容最新），失败时回退缓存（离线壳）
- * - 静态资源（图标/manifest）：缓存优先
+ * - 页面导航 + 代码类资源（html/js/css/json）：**网络优先**，失败回退缓存
+ *   （内网应用几乎总在线，网络优先可保证发版后刷新即生效，避免"改了前端却仍跑旧缓存"）
+ * - 图标等极少变动资源：缓存优先
  * - /api/ 与 /uploads/ 一律不缓存（数据实时）
  */
-const CACHE = 'itsd-v19';
+const CACHE = 'itsd-v20';
 const APP_SHELL = [
   '/report.html',
   '/today.html',
@@ -66,8 +67,12 @@ self.addEventListener('fetch', (e) => {
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/uploads/')) {
     return;
   }
-  // 页面导航：网络优先，失败回退缓存
-  if (e.request.mode === 'navigate') {
+
+  const isNavigate = e.request.mode === 'navigate';
+  // 代码与页面：网络优先（发版后无需清缓存），断网时回退缓存
+  const isCode = isNavigate || /\.(?:html|js|css|json)$/i.test(url.pathname);
+
+  if (isCode) {
     e.respondWith(
       fetch(e.request)
         .then((res) => {
@@ -76,12 +81,13 @@ self.addEventListener('fetch', (e) => {
           return res;
         })
         .catch(() =>
-          caches.match(e.request).then((m) => m || caches.match('/report.html'))
+          caches.match(e.request).then((m) => m || (isNavigate ? caches.match('/report.html') : undefined))
         )
     );
     return;
   }
-  // 其他静态资源：缓存优先，同时回填缓存
+
+  // 图标等极少变动资源：缓存优先，同时回填缓存
   e.respondWith(
     caches.match(e.request).then(
       (m) =>
