@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <meta name="theme-color" content="#1d6fe0">
+  <meta name="theme-color" content="#10181D">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="维修工作台">
@@ -12,31 +12,53 @@
   <link rel="apple-touch-icon" href="/icons/repair-192.png">
   <title>工单详情 - IT运维工单系统</title>
   <style>
+    /* ============================================================
+       工单详情（维修工端）—— 深色工具箱，与 today.html 同族
+       ============================================================ */
+    :root {
+      --dk-bg: #10181D;
+      --dk-surface: #1A242B;
+      --dk-surface-2: #232F38;
+      --dk-text: #E8EDE9;
+      --dk-text-2: #9AA8A0;
+      --dk-accent: #4ADE9E;
+      --dk-accent-ink: #0C1A13;
+      --dk-danger: #F0705E;
+      --dk-warn: #E8B25A;
+      --font: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+      --font-num: "SF Mono", Consolas, "Courier New", monospace;
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f2f4f7; color: #2c3e50; }
-    .header { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #1d6fe0; color: #fff; position: sticky; top: 0; }
-    .header .back { background: rgba(255,255,255,.2); border: none; color: #fff; padding: 6px 14px; border-radius: 6px; font-size: 14px; }
-    .header .t { font-size: 16px; font-weight: 600; }
-    .container { max-width: 480px; margin: 0 auto; padding: 16px; }
-    .card { background: #fff; border-radius: 10px; padding: 18px; }
-    .card h2 { font-size: 19px; margin-bottom: 12px; font-weight: 600; }
-    .row { display: flex; justify-content: space-between; padding: 9px 0; font-size: 14px; }
-    .row .k { color: #6b7280; }
-    .row .v { text-align: right; max-width: 65%; }
-    .badge { display: inline-block; font-size: 12px; padding: 3px 9px; border-radius: 4px; background: #e8f4fd; color: #1d6fe0; }
-    .badge.sign-pending { background: #fef3e2; color: #b9770e; }
-    .form { background: #fff; border-radius: 10px; padding: 18px; margin-top: 14px; }
-    .form h3 { font-size: 16px; margin-bottom: 12px; font-weight: 600; }
-    textarea, input[type=text], input[type=number] { width: 100%; padding: 10px; border: none; border-radius: 8px; font-size: 14px; background: #f0f2f5; }
-    textarea { min-height: 80px; line-height: 1.5; }
+    body { font-family: var(--font); background: var(--dk-bg); color: var(--dk-text); }
+    .header { display: flex; align-items: center; gap: 12px; padding: 16px 18px 12px; background: var(--dk-bg); position: sticky; top: 0; z-index: 10; }
+    .header .back { background: var(--dk-surface-2); border: none; color: var(--dk-text); padding: 8px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+    .header .t { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+    .container { max-width: 520px; margin: 0 auto; padding: 8px 16px 48px; }
+    .card { background: var(--dk-surface); border-radius: 10px; padding: 20px 18px; }
+    .card h2 { font-size: 21px; margin-bottom: 14px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.3; }
+    .row { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; font-size: 14px; }
+    .row .k { color: var(--dk-text-2); flex: 0 0 auto; }
+    .row .v { text-align: right; max-width: 68%; word-break: break-word; }
+    .badge { display: inline-block; font-size: 12px; padding: 3px 9px; border-radius: 4px; background: var(--dk-surface-2); color: var(--dk-accent); font-weight: 600; }
+    .badge.sign-pending { background: rgba(232, 178, 90, .15); color: var(--dk-warn); }
+    .form { background: var(--dk-surface); border-radius: 10px; padding: 20px 18px; margin-top: 14px; }
+    .form h3 { font-size: 16px; margin-bottom: 12px; font-weight: 700; }
+    .form p { color: var(--dk-text-2); }
+    textarea, input[type=text], input[type=number] {
+      width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 15px;
+      background: var(--dk-surface-2); color: var(--dk-text); font-family: var(--font);
+    }
+    textarea:focus, input:focus { outline: 2px solid var(--dk-accent); outline-offset: -1px; }
+    textarea { min-height: 90px; line-height: 1.55; }
     .consumable-row { display: flex; gap: 6px; margin-bottom: 8px; align-items: center; flex-wrap: wrap; }
     .consumable-row input { flex: 1; min-width: 70px; }
-    .consumable-row .cb { flex: 0 0 auto; display: flex; align-items: center; gap: 3px; font-size: 12px; color: #555; }
-    .add-row { color: #1d6fe0; font-size: 13px; border: none; background: none; cursor: pointer; margin-bottom: 6px; }
-    button.primary { width: 100%; padding: 14px; background: #1d6fe0; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; margin-top: 12px; }
-    button.primary.green { background: #27ae60; }
-    button.primary:disabled { background: #b0b8c1; }
-    .msg { margin-top: 12px; text-align: center; font-size: 14px; color: #d63031; min-height: 20px; }
+    .consumable-row .cb { flex: 0 0 auto; display: flex; align-items: center; gap: 3px; font-size: 12px; color: var(--dk-text-2); }
+    .add-row { color: var(--dk-accent); font-size: 14px; font-weight: 600; border: none; background: none; cursor: pointer; margin-bottom: 8px; padding: 4px 0; }
+    /* 吸底式大按钮 */
+    button.primary { width: 100%; padding: 16px; background: var(--dk-accent); color: var(--dk-accent-ink); border: none; border-radius: 10px; font-size: 16px; font-weight: 700; margin-top: 14px; cursor: pointer; letter-spacing: .02em; }
+    button.primary.green { background: var(--dk-accent); }
+    button.primary:disabled { background: #3A4540; color: var(--dk-text-2); }
+    .msg { margin-top: 12px; text-align: center; font-size: 14px; color: var(--dk-danger); min-height: 20px; }
   </style>
 </head>
 <body>
@@ -91,7 +113,7 @@
       const res = await fetch('/api/work-orders/' + id + '/accept', { method: 'POST', headers: { 'X-Token': token } });
       const json = await res.json();
       if (json.code !== 0) { acceptMsg.textContent = json.message; return; }
-      acceptMsg.style.color = '#27ae60';
+      acceptMsg.style.color = '#4ADE9E';
       acceptMsg.textContent = '已接单，请填写维修记录';
       load();
     } catch (e) { acceptMsg.textContent = '网络错误：' + e.message; }
@@ -132,7 +154,7 @@
       });
       const json = await res.json();
       if (json.code !== 0) { repairMsg.textContent = json.message; document.getElementById('submitBtn').disabled = false; return; }
-      repairMsg.style.color = '#27ae60';
+      repairMsg.style.color = '#4ADE9E';
       repairMsg.textContent = '已提交科室验收，等待护士长签字';
       setTimeout(() => { window.location.href = 'today.html?userId=' + userId; }, 1200);
     } catch (e) {

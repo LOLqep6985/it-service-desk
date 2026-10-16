@@ -6,21 +6,35 @@
   <link rel="stylesheet" href="/css/dept-cascade.css">
   <title>报修 - IT运维工单系统</title>
   <style>
+    /* 登录报修（报修人端）—— 纸白 + 墨青，与 report.html 同族 */
+    :root {
+      --c-primary: #0F6B5C;
+      --c-primary-dark: #0B5448;
+      --c-bg: #F6F4EE;
+      --c-surface: #FFFFFF;
+      --c-surface-2: #F0EDE4;
+      --c-text: #1C2420;
+      --c-text-2: #4A524D;
+      --c-muted: #6E7770;
+      --c-danger: #B3261E;
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f2f4f7; color: #2c3e50; }
-    .header { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #1d6fe0; color: #fff; position: sticky; top: 0; }
-    .header .back { background: rgba(255,255,255,.2); border: none; color: #fff; padding: 6px 14px; border-radius: 6px; font-size: 14px; }
-    .header .t { font-size: 16px; font-weight: 600; }
-    .container { max-width: 480px; margin: 0 auto; padding: 16px; }
-    .card { background: #fff; border-radius: 10px; padding: 18px; }
-    .card h2 { font-size: 19px; margin-bottom: 6px; font-weight: 600; }
-    .tip { font-size: 13px; color: #6b7280; margin-bottom: 8px; }
-    label { display: block; font-size: 13px; color: #4b5563; margin: 14px 0 6px; }
-    input, select, textarea { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 15px; box-sizing: border-box; background: #f0f2f5; }
-    textarea { min-height: 70px; line-height: 1.5; }
-    button.submit { width: 100%; padding: 15px; background: #1d6fe0; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; margin-top: 16px; }
-    button.submit:disabled { background: #b0b8c1; }
-    .msg { margin-top: 12px; text-align: center; font-size: 14px; color: #d63031; min-height: 20px; }
+    body { font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif; background: var(--c-bg); color: var(--c-text); }
+    .header { display: flex; align-items: center; gap: 12px; padding: 16px 18px 10px; background: var(--c-bg); position: sticky; top: 0; z-index: 10; }
+    .header .back { background: var(--c-surface-2); border: none; color: var(--c-text); padding: 8px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+    .header .t { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+    .container { max-width: 520px; margin: 0 auto; padding: 8px 18px 48px; }
+    .card { background: var(--c-surface); border-radius: 12px; padding: 22px 20px; }
+    .card h2 { font-size: 21px; margin-bottom: 8px; font-weight: 700; letter-spacing: -0.01em; }
+    .tip { font-size: 13px; color: var(--c-muted); margin-bottom: 8px; }
+    label { display: block; font-size: 13px; color: var(--c-text-2); margin: 14px 0 6px; font-weight: 500; }
+    input, select, textarea { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 15px; box-sizing: border-box; background: var(--c-surface-2); color: var(--c-text); font-family: inherit; }
+    input:focus, select:focus, textarea:focus { outline: 2px solid var(--c-primary); outline-offset: -1px; background: #fff; }
+    textarea { min-height: 70px; line-height: 1.55; }
+    button.submit { width: 100%; padding: 15px; background: var(--c-primary); color: #fff; border: none; border-radius: 10px; font-size: 17px; font-weight: 700; margin-top: 18px; cursor: pointer; letter-spacing: .02em; }
+    button.submit:active { background: var(--c-primary-dark); }
+    button.submit:disabled { background: #B9BDB4; }
+    .msg { margin-top: 12px; text-align: center; font-size: 14px; color: var(--c-danger); min-height: 20px; }
   </style>
 </head>
 <body>

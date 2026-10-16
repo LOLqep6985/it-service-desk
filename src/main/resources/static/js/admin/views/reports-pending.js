@@ -27,11 +27,11 @@
 
     var body = ui.h('div', null,
       ui.h('div', {
-        style: { background: '#f8fafc', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', marginBottom: '12px', lineHeight: '1.7' }
+        style: { background: '#F6F4EE', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', marginBottom: '12px', lineHeight: '1.7' }
       },
         ui.h('div', null, ui.h('b', { text: report.reportNo || ('#' + report.id) }) + ' · ' + (report.departmentName || '')),
-        ui.h('div', { style: { color: '#7f8c8d' } }, '设备：' + (report.deviceName || '') + ' · 报修人：' + (report.reporterName || '')),
-        report.problemDesc ? ui.h('div', { style: { color: '#7f8c8d' } }, '描述：' + report.problemDesc) : null
+        ui.h('div', { style: { color: '#6E7770' } }, '设备：' + (report.deviceName || '') + ' · 报修人：' + (report.reporterName || '')),
+        report.problemDesc ? ui.h('div', { style: { color: '#6E7770' } }, '描述：' + report.problemDesc) : null
       ),
       state.repairers.length
         ? ui.h('div', { class: 'field' }, ui.h('label', { text: '指派维修人员' }), select)

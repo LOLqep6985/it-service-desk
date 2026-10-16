@@ -98,7 +98,7 @@
           r.signatureUrl
             ? ui.h('div', { class: 'detail-photo' },
               ui.h('img', { src: r.signatureUrl, alt: '签名图', onclick: function (e) { global.open(e.target.src, '_blank'); } }))
-            : ui.h('div', { style: { color: '#95a5a6', fontSize: '13px' }, text: '无签名图片（历史单据签字时未启用留痕）' })
+            : ui.h('div', { style: { color: '#6E7770', fontSize: '13px' }, text: '无签名图片（历史单据签字时未启用留痕）' })
         ),
         ui.h('div', { class: 'detail-section' },
           ui.h('h4', { text: '包含工单（' + wos.length + '）' }),
@@ -190,7 +190,7 @@
     var total = state.rows.reduce(function (n, r) { return n + Number(r.totalAmount || 0); }, 0);
     var byStatus = { PENDING_SIGN: 0, PENDING_REIMBURSE: 0, REIMBURSED: 0 };
     state.rows.forEach(function (r) { if (byStatus[r.status] !== undefined) byStatus[r.status]++; });
-    return ui.h('div', { class: 'grid grid-metrics', style: { marginBottom: '16px' } },
+    return ui.h('div', { class: 'grid grid-metrics' },
       ui.metricCard({ title: '列表合计金额', value: ui.money(total), icon: Admin.layout.ICONS.wallet, hint: '共 ' + state.rows.length + ' 张报销单' }),
       ui.metricCard({ title: '待签字', value: byStatus.PENDING_SIGN, unit: '张', icon: Admin.layout.ICONS.history, tone: 'warn', hint: '等待护士长签字' }),
       ui.metricCard({ title: '待报销', value: byStatus.PENDING_REIMBURSE, unit: '张', icon: Admin.layout.ICONS.clipboard, tone: 'danger', hint: '已签字，待财务回填' }),

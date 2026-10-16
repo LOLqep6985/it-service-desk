@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <meta name="theme-color" content="#27ae60">
+  <meta name="theme-color" content="#0F6B5C">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="科室报修">
@@ -14,62 +14,117 @@
   <link rel="stylesheet" href="/css/signature-pad.css">
   <title>科室报修 - IT运维工单系统</title>
   <style>
+    /* ============================================================
+       科室报修端 ——「纸单」构图
+       纸白暖底 + 墨青绿品牌；全页即一张单子，无实色 header 条。
+       ============================================================ */
+    :root {
+      --c-primary: #0F6B5C;
+      --c-primary-dark: #0B5448;
+      --c-primary-soft: #E2EFEA;
+      --c-bg: #F6F4EE;
+      --c-surface: #FFFFFF;
+      --c-surface-2: #F0EDE4;
+      --c-text: #1C2420;
+      --c-text-2: #4A524D;
+      --c-muted: #6E7770;
+      --c-danger: #B3261E;
+      --c-warn: #B45309;
+      --font: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+      --font-num: "SF Mono", Consolas, "Courier New", monospace;
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f2f4f7; color: #2c3e50; }
-    .header { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #15803d; color: #fff; position: sticky; top: 0; z-index: 10; }
-    .header .t { font-size: 16px; font-weight: 600; }
-    .container { max-width: 480px; margin: 0 auto; padding: 16px; }
-    .card { background: #fff; border-radius: 10px; padding: 18px; margin-bottom: 16px; }
-    .card h2 { font-size: 16px; margin-bottom: 8px; }
-    .dept-box { background: #e8f8ef; border: 1px dashed #27ae60; border-radius: 8px; padding: 10px 12px; font-size: 14px; margin-bottom: 10px; }
-    label { display: block; font-size: 13px; color: #6b7280; margin: 10px 0 6px; }
-    input, select, textarea { width: 100%; padding: 11px; border: none; border-radius: 8px; font-size: 15px; background: #f0f2f5; }
-    textarea { min-height: 60px; line-height: 1.5; }
-    .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-    .tag { background: #f0f2f5; border: none; border-radius: 14px; padding: 5px 11px; font-size: 13px; color: #4b5563; cursor: pointer; }
-    .tag.active { background: #27ae60; color: #fff; border-color: #27ae60; }
+    body { font-family: var(--font); background: var(--c-bg); color: var(--c-text); }
+
+    /* 单据抬头：纸白大标题区，科室名是主角 */
+    .masthead { max-width: 560px; margin: 0 auto; padding: 28px 20px 0; }
+    .masthead .kicker { font-size: 13px; color: var(--c-muted); letter-spacing: .12em; }
+    .masthead h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; color: var(--c-text); margin-top: 6px; line-height: 1.2; }
+    .masthead .sub { font-size: 14px; color: var(--c-muted); margin-top: 6px; }
+    .masthead .rebind { margin-top: 10px; background: none; border: none; color: var(--c-primary); font-size: 13px; cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 3px; }
+
+    .container { max-width: 560px; margin: 0 auto; padding: 20px 20px 48px; }
+
+    /* 全页即单子：卡片退化为分组块，无白卡堆叠 */
+    .card { background: var(--c-surface); border-radius: 12px; padding: 22px 20px; margin-bottom: 18px; }
+    .card h2 { font-size: 19px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 10px; color: var(--c-text); }
+
+    /* 单据抬头带：当前科室，墨绿浅底实色带 */
+    .dept-box { background: var(--c-primary-soft); border-radius: 8px; padding: 12px 14px; font-size: 14px; margin-bottom: 14px; color: var(--c-text); line-height: 1.6; }
+    .dept-box b { color: var(--c-primary-dark); }
+
+    label { display: block; font-size: 13px; color: var(--c-text-2); margin: 14px 0 6px; font-weight: 500; }
+    input, select, textarea { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 15px; background: var(--c-surface-2); color: var(--c-text); font-family: var(--font); }
+    input:focus, select:focus, textarea:focus { outline: 2px solid var(--c-primary); outline-offset: -1px; background: #fff; }
+    input[readonly] { color: var(--c-muted); }
+    textarea { min-height: 70px; line-height: 1.55; }
+
+    .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .tag { background: var(--c-surface-2); border: none; border-radius: 999px; padding: 7px 14px; font-size: 13px; color: var(--c-text-2); cursor: pointer; }
+    .tag.active { background: var(--c-primary); color: #fff; }
+
     .photo-row { display: flex; align-items: center; gap: 8px; }
     .photo-preview { max-width: 80px; max-height: 80px; border-radius: 6px; display: none; }
-    button.primary { width: 100%; padding: 14px; background: #27ae60; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; margin-top: 14px; }
-    button.primary:disabled { background: #b0b8c1; }
-    .msg { margin-top: 10px; text-align: center; font-size: 14px; color: #d63031; min-height: 18px; }
-    .history-item, .accept-item { padding: 12px 0; font-size: 14px; }
-    .history-item .no, .accept-item .no { font-weight: 600; color: #27ae60; }
-    .accept-item .sign-btn { margin-top: 6px; background: #1d6fe0; color: #fff; border: none; border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+
+    /* 落款式主按钮：全宽实心墨青 */
+    button.primary { width: 100%; padding: 15px; background: var(--c-primary); color: #fff; border: none; border-radius: 10px; font-size: 17px; font-weight: 700; margin-top: 18px; letter-spacing: .02em; cursor: pointer; }
+    button.primary:active { background: var(--c-primary-dark); }
+    button.primary:disabled { background: #B9BDB4; }
+
+    .msg { margin-top: 12px; text-align: center; font-size: 14px; color: var(--c-danger); min-height: 18px; }
+
+    /* 时间线列表：左侧竖线 + 状态圆点，替代白卡堆叠 */
+    .history-item, .accept-item { position: relative; padding: 12px 0 12px 22px; font-size: 14px; line-height: 1.7; }
+    .history-item::before, .accept-item::before {
+      content: ''; position: absolute; left: 5px; top: 20px; width: 9px; height: 9px; border-radius: 50%;
+      background: var(--c-primary);
+    }
+    .history-item::after, .accept-item::after {
+      content: ''; position: absolute; left: 9px; top: 32px; bottom: -2px; width: 1px; background: var(--c-surface-2);
+    }
+    .history-item:last-child::after, .accept-item:last-child::after { display: none; }
+    .history-item .no, .accept-item .no { font-weight: 700; color: var(--c-primary); font-family: var(--font-num); }
+    .accept-item .sign-btn { margin-top: 8px; background: var(--c-primary); color: #fff; border: none; border-radius: 7px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .accept-item .sign-btn.secondary { background: var(--c-surface-2); color: var(--c-text-2); }
+
     .bind-row { display: flex; gap: 8px; }
     .bind-row input { flex: 1; }
-    .bind-row button { width: 90px; background: #27ae60; color: #fff; border: none; border-radius: 8px; font-size: 14px; }
+    .bind-row button { width: 90px; background: var(--c-primary); color: #fff; border: none; border-radius: 8px; font-size: 14px; }
+
     /* 三级联动（院区→楼栋→科室）的 .picker / .floor-chip 样式见 /css/dept-cascade.css（与 create.html 共用） */
+
     /* 签字弹窗 */
-    .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; align-items: center; justify-content: center; z-index: 100; }
+    .modal-mask { position: fixed; inset: 0; background: rgba(18,24,21,.5); display: none; align-items: center; justify-content: center; z-index: 100; }
     .modal-mask.show { display: flex; }
-    .modal { background: #fff; border-radius: 12px; padding: 18px; width: 94vw; max-width: 440px; max-height: 90vh; overflow-y: auto; }
-    .modal h3 { font-size: 16px; margin-bottom: 8px; }
-    .modal .info { font-size: 13px; color: #555; background: #f8fafc; border-radius: 8px; padding: 10px; margin-bottom: 10px; line-height: 1.6; }
+    .modal { background: #fff; border-radius: 14px; padding: 22px 20px; width: 94vw; max-width: 460px; max-height: 90vh; overflow-y: auto; }
+    .modal h3 { font-size: 19px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 10px; }
+    .modal .info { font-size: 13px; color: var(--c-text-2); background: var(--c-bg); border-radius: 8px; padding: 12px; margin-bottom: 12px; line-height: 1.7; }
     /* 签字弹窗费用明细：核价后费用透明展示 */
-    .modal .cost-title { font-size: 13px; font-weight: 600; color: #2c3e50; margin-bottom: 6px; }
-    .modal .cost-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 5px 0; }
+    .modal .cost-title { font-size: 13px; font-weight: 600; color: var(--c-text); margin-bottom: 6px; }
+    .modal .cost-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 6px 0; }
     .modal .cost-row:last-child { padding-bottom: 0; }
-    .modal .cost-name { font-size: 13px; color: #555; min-width: 0; }
-    .modal .cost-price { font-size: 13px; color: #2c3e50; white-space: nowrap; }
-    .modal .cost-total { margin-top: 6px; padding-top: 10px; }
-    .modal .cost-total .cost-name { font-weight: 600; color: #2c3e50; }
+    .modal .cost-name { font-size: 13px; color: var(--c-text-2); min-width: 0; }
+    .modal .cost-price { font-size: 13px; color: var(--c-text); white-space: nowrap; font-family: var(--font-num); }
+    .modal .cost-total { margin-top: 8px; padding-top: 10px; box-shadow: inset 0 1px 0 var(--c-surface-2); }
+    .modal .cost-total .cost-name { font-weight: 700; color: var(--c-text); }
     /* 签名板 .sig-* 样式见 /css/signature-pad.css（组件共用） */
     canvas { width: 100%; height: 140px; display: block; touch-action: none; }
-    .modal .actions { display: flex; gap: 8px; margin-top: 12px; }
-    .modal .actions button { flex: 1; padding: 12px; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; }
-    .btn-clear { background: #ecf0f1; color: #555; }
-    .btn-confirm { background: #27ae60; color: #fff; }
-    .btn-cancel { background: #e0e0e0; color: #555; }
+    .modal .actions { display: flex; gap: 8px; margin-top: 14px; }
+    .modal .actions button { flex: 1; padding: 13px; border: none; border-radius: 9px; font-size: 15px; font-weight: 700; cursor: pointer; }
+    .btn-clear { background: var(--c-surface-2); color: var(--c-text-2); }
+    .btn-confirm { background: var(--c-primary); color: #fff; }
+    .btn-cancel { background: var(--c-surface-2); color: var(--c-text-2); }
     .modal .msg { font-size: 13px; }
     .delegate-row { display: none; }
     .delegate-row.show { display: block; }
   </style>
 </head>
 <body>
-<div class="header">
-  <span class="t">科室报修（免登录）</span>
-  <button id="rebindBtn" style="margin-left:auto;background:rgba(255,255,255,.2);border:none;color:#fff;padding:6px 12px;border-radius:6px;font-size:13px;display:none;">重新绑定</button>
+<div class="masthead">
+  <div class="kicker">IT 运维 · 免登录报修台</div>
+  <h1 id="mastTitle">科室报修</h1>
+  <div class="sub" id="mastSub">本机绑定科室后，提交报修无需再选科室</div>
+  <button id="rebindBtn" class="rebind" style="display:none;">重新绑定科室</button>
 </div>
 <div class="container">
   <div class="card" id="bindCard">
@@ -122,17 +177,17 @@
   </div>
 
   <div class="card" id="acceptCard" style="display:none;">
-    <h2>待签字工单 <span id="acceptCount" style="font-size:12px;color:#27ae60;"></span></h2>
+    <h2>待签字工单 <span id="acceptCount" style="font-size:13px;color:var(--c-primary);font-weight:600;"></span></h2>
     <div id="acceptList"><div class="history-item">加载中...</div></div>
   </div>
 
   <div class="card" id="reimbCard" style="display:none;">
-    <h2>月度报销单 <span id="reimbCount" style="font-size:12px;color:#27ae60;"></span></h2>
+    <h2>月度报销单 <span id="reimbCount" style="font-size:13px;color:var(--c-primary);font-weight:600;"></span></h2>
     <div id="reimbList"><div class="history-item">加载中...</div></div>
   </div>
 
   <div class="card" id="historyCard" style="display:none;">
-    <h2>报修记录 <span style="font-size:12px;color:#6b7280;font-weight:normal;">（仅展示近 2 个月）</span></h2>
+    <h2>报修记录 <span style="font-size:13px;color:var(--c-muted);font-weight:normal;">（仅展示近 2 个月）</span></h2>
     <div id="historyList"><div class="history-item">加载中...</div></div>
   </div>
 </div>
@@ -229,11 +284,14 @@
     acceptCard.style.display = 'block';
     reimbCard.style.display = 'block';
     historyCard.style.display = 'block';
-    document.getElementById('rebindBtn').style.display = 'block';
+    document.getElementById('rebindBtn').style.display = 'inline-block';
     const building = buildingOf(dept);
+    document.getElementById('mastTitle').textContent = esc(shortNameOf(dept)) + ' · 报修台';
+    document.getElementById('mastSub').textContent =
+      campusLabel(dept.campus) + (building ? ' · ' + building : '') + ' · 负责人：' + (dept.departmentHead || '未设置');
     document.getElementById('deptBox').innerHTML =
       '当前科室：' + floorChip(dept) + ' <b>' + esc(shortNameOf(dept)) + '</b>' +
-      '<span style="color:#6b7280;font-size:12px;">　' + esc(campusLabel(dept.campus)) + (building ? ' · ' + esc(building) : '') + '</span>';
+      '<span style="color:var(--c-muted);font-size:12px;">　' + esc(campusLabel(dept.campus)) + (building ? ' · ' + esc(building) : '') + '</span>';
     const headInput = document.getElementById('departmentHead');
     headInput.value = dept.departmentHead || '';
     headInput.readOnly = !!dept.departmentHead;
@@ -353,7 +411,7 @@
         return;
       }
       resetForm();
-      submitMsg.style.color = '#27ae60';
+      submitMsg.style.color = '#0F6B5C';
       submitMsg.textContent = '报修单已提交（如需报修其他设备，请等倒计时结束）';
       startCountdown(DUPLICATE_MINUTES * 60);
       loadAccept();
@@ -429,7 +487,7 @@
         ' · ' + (REIMB_STATUS[r.status] || r.status) +
         (r.signedBy ? '<br><span style="color:#6b7280;">签字人：' + esc(r.signedBy) + ' · ' + ((r.signedAt || '').replace('T',' ').slice(0,16)) + '</span>' : '') +
         (r.status === 'PENDING_SIGN' ? '<br><button class="sign-btn" onclick="openReimbSign(' + r.id + ')">签字确认</button>' : '') +
-        '<br><button class="sign-btn" style="background:#6b7280;" onclick="openReimbDetail(' + r.id + ')">查看明细</button>' +
+        '<br><button class="sign-btn" style="background:#F0EDE4;color:#4A524D;" onclick="openReimbDetail(' + r.id + ')">查看明细</button>' +
         '</div>'
       ).join('');
     } catch (e) {
@@ -545,7 +603,7 @@
     currentSignActions = [];
     document.getElementById('typedSignName').value = '';
     document.getElementById('signMsg').textContent = '';
-    document.getElementById('signMsg').style.color = '#d63031';
+    document.getElementById('signMsg').style.color = '#B3261E';
     document.getElementById('signerName').value = '';
     document.getElementById('signerName').placeholder = '护士长/科室主任姓名';
     document.getElementById('delegatedName').value = '';
@@ -602,14 +660,14 @@
       if (hasPrice) total += sub; else unpriced++;
       return '<div class="cost-row">' +
         '<span class="cost-name">' + esc(c.name) + ' × ' + (c.quantity || 1) + '</span>' +
-        '<span class="cost-price">' + (hasPrice ? '¥' + Number(c.unitPrice).toFixed(2) + (c.quantity > 1 ? ' × ' + c.quantity : '') + ' = ¥' + sub.toFixed(2) : '<b style="color:#d63031;">未核价</b>') + '</span>' +
+        '<span class="cost-price">' + (hasPrice ? '¥' + Number(c.unitPrice).toFixed(2) + (c.quantity > 1 ? ' × ' + c.quantity : '') + ' = ¥' + sub.toFixed(2) : '<b style="color:#B3261E;">未核价</b>') + '</span>' +
         '</div>';
     }).join('');
     box.innerHTML =
-      '<div class="cost-title">维修费用明细' + (unpriced > 0 ? '（<span style="color:#d63031;">' + unpriced + ' 项未核价</span>，请先联系管理员核价）' : '') + '</div>' +
+      '<div class="cost-title">维修费用明细' + (unpriced > 0 ? '（<span style="color:#B3261E;">' + unpriced + ' 项未核价</span>，请先联系管理员核价）' : '') + '</div>' +
       rows +
       '<div class="cost-row cost-total"><span class="cost-name">合计金额</span>' +
-      '<span class="cost-price"><b style="color:#27ae60;font-size:15px;">¥' + total.toFixed(2) + '</b></span></div>';
+      '<span class="cost-price"><b style="color:#0F6B5C;font-size:15px;">¥' + total.toFixed(2) + '</b></span></div>';
     box.style.display = 'block';
   }
 
@@ -663,7 +721,7 @@
         json = await res.json();
       }
       if (json.code !== 0) { signMsgEl.textContent = json.message; document.getElementById('confirmSign').disabled = false; return; }
-      signMsgEl.style.color = '#27ae60';
+      signMsgEl.style.color = '#0F6B5C';
       signMsgEl.textContent = currentReimbId != null ? '报销单签字成功' : '验收签字成功';
       setTimeout(() => {
         signModal.classList.remove('show');
@@ -707,7 +765,7 @@
         let extra = '';
         if (wo) {
           if (r.status === 'COMPLETED' || r.status === 'REIMBURSED') {
-            extra = '<br><span style="color:' + (r.status === 'REIMBURSED' ? '#8e44ad' : '#27ae60') + ';">工单#' + wo.id + ' · ' + (REPORT_STATUS[r.status] || r.status) + ' · 签字人：' + esc(wo.signedBy || '未填写') + ' · ' + ((wo.signedAt || wo.completedAt || '').replace('T',' ').slice(0,16)) + '</span>';
+            extra = '<br><span style="color:' + (r.status === 'REIMBURSED' ? '#7A5C2E' : '#0F6B5C') + ';">工单#' + wo.id + ' · ' + (REPORT_STATUS[r.status] || r.status) + ' · 签字人：' + esc(wo.signedBy || '未填写') + ' · ' + ((wo.signedAt || wo.completedAt || '').replace('T',' ').slice(0,16)) + '</span>';
           } else {
             extra = '<br><span style="color:#6b7280;">工单#' + wo.id + ' · 处理中</span>';
           }
@@ -746,11 +804,11 @@
         const sub = hasPrice ? Number(c.unitPrice) * (c.quantity || 1) : 0;
         if (hasPrice) total += sub; else unpriced++;
         return '<div class="cost-row"><span class="cost-name">' + esc(c.name) + ' × ' + (c.quantity || 1) + '</span>' +
-          '<span class="cost-price">' + (hasPrice ? '¥' + Number(c.unitPrice).toFixed(2) + (c.quantity > 1 ? ' × ' + c.quantity : '') + ' = ¥' + sub.toFixed(2) : '<b style="color:#d63031;">未核价</b>') + '</span></div>';
+          '<span class="cost-price">' + (hasPrice ? '¥' + Number(c.unitPrice).toFixed(2) + (c.quantity > 1 ? ' × ' + c.quantity : '') + ' = ¥' + sub.toFixed(2) : '<b style="color:#B3261E;">未核价</b>') + '</span></div>';
       }).join('');
       const costHtml = costRows
-        ? '<div class="cost-title">维修费用明细' + (unpriced > 0 ? '（<span style="color:#d63031;">' + unpriced + ' 项未核价</span>）' : '') + '</div>' + costRows +
-          '<div class="cost-row cost-total"><span class="cost-name">合计金额</span><span class="cost-price"><b style="color:#27ae60;font-size:15px;">¥' + total.toFixed(2) + '</b></span></div>'
+        ? '<div class="cost-title">维修费用明细' + (unpriced > 0 ? '（<span style="color:#B3261E;">' + unpriced + ' 项未核价</span>）' : '') + '</div>' + costRows +
+          '<div class="cost-row cost-total"><span class="cost-name">合计金额</span><span class="cost-price"><b style="color:#0F6B5C;font-size:15px;">¥' + total.toFixed(2) + '</b></span></div>'
         : '<div style="color:#6b7280;">无耗材费用</div>';
       const sigImg = wo.signatureUrl
         ? '<div style="margin-top:8px;"><img src="' + wo.signatureUrl + '" onclick="window.open(this.src)" style="max-width:100%;border-radius:6px;cursor:zoom-in;" alt="手写签名"></div>'
