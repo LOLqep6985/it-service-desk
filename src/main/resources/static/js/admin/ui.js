@@ -477,7 +477,8 @@
       REIMBURSEMENT: {
         PENDING_SIGN: { label: '待签字', tone: 'pending' },
         PENDING_REIMBURSE: { label: '待报销', tone: 'primary' },
-        REIMBURSED: { label: '已报销', tone: 'success' }
+        REIMBURSED: { label: '已报销', tone: 'success' },
+        VOIDED: { label: '已作废', tone: 'cancelled' }
       }
     }
   };
