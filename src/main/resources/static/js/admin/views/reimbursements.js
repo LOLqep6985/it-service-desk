@@ -169,27 +169,63 @@
       class: 'btn btn-ghost btn-sm', text: '详情',
       onclick: function () { openDetail(r); }
     })];
-    if (r.status === 'PENDING_REIMBURSE' && canReimburse()) {
+    // 待签字（未签字前）：管理员可撤回 → VOIDED，工单回退入池
+    if (r.status === 'PENDING_SIGN' && canGenerate()) {
       nodes.push(ui.h('button', {
-        class: 'btn btn-success btn-sm', style: { marginLeft: '6px' }, text: '财务回填',
+        class: 'btn btn-ghost btn-sm', style: { marginLeft: '6px', color: '#B3261E' }, text: '撤回',
         onclick: async function () {
-          var ok = await ui.confirm({
-            title: '财务回填确认',
-            message: '确认将 ' + r.month + ' · ' + (r.departmentName || '') + ' 的报销单（' + ui.money(r.totalAmount) + '）标记为「已报销」？',
-            confirmText: '确认已报销'
-          });
+          var ok = await ui.confirm({ title: '撤回报销单', message: '撤回后该报销单作废，单内工单回到待报销池可重新勾选。确认撤回？', confirmText: '确认撤回' });
           if (!ok) return;
           try {
-            await Admin.api.post('/api/reimbursements/' + r.id + '/reimburse');
-            ui.toast('已标记为已报销，关联工单与报修单状态已同步更新', 'success');
+            await Admin.api.post('/api/reimbursements/' + r.id + '/revoke');
+            ui.toast('已撤回，工单回到待报销池', 'success');
             drawer.close();
             await refresh(document.querySelector('.content') || document.body);
             Admin.refreshBadges();
-          } catch (e) {
-            ui.toast(e.message, 'error');
-          }
+          } catch (e) { ui.toast(e.message, 'error'); }
         }
       }));
+    }
+    // 待报销（已签字待财务审核）：财务可回填 or 退回
+    if (r.status === 'PENDING_REIMBURSE') {
+      if (canReimburse()) {
+        nodes.push(ui.h('button', {
+          class: 'btn btn-success btn-sm', style: { marginLeft: '6px' }, text: '财务回填',
+          onclick: async function () {
+            var ok = await ui.confirm({
+              title: '财务回填确认',
+              message: '确认将 ' + r.month + ' · ' + (r.departmentName || '') + ' 的报销单（' + ui.money(r.totalAmount) + '）标记为「已报销」？',
+              confirmText: '确认已报销'
+            });
+            if (!ok) return;
+            try {
+              await Admin.api.post('/api/reimbursements/' + r.id + '/reimburse');
+              ui.toast('已标记为已报销，关联工单与报修单状态已同步更新', 'success');
+              drawer.close();
+              await refresh(document.querySelector('.content') || document.body);
+              Admin.refreshBadges();
+            } catch (e) {
+              ui.toast(e.message, 'error');
+            }
+          }
+        }));
+        nodes.push(ui.h('button', {
+          class: 'btn btn-ghost btn-sm', style: { marginLeft: '6px', color: '#B45309' }, text: '退回',
+          onclick: async function () {
+            var ok = await ui.confirm({ title: '退回报销单', message: '退回后该报销单标记为已退回，单内工单回到待报销池可重新生成报销单。确认退回？', confirmText: '确认退回' });
+            if (!ok) return;
+            try {
+              await Admin.api.post('/api/reimbursements/' + r.id + '/return-finance');
+              ui.toast('已退回，工单回到待报销池', 'success');
+              drawer.close();
+              await refresh(document.querySelector('.content') || document.body);
+              Admin.refreshBadges();
+            } catch (e) { ui.toast(e.message, 'error'); }
+          }
+        }));
+      } else if (canGenerate()) {
+        nodes.push(ui.h('span', { style: { marginLeft: '6px', fontSize: '12.5px', color: '#6E7770' }, text: '待财务回填/退回' }));
+      }
     }
     return ui.h('div', null, nodes);
   }
@@ -308,6 +344,19 @@
                     try {
                       await Admin.api.post('/api/reimbursements/' + r.id + '/reimburse');
                       ui.toast('已标记为已报销，关联工单与报修单状态已同步更新', 'success');
+                      await refresh(el);
+                      Admin.refreshBadges();
+                    } catch (e) { ui.toast(e.message, 'error'); }
+                  }
+                }),
+                ui.h('button', {
+                  class: 'btn btn-ghost btn-sm', style: { marginLeft: '6px', color: '#B45309' }, text: '退回',
+                  onclick: async function () {
+                    var ok = await ui.confirm({ title: '退回报销单', message: '退回后工单回到待报销池可重新生成。确认退回？', confirmText: '确认退回' });
+                    if (!ok) return;
+                    try {
+                      await Admin.api.post('/api/reimbursements/' + r.id + '/return-finance');
+                      ui.toast('已退回，工单回到待报销池', 'success');
                       await refresh(el);
                       Admin.refreshBadges();
                     } catch (e) { ui.toast(e.message, 'error'); }
