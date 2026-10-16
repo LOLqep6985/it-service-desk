@@ -56,7 +56,6 @@ CREATE TABLE IF NOT EXISTS report (
     department_name VARCHAR(100),
     reporter_name   VARCHAR(50) NOT NULL,
     device_name     VARCHAR(100) NOT NULL,
-    device_photo    VARCHAR(255),
     problem_desc    VARCHAR(500),
     department_head VARCHAR(50),
     status          VARCHAR(20) DEFAULT 'PENDING',

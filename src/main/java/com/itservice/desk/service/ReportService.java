@@ -62,7 +62,6 @@ public class ReportService {
         r.setDepartmentName(dept.getName());
         r.setReporterName(req.getReporterName());
         r.setDeviceName(req.getDeviceName());
-        r.setDevicePhoto(req.getDevicePhoto());
         r.setProblemDesc(desc);
         r.setDepartmentHead(req.getDepartmentHead() == null || req.getDepartmentHead().isBlank()
                 ? dept.getDepartmentHead() : req.getDepartmentHead());

@@ -153,8 +153,7 @@
           ['维修工', repairerName(wo.assigneeId)]
         ]),
         section('报修信息', [
-          ['故障描述', (report && report.problemDesc) || wo.description],
-          ['设备照片', photoBlock(report && report.devicePhoto, '设备照片')]
+          ['故障描述', (report && report.problemDesc) || wo.description]
         ]),
         section('流转记录', [
           ['派单时间', ui.fmtTime(wo.createdAt)],
@@ -177,23 +176,9 @@
               ui.h('span', { text: reimbursement.month + ' 报销单 #' + reimbursement.id + ' · ' }),
               ui.statusBadge(ui.STATUS.REIMBURSEMENT, reimbursement.status))
             : '尚未纳入报销']
-        ]),
-        // 月度报销按钮：待报销状态 + 有 REIMBURSE 权限时显示
-        ui.can(actions, 'REIMBURSE') ? ui.h('div', { class: 'detail-section' },
-          ui.h('button', {
-            class: 'btn btn-primary', style: { width: '100%' }, text: '确认月度报销（待报销 → 已报销）',
-            onclick: async function () {
-              try {
-                await Admin.api.post('/api/work-orders/' + wo.id + '/reimburse', {});
-                ui.toast('已报销', 'success');
-                if (onPriced) onPriced();
-                drawer.close();
-              } catch (e) {
-                ui.toast(e.message, 'error');
-              }
-            }
-          })
-        ) : null
+        ])
+        // 注：此处原有「确认月度报销」按钮已按职责分离移除 ——
+        // 报销是财务在「月度报销单」页面对整张报销单执行的回填动作，运维侧不代填。
       ));
     }
 

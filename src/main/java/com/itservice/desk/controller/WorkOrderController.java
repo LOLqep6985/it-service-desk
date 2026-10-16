@@ -233,24 +233,8 @@ public class WorkOrderController {
         return ApiResponse.ok(updated);
     }
 
-    /** 月度报销：把待报销工单推进为已报销（管理员/调度员） */
-    @PostMapping("/{id}/reimburse")
-    public ApiResponse reimburse(@PathVariable Long id,
-                                  @RequestHeader(value = "X-Token", required = false) String token) {
-        User user = resolveUserByToken(token);
-        if (user == null) {
-            return ApiResponse.error(401, "未登录或登录已过期");
-        }
-        WorkOrder wo = workOrderService.getById(id);
-        if (!access.allowedActions(user, null, wo).contains(WorkOrderAccess.REIMBURSE)) {
-            return ApiResponse.error(403, "无权限：只有管理员或调度员在「待报销」状态可以报销");
-        }
-        try {
-            return ApiResponse.ok(workOrderService.reimburse(id));
-        } catch (IllegalArgumentException e) {
-            return ApiResponse.error(e.getMessage());
-        }
-    }
+    // 注：工单级「报销」入口已按职责分离移除 —— 报销是财务在「月度报销单」页面对整张报销单执行的动作，
+    // 回填后由 ReimbursementService 自动把单内工单推进为已报销，运维侧不再单独操作工单报销。
 
     private DepartmentBinding findActiveBinding(String deviceCode) {
         if (deviceCode == null || deviceCode.isBlank()) {

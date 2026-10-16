@@ -680,3 +680,24 @@
 **升级触发条件**（满足任一再考虑 Capacitor 包装）：真后台推送且无企微/短信可用；离线录入同步；传感器需求。包装时同一套 H5 代码产出 APK，无重写成本。
 
 **三端账户隔离规则**（本次落地）：admin（管理员/调度/财务）/ repairer（today+detail）/ reporter（create）三端互不可达——角色不匹配时提示后强制退出回登录页，login.html 是唯一分发点；科室端 report.html 免登录工作机，退出 = 解绑科室。
+
+## D-022 | 2026-10-16：报销职责分离——生成归运维，回填归财务
+
+**问题**：管理员/调度员在「月度报销单」页能看到并点击「财务回填」，工单详情里还另有「确认月度报销」按钮；后端 isReimbursementStaff 把 ADMIN/DISPATCHER 也放进回填白名单 —— 越权且违背岗位职责。
+
+**决策**：按岗位职责硬分离
+| 动作 | 谁可执行 | 说明 |
+|---|---|---|
+| 生成报销单 | 仅管理员/调度员 | 按月汇总各科室已签字工单 |
+| 查看列表/详情 | 管理员/调度员/财务 | 财务需要看单，运维需要看进度 |
+| **财务回填** | **仅财务** | 资金动作，运维侧不得代填 |
+| 科室签字 | 科室端免登录 | 不变 |
+
+**落地**：
+1. 后端 ReimbursementController 拆出 isOpsStaff（generate）与 isFinance（reimburse），list/detail 仍用 isReimbursementStaff
+2. 移除工单级报销路径：删除 POST /api/work-orders/{id}/reimburse、WorkOrderAccess.REIMBURSE 常量与待报销动作规则；报销只能整张报销单回填，回填后由 ReimbursementService.syncWorkOrdersReimbursed 自动推进单内工单 → 再回写报修单（三端同步）
+3. 前端 eimbursements.js 按角色渲染：运维侧显示月份选择+生成按钮、待报销行显示不可点的「待财务回填」提示；财务侧显示「财务回填」按钮、隐藏生成相关控件；副标题按角色给出不同说明
+4. 前端 work-orders.js 移除详情抽屉里的「确认月度报销」按钮
+5. 单元测试 WorkOrderAccessTest 同步：原「管理员待报销可报销」用例改为断言**不可报销**（仅 VIEW）
+
+**验证**：后端接口角色矩阵（admin/dispatcher 回填=403、finance 生成=403、工单级报销=404）；jsdom UI 双角色断言 11/11；财务回填 + 跨端同步 15/15

@@ -802,3 +802,68 @@
 - SW 缓存 itsd-v18→v19；target/classes 已同步
 - 验证：新增 .rdoc_inspect/verify-ui.js（jsdom 行为测试，19/19 通过）+ temp-static-server.js（临时静态服务器，验完已释放 8099）；内联脚本语法全部 node --check 通过
 - 下一步：用户浏览器复验三处交互 → 配企微 webhook → git 提交
+
+### S-029 | 2026-10-16：修复财务回填静默失效（ui.confirm Promise 竞态）
+
+- 现象（用户报）：财务点「财务回填」→ 弹确认框 → 点「确认已报销」后报销单状态不同步，无成功提示
+- 根因：ui.js confirm() 的确认 action 写成 onClick(close){ close(); resolve(true); }，而 close() 会同步触发 onClose(){ resolve(false); } —— Promise 先被定型为 false，后续 resolve(true) 成为空操作 → 调用方 if(!ok) return 直接短路，请求根本没发出
+- 修复：confirm() 改为「先 settle 再 close」并用 settled 标志兜底（取消/确认/mask 关闭三条路径都只结算一次）
+- 影响面：全局仅 reimbursements.js 使用 ui.confirm，故仅财务回填受影响（后端接口本身正常，此前用 API 直连验证过，故未被发现）
+- 验证（新增 .rdoc_inspect/verify-reimburse-ui.js，jsdom 加载真实管理后台 + 真实后端点按钮）：
+  - 修复前跑：5/9（确认后无请求、后端仍 PENDING_REIMBURSE、无 toast）——成功复现用户问题
+  - 修复后跑：9/9（列表刷新为已报销、后端 REIMBURSED、toast 正常）
+  - 同步链路复验：报销单#1 → 工单#1 → 报修单 R000001 全部 REIMBURSED
+- mvn test 18/18 通过；8080 已释放
+
+### S-030 | 2026-10-16：清理测试数据，恢复干净初始状态
+
+- 备份：mysqldump 全库 → .rdoc_inspect/backup/business-data-20261016-150758.sql（17.7 KB，已校验含 R000001/R000009/REIMBURSED）
+- 清理：TRUNCATE consumable / reimbursement_item / reimbursement / work_order / report（schema 无外键约束，TRUNCATE 安全且自动重置自增 ID）
+- 保留：sys_user 6 个、department 68 个（即 data.sql 播种的初始基础数据；data.sql 不含任何业务数据）
+- 文件：删除本次测试上传的 2 张签名图（ecb66c8e…、55f620ef…）；uploads 目录尚余 16 个 10-13/10-15 早期测试的孤儿文件（已无 DB 引用）
+- 验证（重启后实查）：首页概览各指标全 0、待受理 0 条、报销单 0 张、账号 6、科室 68，应用正常启动
+- 备注：mysqldump 需用「位置参数写库名」形式（--databases=xxx 在本机 MySQL 8.0 客户端报 usage）；导出会有 tablespace 权限告警但不影响数据导出
+- 8080 已释放，交由用户从 IDEA 启动
+
+### S-031 | 2026-10-16：彻底移除「设备照片」功能
+
+- 决策依据（用户）：照片实际价值低——维修人员必须到现场确认故障，医护人员报修时没时间拍照，字段长期为空却占用报修流程与详情展示
+- 后端：Report 模型 / ReportCreateRequest / AnonymousReportRequest 删字段；ReportService.createReport 与 ReportController.createAnonymous 删 setDevicePhoto
+- 数据库：schema.sql 删 device_photo 列；新增幂等迁移 sql/2026-10-16-drop-device-photo.sql（信息模式判断后 DROP，可重复执行），已对现有库执行并校验列不存在
+- 前端：科室端 report.html 删照片上传行/隐藏域/上传 handler/提交字段/resetForm 引用/无用 CSS；报修人端 create.html 删「设备照片链接」输入框与提交字段；管理端 work-orders.js 详情抽屉删「设备照片」行
+- 保留：/api/files/upload 与 uploads 目录 —— 签字验收/报销单签字仍依赖签名图片上传（已回归验证上传→签字链路正常）
+- 验证：无照片字段提交报修成功（响应字段列表已无 devicePhoto）；派单→接单→维修→核价→签名上传→签字全链路通过；前端 jsdom 回归 19/19；mvn test 18/18
+- 数据：验证造的 report#2/work_order#2 及其耗材、测试签名图已删除；**用户自测数据 report#1/work_order#1 保留未动**
+- 8080/8099 均已释放
+
+### S-032 | 2026-10-16：清理 uploads 孤儿文件（移入备份而非硬删）
+
+- 删前核对引用：report#1（device_photo 列已删）、work_order#1 sign uration_url=NULL（未签字）、reimbursement 0 张 → 16 个文件确认全部无引用
+- 处理：16 个文件（136.4 KB）移入 .rdoc_inspect/backup/orphan-uploads-20261016-153443/（可回退，确认无用后可整目录删除），uploads 目录保留为空
+- 验证：清空后重启，上传签名图 → 写入 uploads → HTTP 200 可访问（208 bytes）→ 探针文件已清理，目录回到 0 个文件
+- 备份区现有：business-data-20261015-214245.sql、business-data-20261016-150758.sql（本次清库前全量）、demo-data-20261015-010733.sql、orphan-uploads-*/
+- 8080 已释放
+
+### S-033 | 2026-10-16：根治「财务回填仍不可用」——SW 缓存策略改为网络优先 + 跨端同步验证
+
+- 真因（再次排查）：S-029 修好 ui.js 的 Promise 竞态后**没有再次提升 SW 缓存版本号**。SW 对静态资源是「缓存优先」，v19 缓存里存的是修复前的 ui.js → 浏览器始终拿旧文件，修复永远到不了页面（前端代码改了却"没生效"的老问题复发）
+- 根治：service-worker.js 把「代码类资源（html/js/css/json）与页面导航」改为**网络优先**（失败才回退缓存），图标等极少变动资源仍缓存优先；CACHE v19→v20。以后改前端无需再靠 bump 版本号
+- 顺带优化：财务回填成功提示改为「已标记为已报销，关联工单与报修单状态已同步更新」，并在回填后刷新侧栏角标
+- 验证（verify-reimburse-ui.js 扩展为「UI 点击 + 跨端同步」15 项断言，全部通过）：
+  - UI：点「财务回填」→ 确认 → 目标行不再有按钮、列表显示已报销、toast 正确
+  - 管理端：工单管理/工单详情 = REIMBURSED；首页概览本月已报销数 +1
+  - 科室端：报修记录对应报修单 = REIMBURSED
+  - 维修端：今日任务已移出该工单；工单详情 = REIMBURSED
+- 测试脚本增强：支持 TARGET_REIMB_ID 指定目标、断言改为「仅目标行」，避免误动他人/他科室单据
+- 数据：仅清理本次验证造的 report#4/work_order#4/reimbursement#2 及其签名图；**用户数据 report#1/#3、work_order#1/#3、reimbursement#1 完好保留**；uploads 仅剩 2 个被引用的签名图，无孤儿
+- 8080 已释放
+
+### S-034 | 2026-10-16：报销职责分离（生成归运维 / 回填归财务）+ 移除工单级报销路径
+
+- 用户反馈：管理员不该能点「财务回填」；管理员只负责生成各科室报销单，回填由财务操作，之后工单状态两端同步
+- 排查发现越权入口有两处：① 报销单页的「财务回填」按钮（后端白名单含 ADMIN/DISPATCHER）② 工单详情抽屉的「确认月度报销」按钮（POST /api/work-orders/{id}/reimburse）
+- 改动：见 findings D-022；后端拆 isOpsStaff/isFinance，删除工单级报销接口与 WorkOrderAccess.REIMBURSE；前端按角色渲染按钮，运维侧待报销行改为不可点提示
+- 验证：接口角色矩阵（admin/dispatcher 回填 403、finance 生成 403、工单级报销 404）；新增 .rdoc_inspect/verify-roles-ui.js（双角色界面断言）11/11；财务回填跨端同步回归 15/15；mvn test 18/18
+- 备注：用户已自行用财务账号回填成功（报销单 #1/#3 均已闭环），证明上一轮 SW 网络优先改造解决了"改动不生效"
+- 数据：仅清理验证造的 report#5/work_order#5/reimbursement#4 与其签名图；用户数据 report#1/#3、work_order#1/#3、reimbursement#1/#3 及 4 张签名图完好（无孤儿）
+- 8080 已释放

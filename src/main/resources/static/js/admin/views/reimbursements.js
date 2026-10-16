@@ -21,6 +21,15 @@
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
   }
 
+  /**
+   * 职责分离（见 findings D-022）：
+   * - 生成报销单：管理员/调度员按月汇总各科室已签字工单
+   * - 财务回填：仅财务岗位操作（资金动作），运维侧不得代填
+   * 后端接口同样按角色校验，前端隐藏只是界面收敛。
+   */
+  function canGenerate() { return Admin.store.isAdminLike(); }
+  function canReimburse() { return Admin.store.roleCode() === 'FINANCE'; }
+
   async function load() {
     state.rows = await Admin.api.get('/api/reimbursements', state.status ? { status: state.status } : null) || [];
   }
@@ -48,8 +57,10 @@
     if (!ok) return;
     try {
       await Admin.api.post('/api/reimbursements/' + row.id + '/reimburse');
-      ui.toast('已标记为已报销', 'success');
+      ui.toast('已标记为已报销，关联工单与报修单状态已同步更新', 'success');
       await refresh(el);
+      // 工单/概览角标同步刷新：报销单内工单已推进为「已报销」
+      Admin.refreshBadges();
     } catch (e) {
       ui.toast(e.message, 'error');
     }
@@ -131,11 +142,12 @@
     }));
 
     var controls = ui.h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' } },
-      monthInput,
-      ui.h('button', {
+      // 月份选择与生成按钮只对运维侧（管理员/调度员）显示：财务不参与生成
+      canGenerate() ? monthInput : null,
+      canGenerate() ? ui.h('button', {
         class: 'btn btn-primary btn-sm', text: '生成报销单',
         onclick: function () { generate(el, monthInput.value); }
-      }),
+      }) : null,
       statusSelect
     );
 
@@ -145,7 +157,9 @@
       searchPlaceholder: '搜索月份 / 科室 / 签字人',
       searchFields: ['month', 'departmentName', 'signedBy'],
       rows: state.rows,
-      empty: '暂无报销单，选择月份后点击「生成报销单」',
+      empty: canGenerate()
+        ? '暂无报销单，选择月份后点击「生成报销单」'
+        : '暂无报销单（报销单由管理员按月生成后，财务在此回填）',
       pageSize: 10,
       controls: controls,
       extra: ui.h('button', {
@@ -167,10 +181,17 @@
               onclick: function () { openDetail(r); }
             })];
             if (r.status === 'PENDING_REIMBURSE') {
-              nodes.push(ui.h('button', {
-                class: 'btn btn-success btn-sm', style: { marginLeft: '6px' }, text: '财务回填',
-                onclick: function () { reimburse(el, r); }
-              }));
+              if (canReimburse()) {
+                nodes.push(ui.h('button', {
+                  class: 'btn btn-success btn-sm', style: { marginLeft: '6px' }, text: '财务回填',
+                  onclick: function () { reimburse(el, r); }
+                }));
+              } else if (canGenerate()) {
+                // 运维侧只负责生成：待报销的单据交给财务，这里给出明确提示而不是可点按钮
+                nodes.push(ui.h('span', {
+                  style: { marginLeft: '6px', fontSize: '12.5px', color: '#6E7770' }, text: '待财务回填'
+                }));
+              }
             }
             return ui.h('div', null, nodes);
           }
@@ -214,7 +235,12 @@
       var ui = Admin.ui;
       el.appendChild(ui.h('div', { class: 'page-head' },
         ui.h('h2', { text: '月度报销单' }),
-        ui.h('span', { class: 'sub', text: '按月汇总已签字工单的耗材金额 → 科室签字 → 财务回填' })
+        ui.h('span', {
+          class: 'sub',
+          text: canGenerate()
+            ? '按月汇总已签字工单的耗材金额 → 科室签字 → 由财务完成回填'
+            : '财务岗位：核对已签字报销单后执行「财务回填」，工单与报修单状态将同步为已报销'
+        })
       ));
       el.appendChild(ui.h('div', { id: 'reimb-body' }, ui.skeletonLines(6)));
       await paint(el);

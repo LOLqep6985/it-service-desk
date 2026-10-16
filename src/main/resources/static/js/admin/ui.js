@@ -235,19 +235,30 @@
     return { close: close, boxEl: box };
   }
 
+  /**
+   * 确认弹窗 → Promise<boolean>
+   * 注意：必须「先 resolve 再 close」——close() 会同步触发 onClose（内部 resolve(false)），
+   * 若先 close 后 resolve(true)，Promise 已被定型为 false，确认按钮会静默失效。
+   * 另加 settled 兜底，保证只结算一次。
+   */
   function confirm(opts) {
     opts = opts || {};
     return new Promise(function (resolve) {
-      var m = modal({
+      var settled = false;
+      function settle(v) {
+        if (settled) return;
+        settled = true;
+        resolve(v);
+      }
+      modal({
         title: opts.title || '请确认',
         body: h('div', { style: { fontSize: '13.5px', color: '#1C2420', lineHeight: '1.7' }, text: opts.message || '' }),
         actions: [
-          { text: '取消', onClick: function (close) { close(); resolve(false); } },
-          { text: opts.confirmText || '确定', primary: true, onClick: function (close) { close(); resolve(true); } }
+          { text: '取消', onClick: function (close) { settle(false); close(); } },
+          { text: opts.confirmText || '确定', primary: true, onClick: function (close) { settle(true); close(); } }
         ],
-        onClose: function () { resolve(false); }
+        onClose: function () { settle(false); }
       });
-      return m;
     });
   }
 

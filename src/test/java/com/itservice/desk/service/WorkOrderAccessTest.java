@@ -74,13 +74,13 @@ class WorkOrderAccessTest {
     }
 
     @Test
-    @DisplayName("管理员/调度员：待报销时可报销")
-    void adminCanReimburseWhenPendingReimburse() {
+    @DisplayName("职责分离：管理员/调度员在待报销状态也【不可】报销（报销由财务整单回填）")
+    void adminCannotReimburseWorkOrder() {
         for (UserRole role : Arrays.asList(UserRole.ADMIN, UserRole.DISPATCHER)) {
             User u = user(1L, role);
             WorkOrder wo = order(WorkOrderStatus.PENDING_REIMBURSE, 3L, 13L, 5L);
-            assertEquals(Arrays.asList(WorkOrderAccess.VIEW, WorkOrderAccess.REIMBURSE),
-                    actions(access, u, null, wo), role + " 待报销动作应为 VIEW+REIMBURSE");
+            assertEquals(Collections.singletonList(WorkOrderAccess.VIEW),
+                    actions(access, u, null, wo), role + " 待报销动作应仅 VIEW（报销归财务）");
         }
     }
 
