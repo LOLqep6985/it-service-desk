@@ -67,7 +67,7 @@
     var hintEl = el.querySelector('.card .count-hint');
     if (hintEl) hintEl.textContent = '（' + state.depts.length + ' / ' + state.depts.length + '）';
 
-    host.appendChild(ui.h('div', { class: 'grid grid-metrics', style: { marginBottom: '16px' } },
+    host.appendChild(ui.h('div', { class: 'grid grid-metrics' },
       ui.metricCard({
         title: '科室总数', value: state.depts.length, unit: '个',
         icon: Admin.layout.ICONS.building, hint: '来源：医院科室楼层索引'

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <meta name="theme-color" content="#1d6fe0">
+  <meta name="theme-color" content="#10181D">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="维修工作台">
@@ -12,31 +12,82 @@
   <link rel="apple-touch-icon" href="/icons/repair-192.png">
   <title>今日任务 - IT运维工单系统</title>
   <style>
+    /* ============================================================
+       维修工端 ——「深色工具箱」
+       楼道/机房/夜间使用：整端深色，院区色带票据卡，拇指大按钮。
+       ============================================================ */
+    :root {
+      --dk-bg: #10181D;
+      --dk-surface: #1A242B;
+      --dk-surface-2: #232F38;
+      --dk-text: #E8EDE9;
+      --dk-text-2: #9AA8A0;
+      --dk-accent: #4ADE9E;          /* 深色上的亮青绿：工具感 */
+      --dk-accent-ink: #0C1A13;
+      --dk-danger: #F0705E;
+      --campus-laoyuan: #E8B25A;     /* 老院：琥珀 */
+      --campus-xiyuan: #4ADE9E;      /* 西院：青绿 */
+      --campus-dongyuan: #B59AF0;    /* 东院：紫 */
+      --font: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+      --font-num: "SF Mono", Consolas, "Courier New", monospace;
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f2f4f7; color: #2c3e50; }
-    .header { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: #1d6fe0; color: #fff; position: sticky; top: 0; }
-    .header .user { font-size: 15px; font-weight: 600; }
-    .header .logout { background: rgba(255,255,255,.2); border: none; color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 13px; }
-    .container { max-width: 480px; margin: 0 auto; padding: 16px; }
-    .summary { font-size: 14px; color: #6b7280; margin-bottom: 12px; }
-    .campus-group { margin-bottom: 18px; }
-    .campus-title { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; margin-bottom: 8px; }
-    .campus-count { background: #1d6fe0; color: #fff; border-radius: 10px; font-size: 12px; padding: 2px 8px; }
-    .card { background: #fff; border-radius: 10px; padding: 16px; margin-bottom: 12px; cursor: pointer; }
-    .card:active { background: #f8fafc; }
-    .card .title { font-size: 16px; font-weight: 600; }
-    .card .meta { font-size: 13px; color: #6b7280; margin-top: 6px; line-height: 1.6; }
-    .badge { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 4px; margin-left: 6px; }
-    .badge.urgent { background: #ffe3e3; color: #d63031; }
-    .accept-btn { background: #1d6fe0; color: #fff; border: none; border-radius: 6px; padding: 3px 10px; font-size: 12px; margin-top: 4px; cursor: pointer; }
-    .empty { text-align: center; color: #b0b8c1; padding: 60px 0; }
+    body { font-family: var(--font); background: var(--dk-bg); color: var(--dk-text); }
+
+    /* 顶栏：融入深色底，不另起实色条 */
+    .header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px 18px 12px; position: sticky; top: 0; z-index: 10;
+      background: var(--dk-bg);
+    }
+    .header .user { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+    .header .user .role { font-size: 12px; color: var(--dk-text-2); font-weight: 400; margin-left: 4px; }
+    .header .logout { background: var(--dk-surface-2); border: none; color: var(--dk-text-2); padding: 8px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; }
+    .header .report { background: var(--dk-accent); color: var(--dk-accent-ink); font-weight: 700; }
+
+    .container { max-width: 520px; margin: 0 auto; padding: 8px 16px 48px; }
+
+    /* 今日总数：大数字等宽，一眼读 */
+    .summary { display: flex; align-items: baseline; gap: 10px; margin: 8px 2px 18px; }
+    .summary .num { font-family: var(--font-num); font-size: 40px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; color: var(--dk-accent); }
+    .summary .label { font-size: 14px; color: var(--dk-text-2); }
+
+    /* 院区分组：大号标题 + 等宽计数 */
+    .campus-group { margin-bottom: 22px; }
+    .campus-title { display: flex; align-items: baseline; gap: 10px; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 10px; }
+    .campus-title .dot { width: 10px; height: 10px; border-radius: 3px; align-self: center; }
+    .campus-count { font-family: var(--font-num); font-size: 20px; font-weight: 700; color: var(--dk-text-2); }
+
+    /* 工单票据卡：左侧 4px 院区色带 */
+    .card {
+      background: var(--dk-surface); border-radius: 10px; padding: 15px 16px 15px 18px;
+      margin-bottom: 10px; cursor: pointer; position: relative; overflow: hidden;
+    }
+    .card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--stripe, var(--dk-accent)); }
+    .card:active { background: var(--dk-surface-2); }
+    .card .title { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.35; }
+    .card .meta { font-size: 13px; color: var(--dk-text-2); margin-top: 7px; line-height: 1.6; }
+    .card .meta b { color: var(--dk-text); font-weight: 600; }
+    .badge { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 4px; margin-left: 8px; font-weight: 600; }
+    .badge.urgent { background: rgba(240, 112, 94, .16); color: var(--dk-danger); }
+
+    /* 接单：卡片底部整条横块，拇指好按 */
+    .accept-btn {
+      display: block; width: 100%; margin-top: 12px; padding: 11px;
+      background: var(--dk-accent); color: var(--dk-accent-ink);
+      border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer;
+    }
+
+    .empty { text-align: center; color: var(--dk-text-2); padding: 80px 0; }
     .empty p { font-size: 15px; }
   </style>
 </head>
 <body>
 <div class="header">
   <span class="user" id="userName">加载中...</span>
-  <button class="logout" id="reportBtn" style="background:#f39c12;margin-right:8px;">＋ 报修</button><button class="logout" id="logoutBtn">退出</button>
+  <span>
+    <button class="logout report" id="reportBtn" style="margin-right:8px;">＋ 报修</button><button class="logout" id="logoutBtn">退出</button>
+  </span>
 </div>
 <div class="container">
   <div class="summary" id="summary"></div>
@@ -58,7 +109,7 @@
     window.location.href = 'create.html?userId=' + (userId || user.userId);
   }
   if (!userId && user.userId) window.location.href = 'today.html?userId=' + user.userId;
-  document.getElementById('userName').textContent = user.name + '（' + (user.role || '') + '）';
+  document.getElementById('userName').innerHTML = user.name + '<span class="role">' + (user.role || '') + '</span>';
 
   // 只有报修人显示「+ 报修」按钮
   const reportBtn = document.getElementById('reportBtn');
@@ -79,9 +130,12 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
     const json = await res.json();
     if (json.code !== 0) { alert(json.message); return; }
     const list = json.data || [];
-    document.getElementById('summary').textContent = '共 ' + list.length + ' 个待处理任务';
+    document.getElementById('summary').innerHTML =
+      '<span class="num">' + list.length + '</span><span class="label">个待处理任务</span>';
     const groups = {};
     const campusOrder = ['老院', '西院', '东院'];
+    // 院区色带：票据卡左侧 4px 条纹（老院琥珀 / 西院青绿 / 东院紫）
+    const CAMPUS_COLOR = { '老院': 'var(--campus-laoyuan)', '西院': 'var(--campus-xiyuan)', '东院': 'var(--campus-dongyuan)' };
     list.forEach(wo => {
       const key = CAMPUS_LABEL[wo.campus] || '其他';
       (groups[key] = groups[key] || []).push(wo);
@@ -97,15 +151,14 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
       if (!items) return;
       const div = document.createElement('div');
       div.className = 'campus-group';
-      div.innerHTML = '<div class="campus-title"><span>' + campus + '</span><span class="campus-count">' + items.length + '</span></div>';
+      div.innerHTML = '<div class="campus-title"><span class="dot" style="background:' + CAMPUS_COLOR[campus] + '"></span><span>' + campus + '</span><span class="campus-count">' + items.length + '</span></div>';
       items.forEach(wo => {
         const urgent = wo.priority === 'HIGH' ? '<span class="badge urgent">紧急</span>' : '';
-        div.innerHTML += '<div class="card" onclick="openDetail(' + wo.id + ')">'
+        div.innerHTML += '<div class="card" style="--stripe:' + (CAMPUS_COLOR[campus] || 'var(--dk-accent)') + '" onclick="openDetail(' + wo.id + ')">'
           + '<div class="title">' + wo.title + urgent + '</div>'
-          + '<div class="meta">' + wo.location + ' · ' + wo.contactPerson + '</div>'
-          + '<div class="meta">' + wo.departmentName + ' · ' + (WORK_ORDER_STATUS[wo.status] || '')
-          + (wo.status === 'ASSIGNED' ? ' <button class="accept-btn" onclick="event.stopPropagation();acceptOrder(' + wo.id + ')">接单</button>' : '')
-          + '</div>'
+          + '<div class="meta"><b>' + wo.location + '</b> · ' + wo.contactPerson + '</div>'
+          + '<div class="meta">' + wo.departmentName + ' · ' + (WORK_ORDER_STATUS[wo.status] || '') + '</div>'
+          + (wo.status === 'ASSIGNED' ? '<button class="accept-btn" onclick="event.stopPropagation();acceptOrder(' + wo.id + ')">接单</button>' : '')
           + '</div>';
       });
       root.appendChild(div);

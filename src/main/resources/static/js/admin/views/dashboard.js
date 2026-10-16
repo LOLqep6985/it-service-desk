@@ -136,13 +136,13 @@
     var ui = Admin.ui;
     var body = ui.h('div', null,
       ui.h('div', { style: { display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '14px' } },
-        ui.h('span', { style: { fontSize: '26px', fontWeight: '600', color: '#1f2937' }, text: ui.money(stats.monthReimbursementAmount) }),
-        ui.h('span', { style: { fontSize: '12px', color: '#7f8c8d' }, text: stats.month + ' · 共 ' + stats.monthReimbursementTotal + ' 单' })
+        ui.h('span', { style: { fontSize: '26px', fontWeight: '600', color: '#1C2420' }, text: ui.money(stats.monthReimbursementAmount) }),
+        ui.h('span', { style: { fontSize: '12px', color: '#6E7770' }, text: stats.month + ' · 共 ' + stats.monthReimbursementTotal + ' 单' })
       ),
       ui.distBars([
-        { label: '待签字', value: stats.monthReimbursementPendingSign, color: '#f39c12' },
-        { label: '待报销', value: stats.monthReimbursementPendingReimburse, color: '#1d6fe0' },
-        { label: '已报销', value: stats.monthReimbursementReimbursed, color: '#27ae60' }
+        { label: '待签字', value: stats.monthReimbursementPendingSign, color: '#B45309' },
+        { label: '待报销', value: stats.monthReimbursementPendingReimburse, color: '#0F6B5C' },
+        { label: '已报销', value: stats.monthReimbursementReimbursed, color: '#0F6B5C' }
       ])
     );
     return ui.card({
@@ -184,7 +184,8 @@
 
       el.appendChild(ui.h('div', { class: 'page-head' },
         ui.h('h2', { text: '首页概览' }),
-        ui.h('span', { class: 'sub', text: '聚合关键指标与待办，具体操作请从左侧菜单进入' })
+        ui.h('span', { class: 'sub', text: '聚合关键指标与待办，具体操作请从左侧菜单进入' }),
+        ui.h('span', { class: 'page-date', text: dateText() })
       ));
       el.appendChild(heroHost);
       el.appendChild(metricHost);

@@ -177,6 +177,8 @@
     topbar.innerHTML = '';
     buildTopbar().forEach(function (node) { topbar.appendChild(node); });
 
+    renderRail();
+
     // 折叠：桌面记忆；移动端走抽屉
     var layout = doc.getElementById('layout');
     var saved = null;
@@ -191,9 +193,12 @@
       if (!isMobile()) closeMobile();
     });
 
-    // 角标订阅：store 角标变化时刷新侧栏
-    Admin.store.subscribe(function () { applyBadges(Admin.store.badges()); });
+    // 角标订阅：store 角标变化时刷新侧栏与右栏
+    Admin.store.subscribe(function () { applyBadges(Admin.store.badges()); renderRail(); });
   }
+
+  /** 右栏「今日概况」已随通栏布局移除（admin.html 不再有 #side-rail）；保留空实现避免引用报错 */
+  function renderRail() {}
 
   function toggleCollapse() {
     var layout = doc.getElementById('layout');

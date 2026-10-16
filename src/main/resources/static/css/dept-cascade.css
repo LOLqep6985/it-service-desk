@@ -1,42 +1,43 @@
 /* ============================================================================
  * 科室三级联动组件（院区 → 楼栋 → 科室）共用样式
  * 使用方：report.html（科室免登录报修）、create.html（登录报修）、admin.html（楼层标签）
- * 家规：无 resting 阴影/细线/描边；浮层（下拉面板）阴影合规
+ * 视觉：墨青纸白家族；浮层（下拉面板）阴影合规
  * ========================================================================== */
 
-select:disabled { background: #e9ecf0; color: #4b5563; }
+select:disabled { background: #E5E1D5; color: #4A524D; }
 
 /* 第三级：自定义下拉面板。
    为什么不用原生 <select>：原生 <option> 在移动端（Android Chrome / iOS Safari）
    无法可靠应用颜色与标签样式，做不到「楼层号与科室名视觉区分」。 */
 .picker { position: relative; }
 .picker-value {
-  width: 100%; padding: 11px; border: none; border-radius: 8px;
-  background: #f0f2f5; font-size: 15px; color: #1f2937; text-align: left;
-  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  width: 100%; padding: 12px; border: none; border-radius: 8px;
+  background: #F0EDE4; font-size: 15px; color: #1C2420; text-align: left;
+  display: flex; align-items: center; gap: 8px; cursor: pointer; font-family: inherit;
 }
-.picker-value:disabled { background: #e9ecf0; color: #4b5563; cursor: not-allowed; }
-.picker-value .arrow { margin-left: auto; color: #6b7280; font-size: 12px; }
+.picker-value:focus { outline: 2px solid #0F6B5C; outline-offset: -1px; }
+.picker-value:disabled { background: #E5E1D5; color: #4A524D; cursor: not-allowed; }
+.picker-value .arrow { margin-left: auto; color: #6E7770; font-size: 12px; }
 .picker-panel {
   position: absolute; left: 0; right: 0; top: calc(100% + 4px);
   max-height: 260px; overflow-y: auto; background: #fff;
   border: none; border-radius: 8px;
-  box-shadow: 0 8px 28px rgba(16, 24, 40, .18); /* taste-skill-ignore: 下拉浮层，阴影合规 */
+  box-shadow: 0 10px 32px rgba(18, 24, 21, .22); /* 下拉浮层，阴影合规 */
   z-index: 30; display: none;
 }
 .picker-panel.show { display: block; }
 .picker-opt {
-  display: flex; align-items: center; gap: 8px; padding: 11px 12px;
-  font-size: 14px; cursor: pointer;
+  display: flex; align-items: center; gap: 8px; padding: 12px;
+  font-size: 14px; cursor: pointer; color: #1C2420;
 }
-.picker-opt:active { background: #f0f2f5; }
-.picker-opt.active { background: #e8f4fd; }
-.picker-opt .opt-name { color: #1f2937; }
-.picker-empty { padding: 14px; font-size: 13px; color: #6b7280; text-align: center; }
+.picker-opt:active { background: #F0EDE4; }
+.picker-opt.active { background: #E2EFEA; }
+.picker-opt .opt-name { color: #1C2420; }
+.picker-empty { padding: 14px; font-size: 13px; color: #6E7770; text-align: center; }
 
-/* 楼层标签：蓝色小标签，与深色科室名形成对比 */
+/* 楼层标签：墨青小标签，与深色科室名形成对比 */
 .floor-chip {
   display: inline-block; flex: 0 0 auto; min-width: 42px; text-align: center;
-  font-size: 12px; font-weight: 600; color: #1d6fe0; background: #e8f4fd;
+  font-size: 12px; font-weight: 600; color: #0F6B5C; background: #E2EFEA;
   border: none; border-radius: 4px; padding: 3px 7px;
 }

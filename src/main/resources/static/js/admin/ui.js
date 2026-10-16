@@ -240,7 +240,7 @@
     return new Promise(function (resolve) {
       var m = modal({
         title: opts.title || '请确认',
-        body: h('div', { style: { fontSize: '13.5px', color: '#2c3e50', lineHeight: '1.7' }, text: opts.message || '' }),
+        body: h('div', { style: { fontSize: '13.5px', color: '#1C2420', lineHeight: '1.7' }, text: opts.message || '' }),
         actions: [
           { text: '取消', onClick: function (close) { close(); resolve(false); } },
           { text: opts.confirmText || '确定', primary: true, onClick: function (close) { close(); resolve(true); } }

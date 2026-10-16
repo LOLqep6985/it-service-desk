@@ -56,7 +56,7 @@
             return ui.badge(Admin.store.ROLE_LABEL[u.role] || u.role, ROLE_TONE[u.role] || 'muted');
           }
         },
-        { key: 'password', title: '密码', render: function () { return '<span style="color:#95a5a6;">已脱敏</span>'; } }
+        { key: 'password', title: '密码', render: function () { return '<span style="color:#6E7770;">已脱敏</span>'; } }
       ]
     });
 
@@ -65,7 +65,7 @@
 
     var byRole = {};
     state.rows.forEach(function (u) { byRole[u.role] = (byRole[u.role] || 0) + 1; });
-    host.appendChild(ui.h('div', { class: 'grid grid-metrics', style: { marginBottom: '16px' } },
+    host.appendChild(ui.h('div', { class: 'grid grid-metrics' },
       ui.metricCard({ title: '用户总数', value: state.rows.length, unit: '人', icon: Admin.layout.ICONS.users, hint: '当前筛选结果' }),
       ui.metricCard({ title: '管理员 / 调度员', value: (byRole.ADMIN || 0) + (byRole.DISPATCHER || 0), unit: '人', icon: Admin.layout.ICONS.info, tone: 'danger', hint: '可派单与核价' }),
       ui.metricCard({ title: '维修工', value: byRole.REPAIRER || 0, unit: '人', icon: Admin.layout.ICONS.wrench, tone: 'warn', hint: '手机端接单执行' }),

@@ -60,7 +60,7 @@
     var host = el.querySelector('#system-body');
     host.innerHTML = '';
 
-    host.appendChild(ui.h('div', { class: 'grid grid-metrics', style: { marginBottom: '16px' } },
+    host.appendChild(ui.h('div', { class: 'grid grid-metrics' },
       ui.metricCard({ title: '应用版本', value: info.version, icon: Admin.layout.ICONS.info, hint: info.application }),
       ui.metricCard({ title: '运行时长', value: fmtUptime(info.uptimeMinutes), icon: Admin.layout.ICONS.history, tone: 'success', hint: '启动于 ' + info.startedAt }),
       ui.metricCard({ title: '工单总数', value: c.workOrders || 0, unit: '单', icon: Admin.layout.ICONS.wrench, hint: '已完成 ' + (c.completedWorkOrders || 0) + ' 单' }),
@@ -116,7 +116,7 @@
             ui.h('h4', { text: '报修单' }),
             ui.h('div', { class: 'detail-row' }, ui.h('span', { class: 'v' },
               ui.statusBadge(ui.STATUS.REPORT, 'PENDING'), ' → ', ui.statusBadge(ui.STATUS.REPORT, 'DISPATCHED'), ' → ', ui.statusBadge(ui.STATUS.REPORT, 'COMPLETED'), ' → ', ui.statusBadge(ui.STATUS.REPORT, 'REIMBURSED'),
-              ui.h('span', { style: { color: '#7f8c8d', marginLeft: '8px' }, text: '（派单即生成工单；工单签字完工回写已完成；财务回填后回写已报销；取消为终态）' })))
+              ui.h('span', { style: { color: '#6E7770', marginLeft: '8px' }, text: '（派单即生成工单；工单签字完工回写已完成；财务回填后回写已报销；取消为终态）' })))
           ),
           ui.h('div', { class: 'detail-section' },
             ui.h('h4', { text: '工单' }),
@@ -128,7 +128,7 @@
               ui.statusBadge(ui.STATUS.WORK_ORDER, 'PENDING_REIMBURSE'), ' → ',
               ui.statusBadge(ui.STATUS.WORK_ORDER, 'REIMBURSED'))),
             ui.h('div', { class: 'detail-row' }, ui.h('span', { class: 'v' },
-              ui.h('span', { style: { color: '#7f8c8d', fontSize: '13px' }, text: '待接单→维修中→待核价→待签字→待报销（移入历史）→已报销' })))
+              ui.h('span', { style: { color: '#6E7770', fontSize: '13px' }, text: '待接单→维修中→待核价→待签字→待报销（移入历史）→已报销' })))
           ),
           ui.h('div', { class: 'detail-section' },
             ui.h('h4', { text: '报销单' }),

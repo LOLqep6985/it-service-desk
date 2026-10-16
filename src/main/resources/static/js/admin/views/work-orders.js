@@ -66,7 +66,7 @@
 
   function photoBlock(url, alt) {
     var ui = Admin.ui;
-    if (!url) return ui.h('div', { style: { color: '#95a5a6', fontSize: '13px' }, text: '无' });
+    if (!url) return ui.h('div', { style: { color: '#6E7770', fontSize: '13px' }, text: '无' });
     return ui.h('div', { class: 'detail-photo' },
       ui.h('img', { src: url, alt: alt || '照片', onclick: function (e) { global.open(e.target.src, '_blank'); } })
     );
@@ -141,7 +141,7 @@
             }
           })
         )
-        : ui.h('div', { style: { color: '#95a5a6', fontSize: '13px' }, text: '暂无耗材记录' });
+        : ui.h('div', { style: { color: '#6E7770', fontSize: '13px' }, text: '暂无耗材记录' });
 
       drawer.setBody(ui.h('div', null,
         section('基本信息', [
