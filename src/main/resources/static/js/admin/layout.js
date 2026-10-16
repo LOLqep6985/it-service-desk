@@ -137,10 +137,7 @@
           class: 'btn btn-ghost btn-sm', html: ICONS.refresh, title: '刷新当前页',
           onclick: function () { Admin.router.reload(); }
         }),
-        ui.h('button', {
-          class: 'btn btn-ghost btn-sm', text: '科室报修端',
-          onclick: function () { global.open('report.html', '_blank'); }
-        }),
+        // 注：不提供跳往科室端/维修端的入口 —— 三端之间不可达，仅登录页可按角色分发
         ui.h('div', { class: 'user-chip' },
           ui.h('span', { class: 'avatar', text: initial }),
           ui.h('div', null,

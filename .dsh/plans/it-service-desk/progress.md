@@ -784,3 +784,21 @@
   - mvn test 18/18 通过；target/classes 已同步
 - 接入步骤（写给用户）：维修班企微群 → 群设置 → 群机器人 → 添加 → 复制 Webhook → 填 application.yml 的 notify.wecom.webhook 与 notify.public-host（手机可达的后端地址）→ 重启
 - 下一步：用户接真实 webhook 验证 → git 提交
+
+### S-027 | 2026-10-16：全流程端到端验证 + 修二维码鉴权 bug + 封堵跨端入口
+
+- 端到端跑通完整闭环（真实数据）：报修单 R000009 → 派单生成工单#8（张工）→ 接单 → 维修+耗材登记 → 管理员核价 ¥86.00 → 护士长签字(PENDING_REIMBURSE) → 生成月度报销单#2 → 科室签字 → 财务回填 → 工单与报修单双双 REIMBURSED
+- 修复 bug：/api/qr 只认 X-Token 请求头，而系统信息页用 <img src> 发请求带不了自定义头 → 二维码显示为 1×1 占位图。改为 header/query 双通道接受 token，前端拼 ?token=；实测 67 bytes → 463 bytes 真二维码
+- 新增：/api/system/notify-test（管理员同步测企微 webhook，直接回报失败原因）+ 系统信息页「发送测试通知」按钮 + 通知状态细分为 已接通/配置无效/未接入
+- 修复架构不一致：管理端顶栏原「科室报修端」按钮会跳转科室端，违反「三端之间不可达」，已删除（科室端入口只保留：工作机直接打开 + 二维码）
+- 验证：mvn test 18/18 通过；jar 打包重启后逐项复验
+- 注意：Maven 打包前必须停掉占用 target/desk-0.1.0.jar 的 java 进程，否则 repackage 报 Unable to rename
+- 下一步：用户按手册逐端浏览器操作复验 → 配企微 webhook → git 提交
+
+### S-028 | 2026-10-16：科室端退出按钮 + 登录页回车登录（UI 交互补齐）
+
+- 科室端 report.html：masthead 改左右两栏，右上角新增常驻「退出」按钮（图标+文字，管理后台同款 ghost 样式）；「重新绑定科室」从标题下划线文字链改为同款 ghost 按钮并移到右侧；退出→login.html，重新绑定→解绑（语义分离，未绑定时只显示退出）
+- 登录页 login.html：支持回车登录（两个输入框内回车均可提交；信息不全时不发请求、自动聚焦空缺框）+ 自动聚焦用户名 + submitting 锁防连点/连按回车重复提交
+- SW 缓存 itsd-v18→v19；target/classes 已同步
+- 验证：新增 .rdoc_inspect/verify-ui.js（jsdom 行为测试，19/19 通过）+ temp-static-server.js（临时静态服务器，验完已释放 8099）；内联脚本语法全部 node --check 通过
+- 下一步：用户浏览器复验三处交互 → 配企微 webhook → git 提交

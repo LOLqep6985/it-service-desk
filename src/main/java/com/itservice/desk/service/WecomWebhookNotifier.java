@@ -79,25 +79,49 @@ public class WecomWebhookNotifier {
     }
 
     private void send(String markdown) {
-        // 异步：独立线程，失败只记日志
+        // 异步：独立线程，失败只记日志（不阻塞派单主流程）
         Thread t = new Thread(() -> {
-            try {
-                String body = "{\"msgtype\":\"markdown\",\"markdown\":{\"content\":" + jsonString(markdown) + "}}";
-                HttpRequest req = HttpRequest.newBuilder(URI.create(webhook))
-                        .timeout(Duration.ofSeconds(5))
-                        .header("Content-Type", "application/json")
-                        .POST(HttpRequest.BodyPublishers.ofString(body))
-                        .build();
-                HttpResponse<String> res = http.send(req, HttpResponse.BodyHandlers.ofString());
-                if (res.statusCode() != 200 || res.body() == null || !res.body().contains("\"errcode\":0")) {
-                    log.warn("企微通知发送未成功：status={} body={}", res.statusCode(), res.body());
-                }
-            } catch (IOException | InterruptedException e) {
-                log.warn("企微通知发送失败（派单不受影响）：{}", e.getMessage());
+            String err = sendSync(markdown);
+            if (err != null) {
+                log.warn("企微通知发送失败（派单不受影响）：{}", err);
             }
         }, "wecom-notify");
         t.setDaemon(true);
         t.start();
+    }
+
+    /**
+     * 管理端「发送测试通知」：同步发送并回报结果，便于自助验证 webhook 是否配通。
+     * @return null 表示发送成功；否则返回失败原因（直接展示给管理员）
+     */
+    public String sendTest() {
+        if (!enabled()) {
+            return "未配置 notify.wecom.webhook，或地址不是企业微信群机器人 webhook（需以 https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key= 开头）";
+        }
+        return sendSync("**通知测试**\n> 在群里看到这条消息，说明派单通知已接通。\n> 之后管理员每次派单，本群都会收到新工单提醒。");
+    }
+
+    /** 同步发送：返回 null=成功，否则为错误说明 */
+    private String sendSync(String markdown) {
+        try {
+            String body = "{\"msgtype\":\"markdown\",\"markdown\":{\"content\":" + jsonString(markdown) + "}}";
+            HttpRequest req = HttpRequest.newBuilder(URI.create(webhook))
+                    .timeout(Duration.ofSeconds(5))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+            HttpResponse<String> res = http.send(req, HttpResponse.BodyHandlers.ofString());
+            String respBody = res.body() == null ? "" : res.body();
+            if (res.statusCode() != 200) {
+                return "HTTP " + res.statusCode() + "：" + respBody;
+            }
+            if (!respBody.contains("\"errcode\":0")) {
+                return "企微返回：" + respBody;
+            }
+            return null;
+        } catch (IOException | InterruptedException e) {
+            return "网络错误：" + e.getMessage();
+        }
     }
 
     /** 极简 JSON 字符串转义（消息体只有文本与换行，无需引全 JSON 库） */

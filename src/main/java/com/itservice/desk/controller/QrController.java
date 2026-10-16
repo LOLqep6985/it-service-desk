@@ -38,9 +38,11 @@ public class QrController {
 
     @GetMapping(value = "/api/qr", produces = MediaType.IMAGE_PNG_VALUE)
     public byte[] qr(@RequestParam("path") String path,
-                     @RequestHeader(value = "X-Token", required = false) String token,
+                     @RequestHeader(value = "X-Token", required = false) String headerToken,
+                     @RequestParam(value = "token", required = false) String queryToken,
                      HttpServletRequest request) throws Exception {
-        User user = resolveUser(token);
+        // <img> 请求无法携带自定义请求头，因此 token 允许走查询参数（与 X-Token 头二选一）
+        User user = resolveUser(headerToken != null ? headerToken : queryToken);
         if (user == null || (user.getRole() != UserRole.ADMIN && user.getRole() != UserRole.DISPATCHER)) {
             // 未授权不给码：返回 1x1 透明图占位，避免 <img> 挂死（真实语义由前端 401 提示兜底）
             return new byte[]{(byte) 0x89, (byte) 0x50, (byte) 0x4E, (byte) 0x47, (byte) 0x0D, (byte) 0x0A,

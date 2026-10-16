@@ -36,12 +36,22 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: var(--font); background: var(--c-bg); color: var(--c-text); }
 
-    /* 单据抬头：纸白大标题区，科室名是主角 */
-    .masthead { max-width: 560px; margin: 0 auto; padding: 28px 20px 0; }
+    /* 单据抬头：纸白大标题区，科室名是主角；右上角放操作按钮（与管理后台同款 ghost 按钮） */
+    .masthead { max-width: 560px; margin: 0 auto; padding: 28px 20px 0; display: flex; align-items: flex-start; gap: 12px; }
+    .masthead-main { flex: 1; min-width: 0; }
+    .masthead-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; margin-left: auto; padding-top: 2px; }
+    .btn-ghost {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--c-surface-2); color: var(--c-text-2);
+      border: none; border-radius: 6px; padding: 7px 12px;
+      font-size: 13px; font-family: var(--font); cursor: pointer;
+      white-space: nowrap; transition: background .15s ease;
+    }
+    .btn-ghost:hover { background: #E5E1D5; }
+    .btn-ghost:active { background: #DAD5C6; }
     .masthead .kicker { font-size: 13px; color: var(--c-muted); letter-spacing: .12em; }
     .masthead h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; color: var(--c-text); margin-top: 6px; line-height: 1.2; }
     .masthead .sub { font-size: 14px; color: var(--c-muted); margin-top: 6px; }
-    .masthead .rebind { margin-top: 10px; background: none; border: none; color: var(--c-primary); font-size: 13px; cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 3px; }
 
     .container { max-width: 560px; margin: 0 auto; padding: 20px 20px 48px; }
 
@@ -121,10 +131,21 @@
 </head>
 <body>
 <div class="masthead">
-  <div class="kicker">IT 运维 · 免登录报修台</div>
-  <h1 id="mastTitle">科室报修</h1>
-  <div class="sub" id="mastSub">本机绑定科室后，提交报修无需再选科室</div>
-  <button id="rebindBtn" class="rebind" style="display:none;">退出 / 重新绑定科室</button>
+  <div class="masthead-main">
+    <div class="kicker">IT 运维 · 免登录报修台</div>
+    <h1 id="mastTitle">科室报修</h1>
+    <div class="sub" id="mastSub">本机绑定科室后，提交报修无需再选科室</div>
+  </div>
+  <div class="masthead-actions">
+    <button id="rebindBtn" class="btn-ghost" style="display:none;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg>
+      重新绑定科室
+    </button>
+    <button id="exitBtn" class="btn-ghost">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 12H4"/><path d="M8 8l-4 4 4 4"/><path d="M12 4h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/></svg>
+      退出
+    </button>
+  </div>
 </div>
 <div class="container">
   <div class="card" id="bindCard">
@@ -284,7 +305,7 @@
     acceptCard.style.display = 'block';
     reimbCard.style.display = 'block';
     historyCard.style.display = 'block';
-    document.getElementById('rebindBtn').style.display = 'inline-block';
+    document.getElementById('rebindBtn').style.display = 'inline-flex';
     const building = buildingOf(dept);
     document.getElementById('mastTitle').textContent = esc(shortNameOf(dept)) + ' · 报修台';
     document.getElementById('mastSub').textContent =
@@ -328,11 +349,17 @@
 
   document.getElementById('bindBtn').addEventListener('click', doBind);
 
+  // 重新绑定：清掉本机科室绑定，回到绑定页（工作机换科室用）
   document.getElementById('rebindBtn').addEventListener('click', () => {
     if (!confirm('重新绑定后，本机将切换到新科室，确定继续？')) return;
     localStorage.removeItem('itsdDepartmentId');
     localStorage.removeItem('itsdDepartmentName');
     location.href = 'report.html';
+  });
+
+  // 退出：离开科室端回登录页（科室端免登录，退出后可在登录页切换其它角色账号）
+  document.getElementById('exitBtn').addEventListener('click', () => {
+    location.href = 'login.html';
   });
 
   // 初始化：加载科室列表 → 三级联动（院区→楼栋→科室）→ 恢复本地绑定；支持 ?departmentId= 快捷绑定（扫码入口预留）
