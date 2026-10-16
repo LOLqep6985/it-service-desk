@@ -554,3 +554,33 @@ table.data tbody tr.empty-row td { text-align: center; color: var(--c-muted); pa
   .dept-campus-grid { grid-template-columns: minmax(0, 1fr); }
   .dept-floor-row { flex-wrap: wrap; }
 }
+
+/* ============================================================
+   月度报销单 · 科室分池卡片（#/reimbursements）
+   ============================================================ */
+.pool-head { display: flex; align-items: baseline; gap: 10px; margin: 22px 0 14px; }
+.pool-head h3 { font-size: 17px; font-weight: 700; color: var(--c-text, #1C2420); }
+.pool-head .sub { font-size: 13px; color: var(--c-muted, #6E7770); }
+.pool-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.pool-card {
+  background: var(--c-surface, #fff); border: 1px solid var(--c-border, #E5E1D5);
+  border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px;
+}
+.pool-card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.pool-dept-name { font-size: 15px; font-weight: 700; color: var(--c-text, #1C2420); line-height: 1.3; }
+.pool-time { font-size: 12px; color: var(--c-muted, #6E7770); white-space: nowrap; }
+.pool-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.pool-badge {
+  font-size: 12px; padding: 3px 9px; border-radius: 999px; font-weight: 600;
+  background: var(--c-surface-2, #F0EDE4); color: var(--c-text-2, #4B5550);
+}
+.pool-badge.tone-danger { background: rgba(179,38,30,.12); color: #B3261E; }
+.pool-badge.tone-warn { background: rgba(180,83,9,.12); color: #B45309; }
+.pool-badge.tone-primary { background: rgba(15,107,92,.12); color: #0F6B5C; }
+.pool-badge.tone-success { background: rgba(15,107,92,.12); color: #0F6B5C; }
+.pool-badge.tone-muted { background: var(--c-surface-2, #F0EDE4); color: var(--c-muted, #6E7770); }
+.pool-enter { align-self: flex-start; }
+@media (max-width: 600px) { .pool-grid { grid-template-columns: minmax(0, 1fr); } }
