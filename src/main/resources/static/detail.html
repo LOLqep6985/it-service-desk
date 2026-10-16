@@ -65,6 +65,7 @@
 <div class="header">
   <button class="back" id="backBtn">‹ 返回</button>
   <span class="t">工单详情</span>
+  <button class="back logout-btn" id="logoutBtn" style="margin-left:auto;">退出</button>
 </div>
 <div class="container">
   <div class="card" id="card">加载中...</div>
@@ -84,21 +85,28 @@
     <div class="msg" id="repairMsg"></div>
   </div>
 </div>
+<script src="/js/guard.js"></script>
 <script>
+  // 端守卫：只有维修工可停留本端；其他角色提示后强制退出回登录页（三端隔离，不跨端跳转）
+  const guardUser = ItsdGuard.guard('repairer');
+  if (!guardUser) throw new Error('blocked');
   const params = new URLSearchParams(location.search);
   const id = params.get('id');
-  const userId = params.get('userId');
-  const saved = localStorage.getItem('itsdUser');
-  const user = saved ? JSON.parse(saved) : {};
+  const userId = guardUser.userId || params.get('userId');
+  const user = guardUser;
   const token = user.token || '';
   const WORK_ORDER_STATUS = { ASSIGNED:'待接单', IN_PROGRESS:'维修中', PENDING_PRICING:'待核价', PENDING_SIGN:'待签字', PENDING_REIMBURSE:'待报销', REIMBURSED:'已报销' };
   const CAMPUS_LABEL = { LAOYUAN:'老院', XIYUAN:'西院', DONGYUAN:'东院' };
-  const isRepairer = user.roleCode === 'REPAIRER';
+  const isRepairer = true;   // 守卫通过即维修工
   const card = document.getElementById('card');
   const repairBox = document.getElementById('repairBox');
   const acceptBox = document.getElementById('acceptBox');
   const repairMsg = document.getElementById('repairMsg');
   const acceptMsg = document.getElementById('acceptMsg');
+
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    ItsdGuard.logout();
+  });
 
   document.getElementById('backBtn').addEventListener('click', () => {
     window.location.href = 'today.html?userId=' + userId;
@@ -217,5 +225,6 @@
     });
   }
 </script>
+<script src="/js/pwa-install.js"></script>
 </body>
 </html>

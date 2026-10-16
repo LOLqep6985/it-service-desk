@@ -171,6 +171,36 @@
         ['第三方依赖', '无（图标内联 SVG，图表纯 CSS）']
       ]))
     }));
+
+    host.appendChild(entryCard(ui));
+  }
+
+  /** 三端入口卡：二维码由后端 /api/qr 按当前访问 Host 生成，扫码即达同机部署的入口页 */
+  function entryCard(ui) {
+    var origin = global.location.origin;
+    function entry(title, sub, path, note) {
+      return ui.h('div', { class: 'qr-entry' },
+        ui.h('img', {
+          class: 'qr-img', alt: title + '二维码',
+          src: '/api/qr?path=' + encodeURIComponent(path)
+        }),
+        ui.h('div', { class: 'qr-meta' },
+          ui.h('div', { class: 'qr-title', text: title }),
+          ui.h('div', { class: 'qr-sub', text: sub }),
+          ui.h('div', { class: 'qr-url', text: origin + path }),
+          ui.h('div', { class: 'qr-note', text: note })
+        )
+      );
+    }
+    return ui.card({
+      title: '三端入口',
+      hint: '（扫码进入，地址按当前访问主机生成）',
+      body: ui.h('div', { class: 'qr-grid' },
+        entry('科室报修端', '护士站工作机 · 免登录绑定科室', '/report.html', '工作机浏览器扫码 → 添加到主屏幕'),
+        entry('维修工作台', '维修人员个人手机 · 登录使用', '/login.html', '手机浏览器扫码 → 登录 → 添加到主屏幕'),
+        entry('管理后台', 'PC 浏览器 · 管理员/调度/财务', '/login.html', '与维修端同入口，登录后按角色自动进入后台')
+      )
+    });
   }
 
   Admin.views.system = {

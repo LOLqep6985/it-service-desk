@@ -93,36 +93,25 @@
   <div class="summary" id="summary"></div>
   <div id="groups"></div>
 </div>
+<script src="/js/guard.js"></script>
 <script>
   const WORK_ORDER_STATUS = { ASSIGNED:'待接单', IN_PROGRESS:'维修中', PENDING_PRICING:'待核价', PENDING_SIGN:'待签字', PENDING_REIMBURSE:'待报销', REIMBURSED:'已报销' };
   const CAMPUS_LABEL = { LAOYUAN:'老院', XIYUAN:'西院', DONGYUAN:'东院' };
+  // 端守卫：只有维修工可停留本端；其他角色提示后强制退出回登录页（三端隔离，不跨端跳转）
+  const guardUser = ItsdGuard.guard('repairer');
+  if (!guardUser) throw new Error('blocked');
   const params = new URLSearchParams(location.search);
-  const userId = params.get('userId');
-  const saved = localStorage.getItem('itsdUser');
-  const user = saved ? JSON.parse(saved) : {};
+  const userId = guardUser.userId || params.get('userId');
+  const user = guardUser;
   const token = user.token || '';
 
-  // 角色兜底：非维修工不应停留在今日任务页
-  if (user.roleCode === 'ADMIN' || user.roleCode === 'DISPATCHER' || user.roleCode === 'FINANCE') {
-    window.location.href = 'admin.html?userId=' + (userId || user.userId);
-  } else if (user.roleCode === 'REPORTER') {
-    window.location.href = 'create.html?userId=' + (userId || user.userId);
-  }
-  if (!userId && user.userId) window.location.href = 'today.html?userId=' + user.userId;
   document.getElementById('userName').innerHTML = user.name + '<span class="role">' + (user.role || '') + '</span>';
 
-  // 只有报修人显示「+ 报修」按钮
-  const reportBtn = document.getElementById('reportBtn');
-  if (user.roleCode !== 'REPORTER') {
-    reportBtn.style.display = 'none';
-  }
+  // 维修端不显示报修按钮（报修按钮只属于报修人端）
+  document.getElementById('reportBtn').style.display = 'none';
 
-  document.getElementById('reportBtn').addEventListener('click', () => {
-  window.location.href = 'create.html?userId=' + userId;
-});
-document.getElementById('logoutBtn').addEventListener('click', () => {
-    localStorage.removeItem('itsdUser');
-    window.location.href = 'login.html';
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    ItsdGuard.logout();
   });
 
   async function load() {
@@ -186,5 +175,6 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
     });
   }
 </script>
+<script src="/js/pwa-install.js"></script>
 </body>
 </html>
