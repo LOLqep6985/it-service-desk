@@ -39,8 +39,8 @@
 </head>
 <body>
 <div class="header">
-  <button class="back" id="backBtn">‹ 返回</button>
   <span class="t">发起报修</span>
+  <button class="back logout-btn" id="logoutBtn" style="margin-left:auto;">退出</button>
 </div>
 <div class="container">
   <div class="card">
@@ -70,17 +70,19 @@
   </div>
 </div>
 <script src="/js/department-cascade.js"></script>
+<script src="/js/guard.js"></script>
 <script>
-  const params = new URLSearchParams(location.search);
-  const saved = localStorage.getItem('itsdUser');
-  const user = saved ? JSON.parse(saved) : {};
-  const userId = params.get('userId') || user.userId || '';
+  // 端守卫：只有报修人可停留本端；其他角色提示后强制退出回登录页（三端隔离，不跨端跳转）
+  const guardUser = ItsdGuard.guard('reporter');
+  if (!guardUser) throw new Error('blocked');
+  const userId = guardUser.userId;
+  const user = guardUser;
   const token = user.token || '';
   const msg = document.getElementById('msg');
   const submitBtn = document.getElementById('submitBtn');
 
-  document.getElementById('backBtn').addEventListener('click', () => {
-    window.location.href = 'login.html';
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    ItsdGuard.logout();
   });
 
   async function loadDepartments() {
@@ -146,5 +148,14 @@
     cascade.setDepartments(await loadDepartments());
   })();
 </script>
+<script>
+  // PWA：注册 Service Worker（HTTPS 或 localhost 下生效）
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('/service-worker.js').catch(function () {});
+    });
+  }
+</script>
+<script src="/js/pwa-install.js"></script>
 </body>
 </html>

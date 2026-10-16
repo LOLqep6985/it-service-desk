@@ -27,7 +27,7 @@
     Admin.store.init();
 
     if (!Admin.store.isBackendUser()) {
-      global.alert('请以运维或财务身份登录');
+      global.alert('当前账户角色无权访问管理后台，请用管理员/调度员/财务账号登录。即将返回登录页。');
       global.location.href = 'login.html';
       return;
     }

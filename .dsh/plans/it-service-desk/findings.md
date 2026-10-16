@@ -667,3 +667,16 @@
 - **不做清单（防过度设计）**：不引外网图片（医院内网）、不加 scroll 动效叙事、不做 hero 大图、不碰后端/业务逻辑
 - 落地文件：admin-layout.css、dept-cascade.css、signature-pad.css、report.html、create.html、today.html、detail.html、login.html、js/admin/{router,ui}.js、views/{reimbursements,system}.js、service-worker.js
 - 关联：`progress.md#S-024`
+## D-021 | 2026-10-16：三端交付形态 = PWA 浏览器入口，不做 APK
+
+**决策**：科室端/维修端做成 PWA（manifest + service worker + 安装引导），不做 APK。
+
+**理由**：
+1. APK 只覆盖安卓；维修工用个人手机，iOS 盲区无法回避，最终还是得维护 H5 兜底 = 两套入口
+2. 内网 APK 无法上架，发版 = 全员手动重新下载安装，每次发版都付一次分发税；H5 刷新即生效
+3. 个人手机装公司 APK 的权限申请有信任成本；H5 走浏览器沙箱
+4. 业务缺口（后台推送提醒）在大陆内网恰恰不该用 APK 解决（无 GCM，厂商通道/极光个推才是真过度设计）——用企微 webhook 或短信补
+
+**升级触发条件**（满足任一再考虑 Capacitor 包装）：真后台推送且无企微/短信可用；离线录入同步；传感器需求。包装时同一套 H5 代码产出 APK，无重写成本。
+
+**三端账户隔离规则**（本次落地）：admin（管理员/调度/财务）/ repairer（today+detail）/ reporter（create）三端互不可达——角色不匹配时提示后强制退出回登录页，login.html 是唯一分发点；科室端 report.html 免登录工作机，退出 = 解绑科室。

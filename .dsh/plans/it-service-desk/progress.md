@@ -763,3 +763,13 @@
 
 
 
+### S-025 | 2026-10-16：三端隔离 + PWA 引导 + 入口二维码（PWA 替代 APK 的架构决策）
+
+- 架构决策（详见 indings.md#D-021）：三端形态 = 一套后端 + 三个浏览器入口 + PWA 壳；APK 留作升级路径（Capacitor 包装，触发条件：真后台推送/离线同步/传感器需求）
+- 完成：
+  - 三端退出与角色隔离：新增 /js/guard.js（端守卫共用脚本）——today/detail（维修端）、create（报修人端）加守卫 + 右上角退出按钮；角色不匹配时提示后强制退出回登录页（不跨端跳转），login.html 是唯一分发点；admin 端提示语统一。科室端 report.html 免登录，退出语义 = 解绑科室（按钮文案改「退出 / 重新绑定科室」）
+  - PWA 安装引导：新增 /js/pwa-install.js —— Android 捕获 beforeinstallprompt 一键安装，iOS 手动指引条；可关闭（7 天记忆）；挂到 report/today/detail/login/create
+  - 入口二维码：pom 加 ZXing core+javase 3.5.3；新增 QrController（/api/qr，PNG 输出，Host 动态拼 URL，路径白名单防钓鱼跳板，管理员/调度员鉴权）；系统信息页新增「三端入口」卡片（.qr-grid 样式）
+  - Service Worker itsd-v16→v18（v17 为通栏布局修复轮）；新文件 guard.js/pwa-install.js 入 APP_SHELL
+- Maven 注意：CLI 需 -Dmaven.repo.local=.m2repo 且 JAVA_HOME=D:\DevTools\Java\jdk17（默认 JAVA_HOME 是 jdk8，会报「无效目标发行版 17」）
+- 下一步：用户复验（扫码入口 + 退出隔离 + PWA 引导条）→ git 提交 → 第 2 步通知渠道（待定企微 webhook 或短信）
