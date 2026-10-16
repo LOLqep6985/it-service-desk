@@ -85,6 +85,20 @@
     submitting = true;
     loginBtn.disabled = true;
     loginBtn.textContent = '登录中...';
+    // 同浏览器登录态是共享的（localStorage 不分标签页）：若已有其他账号在线，明确告知将切换身份，
+    // 避免管理员在另一窗口被静默变成财务/维修工视角（2026-10-16 复现的"跳到财务界面"问题根因）
+    try {
+      const existing = JSON.parse(localStorage.getItem('itsdUser') || 'null');
+      if (existing && existing.name && existing.username !== username) {
+        const ok = confirm('当前浏览器已有「' + existing.name + '」处于登录状态。\n登录将以「' + username + '」身份替换它（其它窗口也会随之切换）。\n是否继续？');
+        if (!ok) {
+          submitting = false;
+          loginBtn.disabled = false;
+          loginBtn.textContent = '登 录';
+          return;
+        }
+      }
+    } catch (e) { /* 登录态读取失败不阻塞登录 */ }
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',

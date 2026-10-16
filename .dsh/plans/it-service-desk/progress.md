@@ -891,3 +891,16 @@
 - 事实层仅追加：findings.md#D-021~D-023、progress.md#S-025~S-036 历史条目未改写
 - 环境与数据核对：无 java 进程、8080/8099 空闲、MySQL80 Running；report#1/#3、work_order#1/#3、reimbursement#1/#3 均 REIMBURSED；账号 6、科室 68；uploads 4 个文件全部被引用（无孤儿）
 - 未写入任何密钥；.rdoc_inspect/ 与 uploads/ 均在 .gitignore 中
+
+### S-037 | 2026-10-16：工单管理下拉精简 + 恢复待受理报修单页 + 科室端抬头居中 + 清库
+
+- 改动（用户三连要求，按次序）：
+  1. 工单管理下拉默认改「全部状态」，删「进行中」多状态区间项（多状态过滤易让用户困惑默认看到什么）
+  2. 删掉下拉里的报修单 5 项 + 派单弹窗 + 报修单列定义——后台只管工单，报修单不在此重复展示
+  3. 科室端 masthead 抬头三段信息（kicker/标题/科室信息行）窄屏居中自适应，标题字号 clamp(16px,4.8vw,26px) 随科室名长度收缩
+- 连锁处理（关键）：把报修单项删掉后后台**将无派单入口**（闭环断裂），故恢复「待受理报修单」页为唯一派单入口；「报修单历史」保持删除（已流转报修单靠工单详情「报修单号」列溯源）。确立 D-024「报修单/工单清单归属原则」作为后续硬约束
+- 文件：work-orders.js（下拉+列定义回归纯工单）、layout.js（菜单恢复两项）、dashboard.js（去派单按钮跳回 /reports/pending）、reports-pending.js（重建，前一轮误删）、admin.html（script 引用恢复）、report.html（masthead 居中）
+- 清库：备份 business-data-20261016-182145.sql（20KB）+ orphan-uploads-20261016-182145/（10 个签名图）；TRUNCATE 6 张业务表；保留 sys_user 6、department 68；uploads 清空
+- 验证前状态：report/work_order/consumable/reimbursement/reimbursement_item/department_binding 均 0 行；uploads 0 文件；8080 空闲无 java 进程
+- 语法校验：全部改动文件 node --check 通过；target/classes 已同步
+- 下一步：用户从 IDEA 启动 8080 走端到端验证（报修→派单→接单自动跳详情→维修→核价→签字→报销闭环 + 工单管理下拉 + 科室端抬头）

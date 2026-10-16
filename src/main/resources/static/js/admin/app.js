@@ -48,6 +48,20 @@
       }
     });
 
+    // 跨标签页身份看守：localStorage 是同浏览器全窗口共享的，另一个窗口登录别的账号会
+    // 静默覆盖本窗口身份（2026-10-16「点生成报销单后变成财务界面」的根因）。
+    // 检测到身份被替换时明确提示并刷新，而不是让用户莫名其妙地换了个角色。
+    var bootUserId = user.userId;
+    global.addEventListener('storage', function (e) {
+      if (e.key !== 'itsdUser') return;
+      var next = null;
+      try { next = e.newValue ? JSON.parse(e.newValue) : null; } catch (err) { /* ignore */ }
+      if (!next || !next.token || next.userId !== bootUserId) {
+        global.alert('检测到本浏览器在其它窗口登录了其他账号，当前页面身份已失效，即将返回登录页。');
+        global.location.replace('login.html');
+      }
+    });
+
     // 注册各视图路由（视图文件自行挂到 Admin.views，新增视图无需改本文件）
     var views = Admin.views || {};
     Object.keys(views).forEach(function (key) { Admin.router.register(views[key]); });
