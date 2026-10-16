@@ -246,6 +246,48 @@ public class ReimbursementService {
         return r;
     }
 
+    /**
+     * 管理员撤回报销单：仅 PENDING_SIGN（未签字）可撤回 → VOIDED。
+     * 单内工单状态不变（仍 PENDING_REIMBURSE），因旧单已 VOIDED 不再算占用，工单自然回到待报销池。
+     */
+    public Reimbursement revoke(Long id) {
+        Reimbursement r = getById(id);
+        if (r.getStatus() != ReimbursementStatus.PENDING_SIGN) {
+            throw new IllegalArgumentException("只有待护士长确认（未签字）的报销单可以撤回");
+        }
+        r.setStatus(ReimbursementStatus.VOIDED);
+        reimbursementMapper.updateById(r);
+        return r;
+    }
+
+    /**
+     * 护士长退回报销单：仅 PENDING_SIGN 可退回 → RETURNED。
+     * 单内工单状态不变（仍 PENDING_REIMBURSE），因旧单已 RETURNED 不再算占用，工单回到待报销池可重新勾选。
+     */
+    public Reimbursement returnByNurse(Long id) {
+        Reimbursement r = getById(id);
+        if (r.getStatus() != ReimbursementStatus.PENDING_SIGN) {
+            throw new IllegalArgumentException("只有待护士长确认的报销单可以退回");
+        }
+        r.setStatus(ReimbursementStatus.RETURNED);
+        reimbursementMapper.updateById(r);
+        return r;
+    }
+
+    /**
+     * 财务退回报销单：仅 PENDING_REIMBURSE（已签字待审核）可退回 → RETURNED。
+     * 单内工单状态不变（仍 PENDING_REIMBURSE，因已签字无需重签），工单回到待报销池可重新勾选生成新单。
+     */
+    public Reimbursement returnByFinance(Long id) {
+        Reimbursement r = getById(id);
+        if (r.getStatus() != ReimbursementStatus.PENDING_REIMBURSE) {
+            throw new IllegalArgumentException("只有待报销（已签字）的报销单可以退回");
+        }
+        r.setStatus(ReimbursementStatus.RETURNED);
+        reimbursementMapper.updateById(r);
+        return r;
+    }
+
     /** 按报销单明细反查工单 → 逐条推进为已报销（幂等：workOrderService.reimburse 只推进待报销状态） */
     private void syncWorkOrdersReimbursed(Long reimbursementId) {
         List<ReimbursementItem> items = reimbursementItemMapper.selectList(
@@ -359,10 +401,16 @@ public class ReimbursementService {
             if (wo.getStatus() != WorkOrderStatus.PENDING_REIMBURSE) {
                 throw new IllegalArgumentException("工单 #" + woId + " 不是待报销状态");
             }
-            Long occupied = reimbursementItemMapper.selectCount(new LambdaQueryWrapper<ReimbursementItem>()
-                    .eq(ReimbursementItem::getWorkOrderId, woId));
-            if (occupied != null && occupied > 0) {
-                throw new IllegalArgumentException("工单 #" + woId + " 已被其他报销单占用，不可重复报销");
+            // 占用校验：只算被"活跃报销单"（待签字/待报销/已报销）占用的；
+            // 已退回/已作废的旧占用不算——退回/作废后工单重新入池可被勾选
+            List<ReimbursementItem> occItems = reimbursementItemMapper.selectList(
+                    new LambdaQueryWrapper<ReimbursementItem>().eq(ReimbursementItem::getWorkOrderId, woId));
+            for (ReimbursementItem it : occItems) {
+                Reimbursement occ = reimbursementMapper.selectById(it.getReimbursementId());
+                if (occ != null && occ.getStatus() != ReimbursementStatus.VOIDED
+                        && occ.getStatus() != ReimbursementStatus.RETURNED) {
+                    throw new IllegalArgumentException("工单 #" + woId + " 已被报销单 #" + occ.getId() + " 占用，不可重复报销");
+                }
             }
             orders.add(wo);
         }

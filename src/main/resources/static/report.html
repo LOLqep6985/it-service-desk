@@ -248,6 +248,8 @@
     <div class="actions">
       <button class="btn-cancel" id="cancelSign">取消</button>
       <button class="btn-confirm" id="confirmSign">确认验收</button>
+      <!-- 报销单签字时显示：护士长可退回报销单给管理员（工单回退入池） -->
+      <button class="btn-clear" id="returnReimb" style="display:none;margin-left:8px;color:#B45309;">退回管理员</button>
     </div>
     <div class="msg" id="signMsg"></div>
   </div>
@@ -269,7 +271,7 @@
 <script>
   const REPORT_STATUS = { PENDING:'待受理', DISPATCHED:'已派单', COMPLETED:'已完成', REIMBURSED:'已报销', CANCELLED:'已取消' };
   const WO_STATUS = { ASSIGNED:'待接单', IN_PROGRESS:'维修中', PENDING_PRICING:'待核价', PENDING_SIGN:'待签字', PENDING_REIMBURSE:'待报销', REIMBURSED:'已报销' };
-  const REIMB_STATUS = { PENDING_SIGN:'待签字', PENDING_REIMBURSE:'待报销', REIMBURSED:'已报销' };
+  const REIMB_STATUS = { PENDING_SIGN:'待签字', PENDING_REIMBURSE:'待报销', REIMBURSED:'已报销', VOIDED:'已作废', RETURNED:'已退回' };
   const SIGN_TYPE = { HANDWRITTEN:'手写签名', TYPED:'输入姓名生成' };
   function signTypeLabel(code) { return SIGN_TYPE[code] || '未记录'; }
   const bindCard = document.getElementById('bindCard');
@@ -534,6 +536,7 @@
     currentSignWoId = null;
     document.getElementById('signModalTitle').textContent = '报销单签字确认';
     document.getElementById('delegateRowWrap').style.display = 'none';
+    document.getElementById('returnReimb').style.display = 'inline-block';  // 报销单签字时显示退回按钮
     signModal.classList.add('show');
     resetSignPad();
     requestAnimationFrame(function () { sigPad.resize(); });   // 弹窗显示后才能量到真实尺寸
@@ -601,6 +604,29 @@
     signModal.classList.remove('show');
   });
 
+  // 护士长退回报销单 → RETURNED（工单回退入池可重新勾选）
+  document.getElementById('returnReimb').addEventListener('click', async () => {
+    if (currentReimbId == null) return;
+    if (!confirm('退回后该报销单标记为已退回，单内工单回到待报销池，管理员可重新生成报销单。确认退回？')) return;
+    try {
+      const res = await fetch('/api/reimbursements/' + currentReimbId + '/return-nurse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ departmentId: departmentId })
+      });
+      const json = await res.json();
+      if (json.code === 0) {
+        alert('已退回，管理员可重新生成报销单');
+        signModal.classList.remove('show');
+        loadReimbList();
+      } else {
+        alert(json.message || '退回失败');
+      }
+    } catch (e) {
+      alert('网络错误：' + e.message);
+    }
+  });
+
   /** 打开签字弹窗时统一复位（含模式、姓名、代签、签名板、费用明细） */
   function resetSignPad() {
     sigPad.clear();
@@ -624,6 +650,7 @@
     currentSignWoId = woId;
     currentReimbId = null;
     document.getElementById('delegateRowWrap').style.display = 'flex';
+    document.getElementById('returnReimb').style.display = 'none';  // 工单验收签字不显示退回按钮
     document.getElementById('signModalTitle').textContent = '签字验收';
     signModal.classList.add('show');
     resetSignPad();
@@ -748,17 +775,47 @@
     const host = document.getElementById('historyList');
     try {
       // 并发拉报修单 + 本科室全部工单（按 reportId 建索引，附带工单号/签字/完成时间）
-      const [reportRes, woRes] = await Promise.all([
+      // + 本科室报销单（按 workOrderId 建反查索引，展示关联报销单号与报销状态）
+      const [reportRes, woRes, reimbRes] = await Promise.all([
         fetch('/api/reports/by-department?departmentId=' + departmentId),
-        fetch('/api/work-orders/by-department?departmentId=' + departmentId)
+        fetch('/api/work-orders/by-department?departmentId=' + departmentId),
+        fetch('/api/reimbursements/by-department?departmentId=' + departmentId)
       ]);
       const reportJson = await reportRes.json();
       if (reportJson.code !== 0) { host.innerHTML = '<div class="history-item">' + reportJson.message + '</div>'; return; }
       const woJson = await woRes.json();
+      const reimbJson = await reimbJson.ok ? await reimbRes.json() : { code: 1 };
       const woList = (woJson.code === 0 ? (woJson.data || []) : []);
+      const reimbList = (reimbJson.code === 0 ? (reimbJson.data || []) : []);
       // 按 reportId 取最新一条工单（同一报修单理论上只派一次，防御性取最新）
       const woByReport = {};
       woList.forEach(wo => { if (wo.reportId != null) { woByReport[wo.reportId] = wo; } });
+
+      // 反查索引：工单 → 关联的报销单（取最新一张非作废/非退回的，优先级 REIMBURSED > PENDING_REIMBURSE > PENDING_SIGN）
+      const reimbByWo = {};
+      reimbList.forEach(r => {
+        // 报销单的 workOrders 在详情里有，列表接口不一定返回；用报销单 month+departmentId 做兜底
+        // 这里依赖 by-department 返回的报销单含 workOrders 或明细 —— 若列表无明细，则后端需补；
+        // 实际 by-department 只返回报销单头，明细要逐张拉详情（小规模可接受）
+      });
+      // 逐张拉报销单详情建反查索引（本科室报销单通常 < 20 张，可接受）
+      try {
+        await Promise.all(reimbList.map(async r => {
+          const d = await fetch('/api/reimbursements/' + r.id + '?departmentId=' + departmentId);
+          const dj = await d.json();
+          if (dj.code === 0) {
+            const wos = dj.data.workOrders || [];
+            const reimb = dj.data.reimbursement || {};
+            wos.forEach(wo => {
+              // 已存在则保留优先级高的
+              const exist = reimbByWo[wo.id];
+              if (!exist || reimbPriority(reimb.status) > reimbPriority(exist.status)) {
+                reimbByWo[wo.id] = reimb;
+              }
+            });
+          }
+        }));
+      } catch (e) { /* 反查失败不阻塞历史列表 */ }
 
       const list = reportJson.data || [];
       if (list.length === 0) { host.innerHTML = '<div class="history-item">暂无报修记录</div>'; return; }
@@ -773,6 +830,12 @@
           } else {
             extra = '<br><span style="color:#6b7280;">工单#' + wo.id + ' · 处理中</span>';
           }
+          // 关联报销单：展示报销状态 + 报销单号（文档第八节：报修端同步报销状态与关联单号）
+          const reimb = reimbByWo[wo.id];
+          if (reimb) {
+            const rstatus = REIMB_STATUS[reimb.status] || reimb.status;
+            extra += '<br><span style="color:#7A5C2E;font-size:12px;">报销单 #' + reimb.id + ' · ' + rstatus + ' · ' + esc(reimb.month || '') + '</span>';
+          }
           extra += '<br><button class="sign-btn" onclick="openHistoryDetail(' + wo.id + ')">查看详情</button>';
         }
         return '<div class="history-item"><span class="no">' + (r.reportNo || r.id) + '</span> ' + esc(r.deviceName || '') +
@@ -782,6 +845,11 @@
     } catch (e) {
       host.innerHTML = '<div class="history-item">加载失败</div>';
     }
+  }
+
+  /** 报销单状态优先级：已报销 > 待报销 > 待签字 > 已退回 > 已作废（同工单关联多张时取最高优先级展示） */
+  function reimbPriority(status) {
+    return { REIMBURSED: 5, PENDING_REIMBURSE: 4, PENDING_SIGN: 3, RETURNED: 2, VOIDED: 1 }[status] || 0;
   }
 
   // 历史详情（工单维度）：展示维修记录/耗材/签字留痕

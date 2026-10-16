@@ -189,6 +189,60 @@ public class ReimbursementController {
         }
     }
 
+    /** 管理员/调度员：撤回未签字的报销单 → VOIDED（工单回退入池可重新勾选） */
+    @PostMapping("/{id}/revoke")
+    public ApiResponse revoke(@PathVariable Long id,
+                              @RequestHeader(value = "X-Token", required = false) String token) {
+        User user = resolveUser(token);
+        if (user == null) {
+            return ApiResponse.error(401, "未登录或登录已过期");
+        }
+        if (!isOpsStaff(user)) {
+            return ApiResponse.error(403, "无权限：只有管理员或调度员可以撤回报销单");
+        }
+        try {
+            return ApiResponse.ok(reimbursementService.revoke(id));
+        } catch (IllegalArgumentException e) {
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    /** 财务：退回已签字待审核的报销单 → RETURNED（工单回退入池可重新勾选） */
+    @PostMapping("/{id}/return-finance")
+    public ApiResponse returnFinance(@PathVariable Long id,
+                                      @RequestHeader(value = "X-Token", required = false) String token) {
+        User user = resolveUser(token);
+        if (user == null) {
+            return ApiResponse.error(401, "未登录或登录已过期");
+        }
+        if (!isFinance(user)) {
+            return ApiResponse.error(403, "无权限：退回由财务岗位操作");
+        }
+        try {
+            return ApiResponse.ok(reimbursementService.returnByFinance(id));
+        } catch (IllegalArgumentException e) {
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    /** 科室端免登录：护士长退回报销单 → RETURNED（工单回退入池可重新勾选） */
+    @PostMapping("/{id}/return-nurse")
+    public ApiResponse returnNurse(@PathVariable Long id, @RequestBody ReimbursementSignRequest req) {
+        Long deptId = resolveDepartmentId(req.getDepartmentId(), req.getDeviceCode());
+        if (deptId == null) {
+            return ApiResponse.error(401, "请选择有效的科室");
+        }
+        Reimbursement r = reimbursementService.getById(id);
+        if (!deptId.equals(r.getDepartmentId())) {
+            return ApiResponse.error(403, "无权操作该报销单");
+        }
+        try {
+            return ApiResponse.ok(reimbursementService.returnByNurse(id));
+        } catch (IllegalArgumentException e) {
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
     private DepartmentBinding findActiveBinding(String deviceCode) {
         if (deviceCode == null || deviceCode.isBlank()) {
             return null;
