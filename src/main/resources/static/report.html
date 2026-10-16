@@ -802,21 +802,17 @@
       const reportJson = await reportRes.json();
       if (reportJson.code !== 0) { host.innerHTML = '<div class="history-item">' + reportJson.message + '</div>'; return; }
       const woJson = await woRes.json();
-      const reimbJson = await reimbJson.ok ? await reimbRes.json() : { code: 1 };
+      const reimbJson = reimbRes.ok ? await reimbRes.json() : { code: 1 };
       const woList = (woJson.code === 0 ? (woJson.data || []) : []);
       const reimbList = (reimbJson.code === 0 ? (reimbJson.data || []) : []);
       // 按 reportId 取最新一条工单（同一报修单理论上只派一次，防御性取最新）
       const woByReport = {};
       woList.forEach(wo => { if (wo.reportId != null) { woByReport[wo.reportId] = wo; } });
 
-      // 反查索引：工单 → 关联的报销单（取最新一张非作废/非退回的，优先级 REIMBURSED > PENDING_REIMBURSE > PENDING_SIGN）
+      // 反查索引：工单 → 关联报销单。by-department 只返回报销单头（无明细），
+      // 故逐张拉详情建索引（本科室报销单通常 < 20 张，可接受；避免为此加后端聚合接口）。
       const reimbByWo = {};
-      reimbList.forEach(r => {
-        // 报销单的 workOrders 在详情里有，列表接口不一定返回；用报销单 month+departmentId 做兜底
-        // 这里依赖 by-department 返回的报销单含 workOrders 或明细 —— 若列表无明细，则后端需补；
-        // 实际 by-department 只返回报销单头，明细要逐张拉详情（小规模可接受）
-      });
-      // 逐张拉报销单详情建反查索引（本科室报销单通常 < 20 张，可接受）
+      // 逐张拉报销单详情建反查索引
       try {
         await Promise.all(reimbList.map(async r => {
           const d = await fetch('/api/reimbursements/' + r.id + '?departmentId=' + departmentId);

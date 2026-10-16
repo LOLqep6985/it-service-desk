@@ -212,7 +212,6 @@
         { key: 'departmentName', title: '科室', wrap: true },
         { key: 'assigneeId', title: '维修工', render: function (r) { return ui.esc(repairerName(r.assigneeId)); } },
         { key: 'status', title: '状态', render: function (r) { return ui.statusBadge(ui.STATUS.WORK_ORDER, r.status); } },
-        { key: 'signStatus', title: '签字', render: function (r) { return ui.esc(r.signStatus === 'SIGNED' ? '已签字' : '待签字'); } },
         { key: 'createdAt', title: '创建时间', render: function (r) { return ui.fmtTime(r.createdAt); } },
         { key: 'completedAt', title: '完成时间', render: function (r) { return r.completedAt ? ui.fmtTime(r.completedAt) : '-'; } },
         {
