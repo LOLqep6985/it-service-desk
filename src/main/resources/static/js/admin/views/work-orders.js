@@ -1,13 +1,15 @@
 /*!
  * 视图：工单业务 · 工单管理（#/work-orders）
- * 功能：工单列表（状态过滤/搜索/分页）+ 详情抽屉（报修信息/照片/流转/维修记录/耗材核价/签字留痕）
+ * 功能：工单/报修单统一列表（状态过滤/搜索/分页）+ 详情抽屉 + 报修单派单
+ * 说明：原「待受理报修单」「报修单历史」两个独立页面已并入本页下拉，
+ *       报修单状态项以 REPORT_ 前缀区分（REPORT_PENDING=待受理…）。
  */
 (function (global) {
   'use strict';
   var Admin = global.Admin = global.Admin || {};
   Admin.views = Admin.views || {};
 
-  var state = { rows: [], scope: 'ACTIVE', keyword: '', userMap: {} };
+  var state = { rows: [], reports: [], repairers: [], scope: 'ACTIVE', keyword: '', userMap: {} };
 
   /** 进行中 = 工单管理可见范围（待接单/维修中/待核价/待签字）；待报销/已报销属于工单历史 */
   var ACTIVE_STATUSES = ['ASSIGNED', 'IN_PROGRESS', 'PENDING_PRICING', 'PENDING_SIGN'];
@@ -20,11 +22,24 @@
     { value: 'PENDING_PRICING', label: '待核价' },
     { value: 'PENDING_SIGN', label: '待签字' },
     { value: 'PENDING_REIMBURSE', label: '待报销' },
-    { value: 'REIMBURSED', label: '已报销' }
+    { value: 'REIMBURSED', label: '已报销' },
+    // 报修单（含待受理，原「待受理报修单」「报修单历史」两页并入于此）
+    { value: 'REPORT_PENDING', label: '报修单 · 待受理' },
+    { value: 'REPORT_DISPATCHED', label: '报修单 · 已派单' },
+    { value: 'REPORT_COMPLETED', label: '报修单 · 已完成' },
+    { value: 'REPORT_REIMBURSED', label: '报修单 · 已报销' },
+    { value: 'REPORT_CANCELLED', label: '报修单 · 已取消' }
   ];
+
+  function isReportScope(v) { return String(v || '').indexOf('REPORT_') === 0; }
+  function reportStatusOf(scope) { return scope.slice('REPORT_'.length); }
 
   /** 列表默认只看进行中的工单，避免历史工单淹没当前任务 */
   function visibleRows() {
+    if (isReportScope(state.scope)) {
+      var st = reportStatusOf(state.scope);
+      return state.reports.filter(function (r) { return r.status === st; });
+    }
     if (state.scope === 'ALL') return state.rows;
     if (state.scope === 'ACTIVE') {
       return state.rows.filter(function (w) { return ACTIVE_STATUSES.indexOf(w.status) >= 0; });
@@ -34,8 +49,16 @@
 
   async function load() {
     // 一次取全量后在浏览器端按范围过滤（含「进行中」这种多状态区间；服务端分页为已知待优化项）
-    state.rows = await Admin.api.get('/api/work-orders') || [];
+    var results = await Promise.all([
+      Admin.api.get('/api/work-orders'),
+      Admin.api.get('/api/reports')
+    ]);
+    state.rows = results[0] || [];
+    state.reports = results[1] || [];
     try {
+      if (isReportScope(state.scope)) {
+        state.repairers = await Admin.api.get('/api/users', { role: 'REPAIRER' }) || [];
+      }
       await Admin.store.loadUsers(true);
       state.userMap = Admin.store.userMap();
     } catch (e) { /* 姓名映射失败不阻塞列表 */ }
@@ -48,6 +71,49 @@
 
   function reportNoOf(wo) {
     return wo.reportId ? ('R' + String(wo.reportId).padStart(6, '0')) : '-';
+  }
+
+  /* ---------------- 报修单派单（原「待受理报修单」页并入） ---------------- */
+  function dispatchDialog(report, onDone) {
+    var ui = Admin.ui;
+    var select = ui.h('select', { class: 'input' }, state.repairers.map(function (u) {
+      return ui.h('option', { value: u.id, text: u.name + '（' + (u.username || '') + '）' });
+    }));
+
+    var body = ui.h('div', null,
+      ui.h('div', {
+        style: { background: '#F6F4EE', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', marginBottom: '12px', lineHeight: '1.7' }
+      },
+        ui.h('div', null, ui.h('b', { text: report.reportNo || ('#' + report.id) }) + ' · ' + (report.departmentName || '')),
+        ui.h('div', { style: { color: '#6E7770' } }, '设备：' + (report.deviceName || '') + ' · 报修人：' + (report.reporterName || '')),
+        report.problemDesc ? ui.h('div', { style: { color: '#6E7770' } }, '描述：' + report.problemDesc) : null
+      ),
+      state.repairers.length
+        ? ui.h('div', { class: 'field' }, ui.h('label', { text: '指派维修人员' }), select)
+        : ui.h('div', { class: 'empty', text: '没有可用的维修人员，请先在用户管理中维护' })
+    );
+
+    Admin.ui.modal({
+      title: '派单给维修人员',
+      body: body,
+      actions: state.repairers.length ? [
+        { text: '取消' },
+        {
+          text: '确认派单', primary: true,
+          onClick: async function (close) {
+            var assigneeId = select.value;
+            close();
+            try {
+              await Admin.api.post('/api/reports/' + report.id + '/dispatch', null, { assigneeId: assigneeId });
+              Admin.ui.toast('已派单，工单已生成', 'success');
+              await onDone();
+            } catch (e) {
+              Admin.ui.toast(e.message, 'error');
+            }
+          }
+        }
+      ] : [{ text: '知道了', primary: true }]
+    });
   }
 
   /* ---------------- 详情抽屉 ---------------- */
@@ -187,31 +253,58 @@
   }
 
   /* ---------------- 页面 ---------------- */
+  var REPORT_COLUMNS = [
+    { key: 'reportNo', title: '报修单号', render: function (r) { return '<span class="cell-strong">' + Admin.ui.esc(r.reportNo || r.id) + '</span>'; } },
+    { key: 'departmentName', title: '科室', wrap: true },
+    { key: 'deviceName', title: '设备' },
+    { key: 'reporterName', title: '报修人' },
+    { key: 'problemDesc', title: '描述', wrap: true },
+    { key: 'departmentHead', title: '科室负责人' },
+    { key: 'status', title: '状态', render: function (r) { return Admin.ui.statusBadge(Admin.ui.STATUS.REPORT, r.status); } },
+    { key: 'createdAt', title: '提交时间', render: function (r) { return Admin.ui.fmtTime(r.createdAt); } },
+    {
+      title: '操作', render: function (r) {
+        if (r.status !== 'PENDING') return Admin.ui.h('span', { style: { color: '#6E7770', fontSize: '13px' }, text: '—' });
+        return Admin.ui.h('button', {
+          class: 'btn btn-primary btn-sm', text: '派单',
+          onclick: function () { dispatchDialog(r, function () { refresh(document.querySelector('.content') || document.body); }); }
+        });
+      }
+    }
+  ];
+
   async function paint(el) {
     var ui = Admin.ui;
     await load();
 
     var scopeSelect = ui.h('select', {
-      class: 'input input-sm', style: { width: '150px' },
+      class: 'input input-sm', style: { width: '160px' },
       onchange: function (e) { state.scope = e.target.value; refresh(el); }
     }, SCOPE_OPTIONS.map(function (o) {
       return ui.h('option', { value: o.value, text: o.label, selected: o.value === state.scope });
     }));
 
+    var showReports = isReportScope(state.scope);
     var list = ui.listSection({
-      title: '工单管理',
-      hint: '（派单后生成；默认只显示进行中）',
-      searchPlaceholder: '搜索工单号 / 标题 / 科室 / 维修工',
-      searchFields: ['id', 'title', 'departmentName'],
+      title: showReports ? '报修单' : '工单管理',
+      hint: showReports ? '（按状态筛选报修单，待受理可直接派单）' : '（派单后生成；默认只显示进行中）',
+      searchPlaceholder: showReports
+        ? '搜索报修单号 / 科室 / 设备 / 报修人'
+        : '搜索工单号 / 标题 / 科室 / 维修工',
+      searchFields: showReports
+        ? ['reportNo', 'departmentName', 'deviceName', 'reporterName', 'problemDesc', 'departmentHead']
+        : ['id', 'title', 'departmentName'],
       rows: visibleRows(),
-      empty: state.scope === 'ACTIVE' ? '当前没有进行中的工单' : '暂无工单',
+      empty: showReports
+        ? '暂无该状态的报修单'
+        : (state.scope === 'ACTIVE' ? '当前没有进行中的工单' : '暂无工单'),
       pageSize: 10,
       controls: scopeSelect,
       extra: ui.h('button', {
         class: 'btn btn-ghost btn-sm', text: '刷新',
         onclick: function () { refresh(el); }
       }),
-      columns: [
+      columns: showReports ? REPORT_COLUMNS : [
         { key: 'id', title: '工单ID', render: function (r) { return '<span class="cell-strong">#' + r.id + '</span>'; } },
         { key: 'reportId', title: '报修单号', render: reportNoOf },
         { key: 'title', title: '设备/标题', wrap: true },
@@ -254,7 +347,7 @@
       var ui = Admin.ui;
       el.appendChild(ui.h('div', { class: 'page-head' },
         ui.h('h2', { text: '工单管理' }),
-        ui.h('span', { class: 'sub', text: '按状态跟进工单，打开详情可核价耗材并查看签字留痕' })
+        ui.h('span', { class: 'sub', text: '工单与报修单统一入口：下拉切换状态（含待受理报修单），打开详情可核价耗材并查看签字留痕' })
       ));
       el.appendChild(ui.h('div', { id: 'wo-body' }, ui.skeletonLines(6)));
       await paint(el);
