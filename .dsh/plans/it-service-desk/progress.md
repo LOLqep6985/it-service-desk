@@ -773,3 +773,14 @@
   - Service Worker itsd-v16→v18（v17 为通栏布局修复轮）；新文件 guard.js/pwa-install.js 入 APP_SHELL
 - Maven 注意：CLI 需 -Dmaven.repo.local=.m2repo 且 JAVA_HOME=D:\DevTools\Java\jdk17（默认 JAVA_HOME 是 jdk8，会报「无效目标发行版 17」）
 - 下一步：用户复验（扫码入口 + 退出隔离 + PWA 引导条）→ git 提交 → 第 2 步通知渠道（待定企微 webhook 或短信）
+
+### S-026 | 2026-10-16：企业微信群机器人派单通知（第 2 步通知渠道落地）
+
+- 完成：
+  - WecomWebhookNotifier（@ConditionalOnProperty notify.wecom.webhook，留空=Bean 不创建=功能关闭）
+  - ReportService.dispatch 派单成功后异步推送维修群（markdown：工单摘要 + today.html 深链）；失败只记 WARN 不影响派单
+  - webhook 格式白名单校验（只允许 qyapi.weixin.qq.com 域）；深链域名来自 notify.public-host 配置
+  - 系统信息页「数据规模」卡新增通知渠道状态（企微机器人 已接入/未接入 + 对外地址）；删除旧「待办提醒」已知限制条目
+  - mvn test 18/18 通过；target/classes 已同步
+- 接入步骤（写给用户）：维修班企微群 → 群设置 → 群机器人 → 添加 → 复制 Webhook → 填 application.yml 的 notify.wecom.webhook 与 notify.public-host（手机可达的后端地址）→ 重启
+- 下一步：用户接真实 webhook 验证 → git 提交

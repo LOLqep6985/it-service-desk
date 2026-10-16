@@ -91,6 +91,13 @@ public class SystemInfoController {
         data.put("dbUrl", environment.getProperty("spring.datasource.url"));
         data.put("dbUsername", environment.getProperty("spring.datasource.username"));
 
+        // 通知渠道状态（不回传 webhook 地址本身，只报配置与否）
+        Map<String, Object> notify = new LinkedHashMap<>();
+        notify.put("wecomEnabled", environment.getProperty("notify.wecom.webhook") != null
+                && !environment.getProperty("notify.wecom.webhook").isBlank());
+        notify.put("publicHost", environment.getProperty("notify.public-host"));
+        data.put("notify", notify);
+
         Map<String, Object> counts = new LinkedHashMap<>();
         counts.put("users", count(userMapper.selectCount(null)));
         counts.put("departments", count(departmentMapper.selectCount(null)));

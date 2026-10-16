@@ -31,7 +31,6 @@
     ['科室端身份凭证', '科室端免登录，凭 localStorage 绑定科室（弱凭证）；内网可用，生产建议加 PIN 或设备白名单', 'warn'],
     ['自动化测试', '已有后端单元测试（SignType）与 jsdom 前端集成测试；Service/接口层仍以备忘式端到端脚本为主', 'muted'],
     ['PWA 安装条件', 'Service Worker 仅在 HTTPS 或 localhost 生效；内网 HTTP 可正常使用但无法「添加到主屏幕」', 'muted'],
-    ['待办提醒', '无消息推送/短信提醒，任务依赖列表查看（可后续接企业微信/钉钉机器人）', 'muted'],
     ['数据导出', '报销单未提供 PDF/Excel 导出，月度对账仍需人工整理', 'muted']
   ];
 
@@ -51,6 +50,22 @@
     var h = Math.floor(m / 60);
     if (h < 24) return h + ' 小时 ' + (m % 60) + ' 分钟';
     return Math.floor(h / 24) + ' 天 ' + (h % 24) + ' 小时';
+  }
+
+  /** 派单通知渠道状态：企微群机器人（配置驱动，未配置给出接入指引） */
+  function notifyRows(ui, notify) {
+    var n = notify || {};
+    var wecom = ui.h('span', null,
+      ui.badge(n.wecomEnabled ? '已接入' : '未接入', n.wecomEnabled ? 'success' : 'muted'),
+      ui.h('span', { style: { marginLeft: '6px', fontSize: '13px' }, text: n.wecomEnabled ? '企业微信群机器人 · 派单即推送维修群' : '未配置 notify.wecom.webhook，派单后无群提醒' })
+    );
+    var host = ui.h('span', null,
+      ui.h('span', { style: { fontSize: '13px' }, text: n.publicHost ? n.publicHost : '未配置 notify.public-host（通知里的链接不可点）' })
+    );
+    return ui.h('div', null,
+      ui.h('div', { class: 'detail-row' }, ui.h('span', { class: 'k', text: '企微机器人' }), wecom),
+      ui.h('div', { class: 'detail-row' }, ui.h('span', { class: 'k', text: '对外地址' }), host)
+    );
   }
 
   async function paint(el) {
@@ -88,7 +103,8 @@
           ['报修单', (c.reports || 0) + ' 单（待受理 ' + (c.pendingReports || 0) + '）'],
           ['工单', (c.workOrders || 0) + ' 单（已完成 ' + (c.completedWorkOrders || 0) + '）'],
           ['报销闭环', '签字 → 按月报销 → 财务回填'],
-          ['数据初始化', 'schema.sql + data.sql 幂等执行（重启不丢数据）']
+          ['数据初始化', 'schema.sql + data.sql 幂等执行（重启不丢数据）'],
+          ['派单通知', notifyRows(ui, info.notify)]
         ]))
       })
     ));
