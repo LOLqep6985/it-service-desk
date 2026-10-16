@@ -39,7 +39,10 @@ public class ReimbursementService {
 
     /**
      * 按月汇总待报销（PENDING_REIMBURSE，即已签字验收）工单生成报销单，按科室分组。
-     * 同一科室同一月份只生成一次；返回本次新生成的报销单列表。
+     * 规则（用户 2026-10-16 确认）：当月该科室已存在报销单（含未回填与已回填）→
+     *   ① 旧单标记 VOIDED（已作废）② 旧单内工单回退到 PENDING_SIGN（待签字）③ 新单正常生成。
+     *   理由：管理员重新点「生成报销单」说明流程要重走（如金额变动/工单调整），
+     *   旧单作废留痕、工单回退让它们重新被新单收进去走签字。
      */
     public List<Reimbursement> generate(String month) {
         YearMonth ym;
@@ -68,22 +71,25 @@ public class ReimbursementService {
             if (deptId == null) {
                 continue;
             }
-            Long existed = reimbursementMapper.selectCount(new LambdaQueryWrapper<Reimbursement>()
+            List<WorkOrder> deptOrders = entry.getValue();
+
+            // 作废该科室当月所有已存在报销单（未回填的与已回填的都作废）
+            List<Reimbursement> existing = reimbursementMapper.selectList(new LambdaQueryWrapper<Reimbursement>()
                     .eq(Reimbursement::getMonth, month)
                     .eq(Reimbursement::getDepartmentId, deptId));
-            if (existed != null && existed > 0) {
-                continue;
-            }
-            BigDecimal total = BigDecimal.ZERO;
-            for (WorkOrder wo : entry.getValue()) {
-                List<Consumable> cons = consumableMapper.selectList(new LambdaQueryWrapper<Consumable>()
-                        .eq(Consumable::getWorkOrderId, wo.getId()));
-                for (Consumable c : cons) {
-                    if (c.getUnitPrice() != null && c.getQuantity() != null) {
-                        total = total.add(c.getUnitPrice().multiply(BigDecimal.valueOf(c.getQuantity())));
-                    }
+            for (Reimbursement old : existing) {
+                if (old.getStatus() != ReimbursementStatus.VOIDED) {
+                    old.setStatus(ReimbursementStatus.VOIDED);
+                    reimbursementMapper.updateById(old);
+                    // 旧单内工单回退到待签字，让它们能被新单收进去重新走签字流程
+                    voidWorkOrdersOfReimbursement(old.getId());
                 }
             }
+
+            // 新单生成（收进本次所有 PENDING_REIMBURSE 工单 + 刚回退的工单——后者已变 PENDING_SIGN，不会被收）
+            // 注：回退后的工单需重新签字才会变回 PENDING_REIMBURSE，再次点生成才会并入。
+            //     这里只收仍是 PENDING_REIMBURSE 的工单（即本次触发 generate 的那批）。
+            BigDecimal total = calcOrdersTotal(deptOrders);
             Reimbursement r = new Reimbursement();
             r.setMonth(month);
             r.setDepartmentId(deptId);
@@ -92,7 +98,7 @@ public class ReimbursementService {
             r.setCreatedAt(LocalDateTime.now());
             reimbursementMapper.insert(r);
 
-            for (WorkOrder wo : entry.getValue()) {
+            for (WorkOrder wo : deptOrders) {
                 ReimbursementItem item = new ReimbursementItem();
                 item.setReimbursementId(r.getId());
                 item.setWorkOrderId(wo.getId());
@@ -102,6 +108,50 @@ public class ReimbursementService {
             created.add(r);
         }
         return created;
+    }
+
+    /** 把报销单内的工单从 PENDING_REIMBURSE 回退到 PENDING_SIGN（作废时用） */
+    private void voidWorkOrdersOfReimbursement(Long reimbursementId) {
+        List<ReimbursementItem> items = reimbursementItemMapper.selectList(
+                new LambdaQueryWrapper<ReimbursementItem>()
+                        .eq(ReimbursementItem::getReimbursementId, reimbursementId));
+        for (ReimbursementItem item : items) {
+            WorkOrder wo = workOrderMapper.selectById(item.getWorkOrderId());
+            if (wo != null && wo.getStatus() == WorkOrderStatus.PENDING_REIMBURSE) {
+                wo.setStatus(WorkOrderStatus.PENDING_SIGN);
+                workOrderMapper.updateById(wo);
+            }
+        }
+    }
+
+    /** 重算报销单总额 = 单内全部工单的已核价耗材合计 */
+    private void recalcTotal(Reimbursement r) {
+        List<ReimbursementItem> items = reimbursementItemMapper.selectList(new LambdaQueryWrapper<ReimbursementItem>()
+                .eq(ReimbursementItem::getReimbursementId, r.getId()));
+        List<WorkOrder> orders = new ArrayList<>();
+        for (ReimbursementItem it : items) {
+            WorkOrder wo = workOrderMapper.selectById(it.getWorkOrderId());
+            if (wo != null) {
+                orders.add(wo);
+            }
+        }
+        r.setTotalAmount(calcOrdersTotal(orders));
+        reimbursementMapper.updateById(r);
+    }
+
+    /** 一批工单的已核价耗材金额合计 */
+    private BigDecimal calcOrdersTotal(List<WorkOrder> orders) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (WorkOrder wo : orders) {
+            List<Consumable> cons = consumableMapper.selectList(new LambdaQueryWrapper<Consumable>()
+                    .eq(Consumable::getWorkOrderId, wo.getId()));
+            for (Consumable c : cons) {
+                if (c.getUnitPrice() != null && c.getQuantity() != null) {
+                    total = total.add(c.getUnitPrice().multiply(BigDecimal.valueOf(c.getQuantity())));
+                }
+            }
+        }
+        return total;
     }
 
     /** 报销单留存期（天）：仅展示近 6 个月，过期数据不返回（不物理删除，保留可追溯） */

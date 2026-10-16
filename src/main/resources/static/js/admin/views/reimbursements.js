@@ -13,7 +13,8 @@
     { value: '', label: '全部状态' },
     { value: 'PENDING_SIGN', label: '待签字' },
     { value: 'PENDING_REIMBURSE', label: '待报销' },
-    { value: 'REIMBURSED', label: '已报销' }
+    { value: 'REIMBURSED', label: '已报销' },
+    { value: 'VOIDED', label: '已作废' }
   ];
 
   function currentMonth() {
@@ -40,7 +41,10 @@
     try {
       var created = await Admin.api.post('/api/reimbursements/generate', null, { month: month });
       var list = created || [];
-      ui.toast(list.length ? ('已生成 ' + list.length + ' 个科室的报销单') : '该月份没有新的可报销工单（或已生成过）', list.length ? 'success' : 'warn');
+      ui.toast(list.length
+        ? ('已生成 ' + list.length + ' 张新报销单；同科室当月旧单已作废、其内工单回退到待签字')
+        : '该月份没有新的可报销工单（已签字工单才可生成报销单）',
+        list.length ? 'success' : 'warn');
       await refresh(el);
     } catch (e) {
       ui.toast(e.message, 'error');

@@ -3,7 +3,8 @@ package com.itservice.desk.model;
 public enum ReimbursementStatus {
     PENDING_SIGN("待签字"),
     PENDING_REIMBURSE("待报销"),
-    REIMBURSED("已报销");
+    REIMBURSED("已报销"),
+    VOIDED("已作废");
 
     private final String label;
 
