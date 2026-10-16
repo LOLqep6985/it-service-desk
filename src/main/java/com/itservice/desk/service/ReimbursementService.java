@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.itservice.desk.mapper.*;
 import com.itservice.desk.model.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -260,5 +261,128 @@ public class ReimbursementService {
                 workOrderService.reimburse(wo.getId());
             }
         }
+    }
+
+    /* ==================== 按科室分池（2026-10-16 报销单设计第 1 步）==================== */
+
+    /**
+     * 待报销池摘要：按科室聚合"有待报销工单 或 有未结报销单"的科室，只返回有数据的科室。
+     * 每个科室返回：科室名、待报销工单数、各状态报销单数（待签字/待报销/已退回）、最近更新时间。
+     */
+    public List<Map<String, Object>> poolSummary() {
+        LocalDateTime since = LocalDateTime.now().minusDays(RETENTION_DAYS);
+
+        // 1. 有待报销工单的科室 + 数量
+        List<WorkOrder> pending = workOrderMapper.selectList(new LambdaQueryWrapper<WorkOrder>()
+                .eq(WorkOrder::getStatus, WorkOrderStatus.PENDING_REIMBURSE)
+                .orderByAsc(WorkOrder::getDepartmentId));
+        Map<Long, Long> pendingCountByDept = new LinkedHashMap<>();
+        Map<Long, LocalDateTime> latestByDept = new HashMap<>();
+        for (WorkOrder wo : pending) {
+            if (wo.getDepartmentId() == null) continue;
+            pendingCountByDept.merge(wo.getDepartmentId(), 1L, Long::sum);
+            LocalDateTime s = wo.getSignedAt() != null ? wo.getSignedAt() : wo.getCreatedAt();
+            if (s != null) {
+                latestByDept.merge(wo.getDepartmentId(), s, (a, b) -> a.isAfter(b) ? a : b);
+            }
+        }
+
+        // 2. 近 6 个月有报销单的科室 + 按状态计数
+        List<Reimbursement> reimbs = reimbursementMapper.selectList(new LambdaQueryWrapper<Reimbursement>()
+                .ge(Reimbursement::getCreatedAt, since));
+        Map<Long, Map<String, Long>> reimbByDept = new HashMap<>();
+        for (Reimbursement r : reimbs) {
+            if (r.getDepartmentId() == null) continue;
+            Map<String, Long> m = reimbByDept.computeIfAbsent(r.getDepartmentId(), k -> new HashMap<>());
+            m.merge(r.getStatus().name(), 1L, Long::sum);
+            LocalDateTime c = r.getCreatedAt();
+            if (c != null) {
+                latestByDept.merge(r.getDepartmentId(), c, (a, b) -> a.isAfter(b) ? a : b);
+            }
+        }
+
+        // 3. 合并：有待报销工单 或 有报销单 的科室才出现
+        Set<Long> deptIds = new LinkedHashSet<>();
+        deptIds.addAll(pendingCountByDept.keySet());
+        deptIds.addAll(reimbByDept.keySet());
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Long deptId : deptIds) {
+            Department dept = departmentMapper.selectById(deptId);
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("departmentId", deptId);
+            m.put("departmentName", dept == null ? ("科室#" + deptId) : dept.getName());
+            m.put("pendingWorkOrders", pendingCountByDept.getOrDefault(deptId, 0L));
+            Map<String, Long> rs = reimbByDept.getOrDefault(deptId, Collections.emptyMap());
+            m.put("pendingSignCount", rs.getOrDefault("PENDING_SIGN", 0L));
+            m.put("pendingReimburseCount", rs.getOrDefault("PENDING_REIMBURSE", 0L));
+            m.put("reimbursedCount", rs.getOrDefault("REIMBURSED", 0L));
+            m.put("voidedCount", rs.getOrDefault("VOIDED", 0L));
+            m.put("latestAt", latestByDept.get(deptId));
+            result.add(m);
+        }
+        return result;
+    }
+
+    /**
+     * 从待报销池勾选工单生成报销单（按科室分池模式）。
+     * 校验：工单属于指定科室、状态为待报销、未被其他报销单占用。生成后工单被关联进新单（状态机不变，仍 PENDING_REIMBURSE，
+     * 由报销单明细记录归属，前端从池中移出展示）。
+     */
+    @Transactional
+    public Reimbursement generateFromPool(Long departmentId, List<Long> workOrderIds, Long operatorId) {
+        if (departmentId == null) {
+            throw new IllegalArgumentException("请选择科室");
+        }
+        if (workOrderIds == null || workOrderIds.isEmpty()) {
+            throw new IllegalArgumentException("请至少勾选一条待报销工单");
+        }
+
+        // 同一科室同一时间最多允许一张"待护士长确认"报销单
+        Long pendingSignCount = reimbursementMapper.selectCount(new LambdaQueryWrapper<Reimbursement>()
+                .eq(Reimbursement::getDepartmentId, departmentId)
+                .eq(Reimbursement::getStatus, ReimbursementStatus.PENDING_SIGN));
+        if (pendingSignCount != null && pendingSignCount > 0) {
+            throw new IllegalArgumentException("该科室已有待护士长确认的报销单，请先等签字完成或撤回后再生成新单");
+        }
+
+        // 校验工单：归属、状态、未被占用
+        List<WorkOrder> orders = new ArrayList<>();
+        for (Long woId : workOrderIds) {
+            WorkOrder wo = workOrderMapper.selectById(woId);
+            if (wo == null) {
+                throw new IllegalArgumentException("工单 #" + woId + " 不存在");
+            }
+            if (!departmentId.equals(wo.getDepartmentId())) {
+                throw new IllegalArgumentException("工单 #" + woId + " 不属于该科室");
+            }
+            if (wo.getStatus() != WorkOrderStatus.PENDING_REIMBURSE) {
+                throw new IllegalArgumentException("工单 #" + woId + " 不是待报销状态");
+            }
+            Long occupied = reimbursementItemMapper.selectCount(new LambdaQueryWrapper<ReimbursementItem>()
+                    .eq(ReimbursementItem::getWorkOrderId, woId));
+            if (occupied != null && occupied > 0) {
+                throw new IllegalArgumentException("工单 #" + woId + " 已被其他报销单占用，不可重复报销");
+            }
+            orders.add(wo);
+        }
+
+        BigDecimal total = calcOrdersTotal(orders);
+        Reimbursement r = new Reimbursement();
+        r.setMonth(YearMonth.now().toString());  // 勾选模式不强制按月，用当前月份做归属标识
+        r.setDepartmentId(departmentId);
+        r.setTotalAmount(total);
+        r.setStatus(ReimbursementStatus.PENDING_SIGN);
+        r.setCreatedAt(LocalDateTime.now());
+        reimbursementMapper.insert(r);
+
+        for (WorkOrder wo : orders) {
+            ReimbursementItem item = new ReimbursementItem();
+            item.setReimbursementId(r.getId());
+            item.setWorkOrderId(wo.getId());
+            item.setCreatedAt(LocalDateTime.now());
+            reimbursementItemMapper.insert(item);
+        }
+        return r;
     }
 }

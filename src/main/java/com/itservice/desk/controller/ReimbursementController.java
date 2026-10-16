@@ -5,14 +5,12 @@ import com.itservice.desk.dto.ApiResponse;
 import com.itservice.desk.dto.ReimbursementSignRequest;
 import com.itservice.desk.mapper.DepartmentBindingMapper;
 import com.itservice.desk.mapper.UserMapper;
-import com.itservice.desk.model.DepartmentBinding;
-import com.itservice.desk.model.Reimbursement;
-import com.itservice.desk.model.User;
-import com.itservice.desk.model.UserRole;
+import com.itservice.desk.model.*;
 import com.itservice.desk.service.ReimbursementService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/reimbursements")
@@ -44,6 +42,50 @@ public class ReimbursementController {
         try {
             List<Reimbursement> created = reimbursementService.generate(month);
             return ApiResponse.ok(created);
+        } catch (IllegalArgumentException e) {
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    /** 待报销池摘要：按科室聚合，只返回有数据的科室（管理员/调度员/财务可查看） */
+    @GetMapping("/pool")
+    public ApiResponse pool(@RequestHeader(value = "X-Token", required = false) String token) {
+        User user = resolveUser(token);
+        if (user == null) {
+            return ApiResponse.error(401, "未登录或登录已过期");
+        }
+        if (!isReimbursementStaff(user)) {
+            return ApiResponse.error(403, "无权限查看报销池");
+        }
+        return ApiResponse.ok(reimbursementService.poolSummary());
+    }
+
+    /** 从待报销池勾选工单生成报销单（管理员/调度员） */
+    @PostMapping("/generate-from-pool")
+    public ApiResponse generateFromPool(@RequestBody Map<String, Object> body,
+                                         @RequestHeader(value = "X-Token", required = false) String token) {
+        User user = resolveUser(token);
+        if (user == null) {
+            return ApiResponse.error(401, "未登录或登录已过期");
+        }
+        if (!isOpsStaff(user)) {
+            return ApiResponse.error(403, "无权限：只有管理员或调度员可以生成报销单");
+        }
+        Object deptIdObj = body.get("departmentId");
+        Object idsObj = body.get("workOrderIds");
+        if (deptIdObj == null) {
+            return ApiResponse.error("缺少科室参数");
+        }
+        Long departmentId = Long.valueOf(String.valueOf(deptIdObj));
+        List<Long> workOrderIds = new java.util.ArrayList<>();
+        if (idsObj instanceof List) {
+            for (Object o : (List<?>) idsObj) {
+                workOrderIds.add(Long.valueOf(String.valueOf(o)));
+            }
+        }
+        try {
+            Reimbursement r = reimbursementService.generateFromPool(departmentId, workOrderIds, user.getId());
+            return ApiResponse.ok(r);
         } catch (IllegalArgumentException e) {
             return ApiResponse.error(e.getMessage());
         }
