@@ -904,3 +904,22 @@
 - 验证前状态：report/work_order/consumable/reimbursement/reimbursement_item/department_binding 均 0 行；uploads 0 文件；8080 空闲无 java 进程
 - 语法校验：全部改动文件 node --check 通过；target/classes 已同步
 - 下一步：用户从 IDEA 启动 8080 走端到端验证（报修→派单→接单自动跳详情→维修→核价→签字→报销闭环 + 工单管理下拉 + 科室端抬头）
+### S-038 | 2026-10-16：报销单分池+撤回退回+报修端同步+无耗材跳核价+报修防抖+清库
+
+- 报销单设计三步落地（依据用户《报销单设计》文档）：
+  1. **分池+勾选生成**（D-026）：ReimbursementService 加 poolSummary() + generateFromPool()，reimbursements.js 重写为科室池卡片网格，删除按月一键生成入口
+  2. **撤回/退回**（D-027）：ReimbursementStatus 加 RETURNED；revoke/returnByNurse/returnByFinance 三个方法 + 三个接口；generateFromPool 占用校验调整（RETURNED/VOIDED 放行）；前端按 status+role 渲染撤回/财务回填/财务退回；科室端签字弹窗加「退回管理员」
+  3. **报修端同步**（D-027）：report.html loadHistory 并发拉报销单+逐张详情建反查索引，已完成工单行展示「报销单 #N · 状态 · 月份」
+- 用户两需求：
+  - **无耗材跳核价**：submitRepair 改为有耗材→PENDING_PRICING，无耗材→PENDING_SIGN 直接跳过核价
+  - **报修 10 秒防抖**：report.html 加 SUBMIT_COOLDOWN=10 硬冷却（成功失败都拦）+ lastSubmitAt 时间戳硬拦
+- UI 精简（用户判断）：
+  - 工单管理下拉默认「全部状态」，删「进行中」多状态区间项
+  - 删掉下拉里的报修单项（后台只管工单）；恢复「待受理报修单」为唯一派单入口
+  - 工单管理表格删「签字」列（状态列已隐含，冗余）
+- 身份覆盖 bug 修复（D-025）：同浏览器多账号登录静默覆盖；登录页静默覆盖旧登录态（撤掉 confirm），后台加 storage 事件身份看守
+- 修 report.html 报修记录崩溃 bug：reimbJson = await reimbJson.ok（自引用 ReferenceError）→ reimbRes.ok
+- 清库：备份 business-data-20261016-212234.sql + orphan-uploads-20261016-212234（16 图）；TRUNCATE 6 表；保留 sys_user 6、department 68
+- 决策原则落盘：D-024 报修单/工单清单归属（后台不重复展示报修单）
+- 验证状态：用户开始走全流程，中途遇到报修记录加载崩溃（已修）+ 工单管理签字列冗余（已删）；企微群机器人因单微信号无法同时验证管理员+维修工，**暂缓**，待日后条件具备再接
+- 下一会话起点：用户继续全流程验证 → 验证通过后进入 Day 7（README/简历）或接企微
