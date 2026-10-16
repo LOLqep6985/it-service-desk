@@ -55,9 +55,31 @@
   /** 派单通知渠道状态：企微群机器人（配置驱动，未配置给出接入指引） */
   function notifyRows(ui, notify) {
     var n = notify || {};
+    var testBtn = ui.h('button', {
+      class: 'btn btn-ghost btn-sm', text: '发送测试通知',
+      onclick: async function () {
+        testBtn.disabled = true;
+        testBtn.textContent = '发送中...';
+        try {
+          await Admin.api.post('/api/system/notify-test');
+          ui.toast('测试通知已发送，请查看企业微信群', 'success');
+        } catch (e) {
+          ui.toast(e.message || '发送失败', 'error');
+        }
+        testBtn.disabled = false;
+        testBtn.textContent = '发送测试通知';
+      }
+    });
     var wecom = ui.h('span', null,
-      ui.badge(n.wecomEnabled ? '已接入' : '未接入', n.wecomEnabled ? 'success' : 'muted'),
-      ui.h('span', { style: { marginLeft: '6px', fontSize: '13px' }, text: n.wecomEnabled ? '企业微信群机器人 · 派单即推送维修群' : '未配置 notify.wecom.webhook，派单后无群提醒' })
+      ui.badge(n.wecomEnabled ? '已接通' : (n.wecomConfigured ? '配置无效' : '未接入'),
+        n.wecomEnabled ? 'success' : (n.wecomConfigured ? 'danger' : 'muted')),
+      ui.h('span', {
+        style: { marginLeft: '6px', fontSize: '13px' },
+        text: n.wecomEnabled ? '企业微信群机器人 · 派单即推送维修群'
+          : (n.wecomConfigured ? '已填 webhook 但地址格式不对（须为 qyapi.weixin.qq.com 群机器人地址）'
+            : '未配置 notify.wecom.webhook，派单后无群提醒')
+      }),
+      n.wecomConfigured ? testBtn : null
     );
     var host = ui.h('span', null,
       ui.h('span', { style: { fontSize: '13px' }, text: n.publicHost ? n.publicHost : '未配置 notify.public-host（通知里的链接不可点）' })
@@ -194,11 +216,13 @@
   /** 三端入口卡：二维码由后端 /api/qr 按当前访问 Host 生成，扫码即达同机部署的入口页 */
   function entryCard(ui) {
     var origin = global.location.origin;
+    // <img> 请求带不了自定义请求头，token 走查询参数（后端两者都接受）
+    var token = (Admin.store.currentUser() || {}).token || '';
     function entry(title, sub, path, note) {
       return ui.h('div', { class: 'qr-entry' },
         ui.h('img', {
           class: 'qr-img', alt: title + '二维码',
-          src: '/api/qr?path=' + encodeURIComponent(path)
+          src: '/api/qr?path=' + encodeURIComponent(path) + '&token=' + encodeURIComponent(token)
         }),
         ui.h('div', { class: 'qr-meta' },
           ui.h('div', { class: 'qr-title', text: title }),

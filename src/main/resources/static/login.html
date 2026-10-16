@@ -66,14 +66,25 @@
   </div>
 </div>
 <script>
+  const usernameEl = document.getElementById('username');
+  const passwordEl = document.getElementById('password');
   const loginBtn = document.getElementById('loginBtn');
   const msg = document.getElementById('msg');
-  loginBtn.addEventListener('click', async () => {
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value;
+  let submitting = false;
+
+  async function doLogin() {
+    if (submitting) return;              // 防重复提交（连点/连按回车）
+    const username = usernameEl.value.trim();
+    const password = passwordEl.value;
     msg.textContent = '';
-    if (!username || !password) { msg.textContent = '请输入用户名和密码'; return; }
-    msg.textContent = '登录中...';
+    if (!username || !password) {
+      msg.textContent = '请输入用户名和密码';
+      (username ? passwordEl : usernameEl).focus();
+      return;
+    }
+    submitting = true;
+    loginBtn.disabled = true;
+    loginBtn.textContent = '登录中...';
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -81,22 +92,48 @@
         body: JSON.stringify({ username, password })
       });
       const json = await res.json();
-      if (json.code !== 0) { msg.textContent = json.message; return; }
+      if (json.code !== 0) {
+        msg.textContent = json.message;
+        submitting = false;
+        loginBtn.disabled = false;
+        loginBtn.textContent = '登 录';
+        return;
+      }
       localStorage.setItem('itsdUser', JSON.stringify(json.data));
       const roleCode = json.data.roleCode;
-const uid = json.data.userId;
-if (roleCode === 'REPORTER') {
-  window.location.href = 'create.html?userId=' + uid;
-} else if (roleCode === 'REPAIRER') {
-  window.location.href = 'today.html?userId=' + uid;
-} else {
-  // 管理员 / 调度员 / 财务 → PC 管理后台（后台再按角色渲染菜单）
-  window.location.href = 'admin.html';
-}
+      const uid = json.data.userId;
+      if (roleCode === 'REPORTER') {
+        window.location.href = 'create.html?userId=' + uid;
+      } else if (roleCode === 'REPAIRER') {
+        window.location.href = 'today.html?userId=' + uid;
+      } else {
+        // 管理员 / 调度员 / 财务 → PC 管理后台（后台再按角色渲染菜单）
+        window.location.href = 'admin.html';
+      }
     } catch (e) {
       msg.textContent = '网络错误：' + e.message;
+      submitting = false;
+      loginBtn.disabled = false;
+      loginBtn.textContent = '登 录';
     }
+  }
+
+  loginBtn.addEventListener('click', doLogin);
+
+  // 回车登录：两个输入框内按回车都能提交；信息不全时跳到缺的那个框
+  [usernameEl, passwordEl].forEach(function (el) {
+    el.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' && e.keyCode !== 13) return;
+      e.preventDefault();
+      if (usernameEl.value.trim() && passwordEl.value) {
+        doLogin();
+      } else {
+        (usernameEl.value.trim() ? passwordEl : usernameEl).focus();
+      }
+    });
   });
+
+  usernameEl.focus();
 </script>
 <script>
   // PWA：注册 Service Worker（HTTPS 或 localhost 下生效）
