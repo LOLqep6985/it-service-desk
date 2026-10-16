@@ -46,8 +46,8 @@
     {
       key: 'orders', title: '工单业务管理', icon: 'clipboard', roles: ['ADMIN', 'DISPATCHER'],
       items: [
-        // 「待受理报修单」「报修单历史」已并入工单管理页的状态下拉（REPORT_* 项）
-        { path: '/work-orders', title: '工单管理', icon: 'wrench', badge: 'pendingReports', badgeTone: 'tone-danger' }
+        { path: '/reports/pending', title: '待受理报修单', icon: 'clipboard', badge: 'pendingReports', badgeTone: 'tone-danger' },
+        { path: '/work-orders', title: '工单管理', icon: 'wrench', badge: 'activeWork', badgeTone: 'tone-warn' }
       ]
     },
     {

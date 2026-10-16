@@ -43,7 +43,7 @@
         })
       ),
       Admin.ui.h('div', { class: 'hero-actions' },
-        heroBtn('去派单', '/work-orders'),
+        heroBtn('去派单', '/reports/pending'),
         heroBtn('工单管理', '/work-orders'),
         heroBtn('月度报销单', '/reimbursements'),
         heroBtn('科室索引', '/departments')
@@ -99,7 +99,7 @@
       hint: '（' + list.length + '）',
       extra: ui.h('button', {
         class: 'btn btn-primary btn-sm', text: '去派单',
-        onclick: function () { Admin.router.navigate('/work-orders'); }
+        onclick: function () { Admin.router.navigate('/reports/pending'); }
       }),
       body: body
     });
