@@ -204,10 +204,9 @@ public class WorkOrderService {
         if (wo.getStatus() != WorkOrderStatus.IN_PROGRESS) {
             throw new IllegalArgumentException("只有维修中的工单可以提交关闭");
         }
-        // 维修提交关闭 → 待核价（等待管理员核价填金额）
-        wo.setStatus(WorkOrderStatus.PENDING_PRICING);
         wo.setRepairRecord(record);
-        workOrderMapper.updateById(wo);
+        // 先落耗材：无耗材则无需管理员核价，直接进入待签字（跳过 PENDING_PRICING）
+        boolean hasConsumables = false;
         if (consumables != null) {
             for (ConsumableItem item : consumables) {
                 if (item.getName() == null || item.getName().isBlank()) {
@@ -221,8 +220,12 @@ public class WorkOrderService {
                 c.setIsIou(Boolean.TRUE.equals(item.getIsIou()));
                 c.setIouNo(item.getIouNo());
                 consumableMapper.insert(c);
+                hasConsumables = true;
             }
         }
+        // 有耗材 → 待核价（管理员填金额）；无耗材 → 待签字（跳过核价，科室直接验收）
+        wo.setStatus(hasConsumables ? WorkOrderStatus.PENDING_PRICING : WorkOrderStatus.PENDING_SIGN);
+        workOrderMapper.updateById(wo);
         return wo;
     }
 

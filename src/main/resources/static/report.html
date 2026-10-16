@@ -283,6 +283,8 @@
   const submitMsg = document.getElementById('submitMsg');
   const submitBtn = document.getElementById('submitBtn');
   const DUPLICATE_MINUTES = 1;   // 仅防手抖重复点击；重复判定口径见后端 ReportService（同科室+设备+报修人+描述，3 分钟）
+  const SUBMIT_COOLDOWN = 10;     // 提交硬冷却（秒）：无论成功失败，10 秒内禁止再次提交（防连点/网络重试）
+  let lastSubmitAt = 0;           // 上次提交时间戳（ms）；点击时距此 <10 秒直接拦下
   let countdownTimer = null;
   let departmentId = Number(localStorage.getItem('itsdDepartmentId')) || null;
   let selectedDeptId = null;   // 三级联动当前选中的科室（点击「绑定」后落库到 localStorage）
@@ -399,12 +401,21 @@
   });
 
   submitBtn.addEventListener('click', async () => {
+    // 10 秒硬冷却：无论成功失败，距上次提交 <10 秒直接拦下（防连点/网络重试）
+    const now = Date.now();
+    if (lastSubmitAt && (now - lastSubmitAt) < SUBMIT_COOLDOWN * 1000) {
+      const remain = Math.ceil((SUBMIT_COOLDOWN * 1000 - (now - lastSubmitAt)) / 1000);
+      submitMsg.style.color = '#B3261E';
+      submitMsg.textContent = '提交过于频繁，请等 ' + remain + ' 秒后再试';
+      return;
+    }
     const reporterName = document.getElementById('reporterName').value.trim();
     const deviceName = document.getElementById('deviceName').value;
     const problemDesc = document.getElementById('problemDesc').value.trim();
     const departmentHead = document.getElementById('departmentHead').value.trim();
     if (!reporterName || !deviceName) { submitMsg.textContent = '请填写报修人姓名和设备名称'; return; }
     submitMsg.textContent = '';
+    lastSubmitAt = Date.now();
     submitBtn.disabled = true;
     submitBtn.textContent = '提交中...';
     try {
@@ -415,9 +426,10 @@
       });
       const json = await res.json();
       if (json.code !== 0) {
+        submitMsg.style.color = '#B3261E';
         submitMsg.textContent = json.message;
-        submitBtn.disabled = false;
-        submitBtn.textContent = '提交报修单';
+        // 失败也启动 10 秒冷却（防网络重试连点），不立即恢复按钮
+        startCountdown(SUBMIT_COOLDOWN);
         return;
       }
       resetForm();
@@ -427,9 +439,10 @@
       loadAccept();
       loadHistory();
     } catch (err) {
+      submitMsg.style.color = '#B3261E';
       submitMsg.textContent = '网络错误：' + err.message;
-      submitBtn.disabled = false;
-      submitBtn.textContent = '提交报修单';
+      // 网络异常也启动 10 秒冷却
+      startCountdown(SUBMIT_COOLDOWN);
     }
   });
 
@@ -451,9 +464,14 @@
         submitBtn.textContent = '提交报修单';
         return;
       }
-      const m = String(Math.floor(seconds / 60)).padStart(2, '0');
-      const s = String(seconds % 60).padStart(2, '0');
-      submitBtn.textContent = '请勿重复提交（' + m + ':' + s + '）';
+      // 短冷却（≤60 秒）只显示秒数；长冷却显示分:秒
+      if (seconds >= 60) {
+        const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+        const s = String(seconds % 60).padStart(2, '0');
+        submitBtn.textContent = '请勿重复提交（' + m + ':' + s + '）';
+      } else {
+        submitBtn.textContent = '请勿重复提交（' + seconds + ' 秒）';
+      }
     }, 1000);
   }
 
