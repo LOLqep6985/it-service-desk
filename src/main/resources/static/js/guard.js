@@ -1,7 +1,7 @@
 /*!
  * 端守卫（共用）：三端账户隔离 + 浏览器返回键防重入
- * - 「三端」按账户体系划分：admin.html（管理员/调度/财务）、today.html+detail.html（维修工）、
- *   create.html（报修人）。科室端 report.html 免登录工作机，不在账户体系内。
+ * - 按账户体系划分：admin.html（管理员/调度/财务）、today.html+detail.html（维修工）。
+ *   科室报修端 report.html 免登录工作机，不在账户体系内（登录式报修 create.html 已移除，D-033）。
  * - 规则：登录后角色决定唯一可达端；在错误端打开时【不跳转到其他端】，
  *   提示后强制退出回登录页 —— login.html 是唯一的分发点。
  *
@@ -20,8 +20,7 @@
     ADMIN: 'admin',
     DISPATCHER: 'admin',
     FINANCE: 'admin',
-    REPAIRER: 'repairer',
-    REPORTER: 'reporter'
+    REPAIRER: 'repairer'
   };
 
   var restoreWatchInstalled = false;
@@ -40,7 +39,7 @@
 
   /**
    * 校验当前端登录态。
-   * @param endpoint 'admin' | 'repairer' | 'reporter'
+   * @param endpoint 'admin' | 'repairer'
    * @param silent   true = 静默跳转（bfcache 恢复场景，不弹提示）
    * @returns {object|null} 合法用户对象；否则已跳转并返回 null
    */

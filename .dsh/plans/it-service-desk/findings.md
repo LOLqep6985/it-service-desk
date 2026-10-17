@@ -897,3 +897,56 @@ department_binding.is_head = 1 (同科室)                        ──►  护
 - 姓名仅出现在消息正文文案里（"X 报修，请签字确认"），**不参与任何身份判断**。
 
 **同时修掉一个静默失败**：`POST /api/bindings/self` 原校验 `deviceId.length() >= 8`，短 ID 直接返回错误但前端 `registerSelf` 失败不抛出 → 设备永远收不到消息且无任何提示。已放宽为 4–64 并在响应里给出具体原因。
+## D-032 | 2026-10-17：登录页补上「返回键 = 退出」语义（补 D-023 漏掉的一半）
+
+> 原话（用户纠正）："我不是说过吗？浏览器返回键和退出是一样的操作，你没改吗？"
+
+**根因（不是回归，是最初就没做全）**：`D-023`/`S-035` 的"返回键防重入"只覆盖了**已登录端**——
+`guard.js` 的 `pageshow.persisted` 重校验（today/detail/create）+ `admin/app.js` 同款逻辑。
+**登录页 `login.html` 自己一行处理都没有**，所以：
+
+1. 从已登录端按返回键回到 `login.html` 时，`localStorage.itsdUser` 仍在 → **"返回" ≠ "退出"**，凭证没清。
+2. 返回键命中 bfcache 时脚本快照不重跑 → 界面永久停在 `登录中...`（用户截图即此现象）。
+
+**修复（只改 `static/login.html`）**：新增 `enterLoggedOutState(clearPassword)`，定义「到达登录页 = 未登录」：
+
+| 触发 | 行为 |
+|---|---|
+| 正常进入登录页 | 清 `itsdUser` + 复位按钮**（不清密码框，避免抹掉浏览器自动填充）** |
+| `pageshow` 且 `persisted=true`（返回/前进键） | 清 `itsdUser` + 复位按钮 + **清空密码框**（共用工作机不留残留凭证） |
+
+配合原有设计：登录成功仍用 `location.href` 跳转（保留返回键回登录页的能力），
+一旦回到登录页即被清除登录态；再按**前进键**时，已登录端的 `pageshow.persisted` 校验会因无 token 而踢回登录页。
+两个方向都闭环，语义统一为「返回键 = 退出」。
+
+**验证**：jsdom 5 项全 PASS（正常进入清登录态 / 返回键清登录态 / 按钮复位 / 密码清空 / 演示账号点击填入回归）。
+
+**生效提醒**：静态资源打包在 jar/classpath 内，**IDEA 里必须重新 build 或重启**才会看到改动；
+部署侧已重新打包 jar。
+## D-033 | 2026-10-17：移除「登录式报修」通道（报修人账号与 create.html）
+
+> 原话（用户）："你不觉得王护士那个演示账号有些多余吗？将相应的按钮功能去掉。"
+
+**判断依据**：科室报修已有**免登录入口** `report.html`（扫码即用、按设备绑定科室），
+而 `reporter1` 账号唯一的用途是登录后进 `create.html` 做「PC 登录式报修」——
+两条并存的报修入口属于重复路径，且登录式那条还要求护士记账号密码。
+
+**移除清单**
+| 位置 | 处理 |
+|---|---|
+| `static/create.html` | **文件删除**（登录式报修页，登录报修入口已废） |
+| `login.html` | 删「报修人」演示账号行；`REPORTER` 分支改为**拒绝登录**并提示改用免登录入口（不再跳 create.html） |
+| `data.sql` | 删 reporter1 账号 |
+| `sql/2026-10-17-drop-reporter-login.sql` | 一次性迁移：`DELETE FROM sys_user WHERE username='reporter1'`（本机已执行） |
+| `js/guard.js` | 移除 `REPORTER: 'reporter'` 端点映射与相关注释 |
+| `service-worker.js` | `APP_SHELL` 去 `/create.html`；缓存 `itsd-v22`→`itsd-v23` |
+| `admin/views/users.js` | 角色筛选去「报修人」；指标卡「报修人」→「财务」（保持 4 卡布局）；副标题改为"科室报修免登录，不占账号" |
+| `admin/views/system.js` | 系统信息页演示账号去「报修人」行 |
+| 注释 | `department-cascade.js`、`report.html` 中"与 create.html 共用"的失效注释清理 |
+
+**有意保留（不删）**
+- `UserRole.REPORTER` 枚举、`WorkOrderAccess` 的 REPORTER 只读分支、`POST /api/reports`（登录式创建）与 `ReportCreateRequest`：
+  现在**没有任何账号能登进来**，属不可达代码；但删除会牵动 `WorkOrderAccessTest` 与权限矩阵，收益低、风险高，留待统一清理。
+- `report.reporter_name` / 科室端「报修人姓名」输入框：姓名仍是业务字段（消息文案要显示是谁报的），与"身份识别只认设备号"（D-031）不冲突。
+
+**影响**：账号从 6 个降为 5 个（admin / dispatcher / repairer1 / repairer2 / finance）。

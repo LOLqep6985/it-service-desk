@@ -105,7 +105,7 @@
     .bind-row input { flex: 1; }
     .bind-row button { width: 90px; background: var(--c-primary); color: #fff; border: none; border-radius: 8px; font-size: 14px; }
 
-    /* 三级联动（院区→楼栋→科室）的 .picker / .floor-chip 样式见 /css/dept-cascade.css（与 create.html 共用） */
+    /* 三级联动（院区→楼栋→科室）的 .picker / .floor-chip 样式见 /css/dept-cascade.css */
 
     /* 签字弹窗 */
     .modal-mask { position: fixed; inset: 0; background: rgba(18,24,21,.5); display: none; align-items: center; justify-content: center; z-index: 100; }
@@ -321,7 +321,7 @@
 
   function esc(s) { return (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-  // 三级联动（院区→楼栋→科室）逻辑在共用组件 /js/department-cascade.js（与 create.html 共用）
+  // 三级联动（院区→楼栋→科室）逻辑在共用组件 /js/department-cascade.js
   const campusLabel = DeptCascade.campusLabel;
   const shortNameOf = DeptCascade.shortNameOf;
   const floorChip = DeptCascade.floorChip;

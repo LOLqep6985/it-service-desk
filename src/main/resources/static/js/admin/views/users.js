@@ -13,8 +13,7 @@
     { value: '', label: '全部角色' },
     { value: 'ADMIN', label: '管理员' },
     { value: 'DISPATCHER', label: '调度员' },
-    { value: 'REPAIRER', label: '维修工' },
-    { value: 'REPORTER', label: '报修人' }
+    { value: 'REPAIRER', label: '维修工' }
   ];
 
   var ROLE_TONE = { ADMIN: 'danger', DISPATCHER: 'warn', REPAIRER: 'success', REPORTER: 'muted' };
@@ -69,7 +68,7 @@
       ui.metricCard({ title: '用户总数', value: state.rows.length, unit: '人', icon: Admin.layout.ICONS.users, hint: '当前筛选结果' }),
       ui.metricCard({ title: '管理员 / 调度员', value: (byRole.ADMIN || 0) + (byRole.DISPATCHER || 0), unit: '人', icon: Admin.layout.ICONS.info, tone: 'danger', hint: '可派单与核价' }),
       ui.metricCard({ title: '维修工', value: byRole.REPAIRER || 0, unit: '人', icon: Admin.layout.ICONS.wrench, tone: 'warn', hint: '手机端接单执行' }),
-      ui.metricCard({ title: '报修人', value: byRole.REPORTER || 0, unit: '人', icon: Admin.layout.ICONS.clipboard, tone: 'success', hint: '登录式报修入口' })
+      ui.metricCard({ title: '财务', value: byRole.FINANCE || 0, unit: '人', icon: Admin.layout.ICONS.clipboard, tone: 'success', hint: '报销单回填' })
     ));
     host.appendChild(list.node);
   }
@@ -90,7 +89,7 @@
       var ui = Admin.ui;
       el.appendChild(ui.h('div', { class: 'page-head' },
         ui.h('h2', { text: '用户管理' }),
-        ui.h('span', { class: 'sub', text: '三端账号与角色（管理员 / 调度员 / 维修工 / 报修人）' })
+        ui.h('span', { class: 'sub', text: '账号与角色（管理员 / 调度员 / 维修工 / 财务）；科室报修免登录，不占账号' })
       ));
       el.appendChild(ui.h('div', { id: 'users-body' }, ui.skeletonLines(6)));
       await paint(el);

@@ -1070,3 +1070,52 @@
 - 正文：`门诊楼-一层-收费室 · 赵护士 报修，维修已完成，请签字确认`
 - 同设备（护士长用自己那台报修）仍只收 1 条 URGENT
 测试数据已清理，基线恢复 `sys_user=6 / dept=68 / 业务表 0`，服务已停止。
+### S-043 | 2026-10-17：登录页演示账号支持「点击填入」
+
+- 需求（用户）：演示账号区块加一行「点击填入」并加下划线，点击账号行可直接填进输入框，方便测试/演示。
+- 改动文件：`static/login.html`（单文件）
+  - 每条账号由纯文本改为 `.demo-row` + `data-user` / `data-pass`
+  - 列表顶部加 `.demo-tip`「点击填入」（`text-decoration: underline`）
+  - 点击填充后聚焦密码框（配合已有回车登录，点一下 + 回车即可登录），并有 0.7s 高亮反馈
+  - 每条 hover/active 背景色反馈，明确"可点"
+- 验证：`node --check` 内联脚本通过；jsdom 实测 5 行、点「管理员」→ `admin/admin123`、点「财务」→ `finance/123456`，均 PASS
+- 注意：本改动在 jar 内静态资源，已重新打包；无需 bump SW 版本（页面走网络优先）
+### S-044 | 2026-10-17：修复登录页「返回键」未等同退出 & 卡在「登录中...」
+
+**依据**：用户指出 `D-023` 的返回键语义在登录页缺失 → `D-032`。
+
+**改动**：`static/login.html`（单文件）
+- 新增 `enterLoggedOutState(clearPassword)`：清 `itsdUser` + `submitting=false` + 按钮复位 +（按需）清密码框
+- `pageshow` 监听：`persisted=true` 时调用 `enterLoggedOutState(true)`
+- 页面正常加载时调用 `enterLoggedOutState(false)`（保留自动填充的密码）
+
+**验证（jsdom，5/5 PASS）**
+| 用例 | 结果 |
+|---|---|
+| 带旧 `itsdUser` 正常进入登录页 → 被清除 | PASS |
+| 模拟截图卡死态（按钮 disabled + "登录中..." + 有 token）→ 触发 `pageshow persisted` | PASS：登录态清除 |
+| 同上 → 按钮恢复可点且文案回「登 录」 | PASS |
+| 同上 → 密码框清空 | PASS |
+| 演示账号「点击填入」回归 | PASS |
+
+**生效提醒**：用户当时在 IDEA（8080）跑的实例需重新 build/重启才能看到；部署侧 jar 已重新打包。
+### S-045 | 2026-10-17：按用户意见移除王护士（登录式报修）通道
+
+**依据**：用户指出 reporter1 演示账号多余 → `D-033`。
+
+**改动（9 处）**：删 `create.html`；`login.html` 去演示账号行 + REPORTER 登录改拒绝；`data.sql` 去 reporter1；新增迁移 `sql/2026-10-17-drop-reporter-login.sql` 并已在本机执行；`guard.js` 去 REPORTER 端点；`service-worker.js` 去 `/create.html` 且 `itsd-v22`→`itsd-v23`；`users.js` 角色筛选/指标卡/副标题；`system.js` 演示账号；两处失效注释。
+
+**验证（真实起服务，8081）**
+| 检查 | 结果 |
+|---|---|
+| 登录页演示账号行 | 4 行，无 reporter1 ✅ |
+| `create.html` | **404**（已下线） |
+| `/api/users` | 5 人：admin / dispatcher / repairer1 / repairer2 / finance ✅ |
+| `reporter1` 登录 | 失败「用户名或密码错误」✅ |
+| `counts.users` | 5 ✅ |
+| jar 内容 | 不含 create.html ✅ |
+| jsdom 回归 | 4 行、点管理员仍能填入 ✅ |
+
+**踩坑记录（编码）**：用 `Get-Content -Raw | Set-Content -Encoding UTF8` 改 `report.html` 后担心 PS 5.1 按 GBK 解码导致中文写坏。
+实测确认：本会话 `pwsh` 是 PowerShell 7（默认 UTF-8，`-Encoding UTF8` 不带 BOM），文件 51,699 字节、无 BOM、中文完好、改动标记齐全。
+**教训**：改源码文件优先用 `edit` 工具；必须用 shell 改时，用 `[System.IO.File]::ReadAllText/WriteAllText` 明确编码，避免依赖默认编码。

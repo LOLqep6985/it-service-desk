@@ -4,7 +4,6 @@ INSERT IGNORE INTO sys_user (id, username, password, name, role) VALUES
 (2, 'dispatcher', '$2a$10$FezTSzbwDs5YUPOoEje.q.IYt1Q0WIIKZZ7oIrhohjACa9Wi1ByI6', '王调度', 'DISPATCHER'),
 (3, 'repairer1', '$2a$10$94aUWwJK6oTZG72YbzZVyOtpHoqCIWDQsFnM0OvLIe8ILTmB7pqfu', '张工', 'REPAIRER'),
 (4, 'repairer2', '$2a$10$BQ0vjtqeYfBeJaKmXsGPMOUXV3TjMzfObxhsDdgsQj8TLKNQcK3Nq', '李工', 'REPAIRER'),
-(5, 'reporter1', '$2a$10$YkwhXmF1A/7y22fy9nHPe.YS0yTDBd.xpoEeIstDbe76WyicLPXQu', '王护士', 'REPORTER'),
 (6, 'finance', '$2a$10$94aUWwJK6oTZG72YbzZVyOtpHoqCIWDQsFnM0OvLIe8ILTmB7pqfu', '李财务', 'FINANCE');
 
 -- 科室索引（来源于：河南省人民医院豫东分院（民权县人民医院）楼层索引）
