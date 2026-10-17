@@ -69,6 +69,14 @@ public class QrController {
         String scheme = request.getScheme();
         String host = request.getServerName();
         int port = request.getServerPort();
+        // 后台常在本机用 localhost 打开：此时按请求 Host 出码，手机扫出来必然是 localhost（打不开）。
+        // 因此 loopback 一律替换为本机内网 IPv4。
+        if (com.itservice.desk.util.LanAddress.isLoopback(host)) {
+            String lan = com.itservice.desk.util.LanAddress.resolve();
+            if (lan != null && !lan.isBlank()) {
+                host = lan;
+            }
+        }
         String url = scheme + "://" + host + (port == 80 || port == 443 ? "" : ":" + port) + safePath;
 
         Map<EncodeHintType, Object> hints = new EnumMap<>(EncodeHintType.class);

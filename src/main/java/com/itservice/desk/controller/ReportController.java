@@ -9,10 +9,12 @@ import com.itservice.desk.mapper.DepartmentMapper;
 import com.itservice.desk.mapper.UserMapper;
 import com.itservice.desk.model.Department;
 import com.itservice.desk.model.DepartmentBinding;
+import com.itservice.desk.model.NotificationType;
 import com.itservice.desk.model.Report;
 import com.itservice.desk.model.ReportStatus;
 import com.itservice.desk.model.User;
 import com.itservice.desk.model.UserRole;
+import com.itservice.desk.service.NotificationService;
 import com.itservice.desk.service.ReportService;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,15 +29,18 @@ public class ReportController {
     private final UserMapper userMapper;
     private final DepartmentBindingMapper bindingMapper;
     private final DepartmentMapper departmentMapper;
+    private final NotificationService notificationService;
 
     public ReportController(ReportService reportService,
                             UserMapper userMapper,
                             DepartmentBindingMapper bindingMapper,
-                            DepartmentMapper departmentMapper) {
+                            DepartmentMapper departmentMapper,
+                            NotificationService notificationService) {
         this.reportService = reportService;
         this.userMapper = userMapper;
         this.bindingMapper = bindingMapper;
         this.departmentMapper = departmentMapper;
+        this.notificationService = notificationService;
     }
 
     @PostMapping
@@ -77,8 +82,17 @@ public class ReportController {
                 ? dept.getDepartmentHead() : req.getDepartmentHead());
         r.setStatus(ReportStatus.PENDING);
         r.setBindingId(null);
+        r.setClientDeviceId(req.getDeviceId());
         r.setCreatedAt(LocalDateTime.now());
         reportService.insertReport(r);
+
+        // 事件1：报修单提交 → 管理员/调度（旁路，失败不影响报修）
+        notificationService.notifyAdmins(NotificationType.REPORT_CREATED,
+                "REPORT:" + r.getId(),
+                "新报修单：" + (r.getDepartmentName() == null ? "" : r.getDepartmentName()),
+                (r.getReporterName() == null ? "" : r.getReporterName()) + " 报修「"
+                        + (r.getDeviceName() == null ? "" : r.getDeviceName()) + "」，请及时受理",
+                NotificationService.LEVEL_URGENT, null, r.getId());
         return ApiResponse.ok(r);
     }
 

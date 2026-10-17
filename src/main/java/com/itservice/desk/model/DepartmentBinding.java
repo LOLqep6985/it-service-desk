@@ -16,4 +16,6 @@ public class DepartmentBinding {
     private String deviceCode;
     private LocalDateTime bindAt;
     private Boolean active;
+    /** 该设备是否为本科室负责人（护士长）设备：待签字消息按它定向投递 */
+    private Boolean isHead;
 }

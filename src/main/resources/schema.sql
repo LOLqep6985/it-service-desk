@@ -46,7 +46,8 @@ CREATE TABLE IF NOT EXISTS department_binding (
     department_id BIGINT NOT NULL,
     device_code   VARCHAR(100) NOT NULL UNIQUE,
     bind_at       DATETIME,
-    active        TINYINT DEFAULT 1
+    active        TINYINT DEFAULT 1,
+    is_head       TINYINT DEFAULT 0
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS report (
@@ -61,6 +62,7 @@ CREATE TABLE IF NOT EXISTS report (
     status          VARCHAR(20) DEFAULT 'PENDING',
     creator_id      BIGINT,
     binding_id      BIGINT,
+    client_device_id VARCHAR(64),
     created_at      DATETIME
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
@@ -93,4 +95,21 @@ CREATE TABLE IF NOT EXISTS reimbursement_item (
     reimbursement_id BIGINT NOT NULL,
     work_order_id   BIGINT NOT NULL,
     created_at      DATETIME
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS notification (
+    id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+    event_key     VARCHAR(120) NOT NULL,
+    target_kind   VARCHAR(10)  NOT NULL,
+    target_id     BIGINT       NOT NULL,
+    type          VARCHAR(40)  NOT NULL,
+    title         VARCHAR(200) NOT NULL,
+    body          VARCHAR(500),
+    level         VARCHAR(10)  DEFAULT 'NORMAL',
+    work_order_id BIGINT,
+    report_id     BIGINT,
+    created_at    DATETIME,
+    read_at       DATETIME,
+    UNIQUE KEY uk_event_target (event_key, target_kind, target_id),
+    KEY idx_target (target_kind, target_id, id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;

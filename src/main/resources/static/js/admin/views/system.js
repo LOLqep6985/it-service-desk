@@ -30,7 +30,7 @@
     ['列表分页方式', '搜索与分页在浏览器端完成（接口一次性返回列表），数据量增大后需改为服务端分页', 'warn'],
     ['科室端身份凭证', '科室端免登录，凭 localStorage 绑定科室（弱凭证）；内网可用，生产建议加 PIN 或设备白名单', 'warn'],
     ['自动化测试', '已有后端单元测试（SignType）与 jsdom 前端集成测试；Service/接口层仍以备忘式端到端脚本为主', 'muted'],
-    ['PWA 安装条件', 'Service Worker 仅在 HTTPS 或 localhost 生效；内网 HTTP 可正常使用但无法「添加到主屏幕」', 'muted'],
+    ['桌面图标', '现场人员自行用手机浏览器菜单「添加到主屏幕」创建；内网 HTTP 下无 Service Worker 预缓存，不影响正常使用', 'muted'],
     ['数据导出', '报销单未提供 PDF/Excel 导出，月度对账仍需人工整理', 'muted']
   ];
 
@@ -50,44 +50,6 @@
     var h = Math.floor(m / 60);
     if (h < 24) return h + ' 小时 ' + (m % 60) + ' 分钟';
     return Math.floor(h / 24) + ' 天 ' + (h % 24) + ' 小时';
-  }
-
-  /** 派单通知渠道状态：企微群机器人（配置驱动，未配置给出接入指引） */
-  function notifyRows(ui, notify) {
-    var n = notify || {};
-    var testBtn = ui.h('button', {
-      class: 'btn btn-ghost btn-sm', text: '发送测试通知',
-      onclick: async function () {
-        testBtn.disabled = true;
-        testBtn.textContent = '发送中...';
-        try {
-          await Admin.api.post('/api/system/notify-test');
-          ui.toast('测试通知已发送，请查看企业微信群', 'success');
-        } catch (e) {
-          ui.toast(e.message || '发送失败', 'error');
-        }
-        testBtn.disabled = false;
-        testBtn.textContent = '发送测试通知';
-      }
-    });
-    var wecom = ui.h('span', null,
-      ui.badge(n.wecomEnabled ? '已接通' : (n.wecomConfigured ? '配置无效' : '未接入'),
-        n.wecomEnabled ? 'success' : (n.wecomConfigured ? 'danger' : 'muted')),
-      ui.h('span', {
-        style: { marginLeft: '6px', fontSize: '13px' },
-        text: n.wecomEnabled ? '企业微信群机器人 · 派单即推送维修群'
-          : (n.wecomConfigured ? '已填 webhook 但地址格式不对（须为 qyapi.weixin.qq.com 群机器人地址）'
-            : '未配置 notify.wecom.webhook，派单后无群提醒')
-      }),
-      n.wecomConfigured ? testBtn : null
-    );
-    var host = ui.h('span', null,
-      ui.h('span', { style: { fontSize: '13px' }, text: n.publicHost ? n.publicHost : '未配置 notify.public-host（通知里的链接不可点）' })
-    );
-    return ui.h('div', null,
-      ui.h('div', { class: 'detail-row' }, ui.h('span', { class: 'k', text: '企微机器人' }), wecom),
-      ui.h('div', { class: 'detail-row' }, ui.h('span', { class: 'k', text: '对外地址' }), host)
-    );
   }
 
   async function paint(el) {
@@ -125,8 +87,7 @@
           ['报修单', (c.reports || 0) + ' 单（待受理 ' + (c.pendingReports || 0) + '）'],
           ['工单', (c.workOrders || 0) + ' 单（已完成 ' + (c.completedWorkOrders || 0) + '）'],
           ['报销闭环', '签字 → 按月报销 → 财务回填'],
-          ['数据初始化', 'schema.sql + data.sql 幂等执行（重启不丢数据）'],
-          ['派单通知', notifyRows(ui, info.notify)]
+          ['数据初始化', 'schema.sql + data.sql 幂等执行（重启不丢数据）']
         ]))
       })
     ));
@@ -210,12 +171,13 @@
       ]))
     }));
 
-    host.appendChild(entryCard(ui));
+    host.appendChild(entryCard(ui, info));
   }
 
   /** 三端入口卡：二维码由后端 /api/qr 按当前访问 Host 生成，扫码即达同机部署的入口页 */
-  function entryCard(ui) {
-    var origin = global.location.origin;
+  function entryCard(ui, info) {
+    // 用后端给出的「手机可访问地址」：本机用 localhost 打开后台时，location.origin 会让手机扫到 localhost
+    var origin = (info && info.accessBaseUrl) || global.location.origin;
     // <img> 请求带不了自定义请求头，token 走查询参数（后端两者都接受）
     var token = (Admin.store.currentUser() || {}).token || '';
     function entry(title, sub, path, note) {
@@ -236,8 +198,8 @@
       title: '三端入口',
       hint: '（扫码进入，地址按当前访问主机生成）',
       body: ui.h('div', { class: 'qr-grid' },
-        entry('科室报修端', '护士站工作机 · 免登录绑定科室', '/report.html', '工作机浏览器扫码 → 添加到主屏幕'),
-        entry('维修工作台', '维修人员个人手机 · 登录使用', '/login.html', '手机浏览器扫码 → 登录 → 添加到主屏幕'),
+        entry('科室报修端', '护士站工作机 · 免登录绑定科室', '/report.html', '扫码即可使用；需要桌面图标时用浏览器菜单自行添加'),
+        entry('维修工作台', '维修人员个人手机 · 登录使用', '/login.html', '扫码 → 登录即可使用；桌面图标自行用浏览器菜单添加'),
         entry('管理后台', 'PC 浏览器 · 管理员/调度/财务', '/login.html', '与维修端同入口，登录后按角色自动进入后台')
       )
     });

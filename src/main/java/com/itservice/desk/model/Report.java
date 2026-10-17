@@ -22,5 +22,7 @@ public class Report {
     private ReportStatus status;
     private Long creatorId;
     private Long bindingId;
+    /** 提交该报修的科室端设备标识（用于把待签字消息只投给报修人那台手机） */
+    private String clientDeviceId;
     private LocalDateTime createdAt;
 }
