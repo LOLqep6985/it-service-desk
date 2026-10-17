@@ -5,13 +5,12 @@
  * - 图标等极少变动资源：缓存优先
  * - /api/ 与 /uploads/ 一律不缓存（数据实时）
  */
-const CACHE = 'itsd-v22';
+const CACHE = 'itsd-v23';
 const APP_SHELL = [
   '/report.html',
   '/today.html',
   '/detail.html',
   '/login.html',
-  '/create.html',
   '/admin.html',
   '/css/dept-cascade.css',
   '/css/admin-layout.css',

@@ -1,6 +1,6 @@
 /*!
  * 科室三级联动组件（院区 → 楼栋 → 科室）
- * 使用方：report.html（科室免登录报修绑定）、create.html（登录报修）、admin.html（楼层标签）
+ * 使用方：report.html（科室免登录报修绑定）、admin.html（楼层标签）
  *
  * 数据约定：department.name 形如「门诊楼-一层-收费室」。
  * 为什么不在后端改 name：
