@@ -1,7 +1,6 @@
 package com.itservice.desk.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.itservice.desk.dto.ReportCreateRequest;
 import com.itservice.desk.mapper.DepartmentMapper;
 import com.itservice.desk.mapper.ReportMapper;
 import com.itservice.desk.mapper.WorkOrderMapper;
@@ -38,33 +37,6 @@ public class ReportService {
         reportMapper.insert(r);
         r.setReportNo("R" + String.format("%06d", r.getId()));
         reportMapper.updateById(r);
-    }
-
-    public Report createReport(ReportCreateRequest req, Long creatorId) {
-        Department dept = departmentMapper.selectById(req.getDepartmentId());
-        if (dept == null) {
-            throw new IllegalArgumentException("科室不存在");
-        }
-        String desc = req.getProblemDesc() == null ? "" : req.getProblemDesc();
-        Report recent = findDuplicate(dept.getId(), req.getDeviceName(), req.getReporterName(), desc, DUPLICATE_MINUTES);
-        if (recent != null) {
-            throw new IllegalArgumentException(DUPLICATE_MESSAGE);
-        }
-        Report r = new Report();
-        r.setDepartmentId(dept.getId());
-        r.setDepartmentName(dept.getName());
-        r.setReporterName(req.getReporterName());
-        r.setDeviceName(req.getDeviceName());
-        r.setProblemDesc(desc);
-        r.setDepartmentHead(req.getDepartmentHead() == null || req.getDepartmentHead().isBlank()
-                ? dept.getDepartmentHead() : req.getDepartmentHead());
-        r.setStatus(ReportStatus.PENDING);
-        r.setCreatorId(creatorId);
-        r.setCreatedAt(LocalDateTime.now());
-        reportMapper.insert(r);
-        r.setReportNo("R" + String.format("%06d", r.getId()));
-        reportMapper.updateById(r);
-        return r;
     }
 
     /**

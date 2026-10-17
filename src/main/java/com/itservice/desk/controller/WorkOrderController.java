@@ -34,24 +34,6 @@ public class WorkOrderController {
         this.consumableMapper = consumableMapper;
     }
 
-    @PostMapping
-    public ApiResponse create(@RequestBody WorkOrderCreateRequest req,
-                            @RequestHeader(value = "X-Token", required = false) String token) {
-        User user = resolveUserByToken(token);
-        if (user == null) {
-            return ApiResponse.error(401, "未登录或登录已过期");
-        }
-        if (user.getRole() != UserRole.REPORTER) {
-            return ApiResponse.error(403, "无权限：只有报修人可以发起报修");
-        }
-        try {
-            WorkOrder wo = workOrderService.createWorkOrder(req, user.getId());
-            return ApiResponse.ok(wo);
-        } catch (IllegalArgumentException e) {
-            return ApiResponse.error(e.getMessage());
-        }
-    }
-
     @GetMapping
     public ApiResponse list(@RequestHeader(value = "X-Token", required = false) String token,
                             @RequestParam(required = false) String status) {

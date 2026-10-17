@@ -950,3 +950,27 @@ department_binding.is_head = 1 (同科室)                        ──►  护
 - `report.reporter_name` / 科室端「报修人姓名」输入框：姓名仍是业务字段（消息文案要显示是谁报的），与"身份识别只认设备号"（D-031）不冲突。
 
 **影响**：账号从 6 个降为 5 个（admin / dispatcher / repairer1 / repairer2 / finance）。
+## D-034 | 2026-10-17：清理报修人角色留下的不可达后端代码（承 D-033）
+
+> 原话（用户，在我询问是否继续清理后）："需要"
+
+**清掉的（全部为 REPORTER 角色的残留）**
+| 位置 | 处理 |
+|---|---|
+| `model/UserRole.java` | 删 `REPORTER("报修人")` 枚举值 |
+| `service/WorkOrderAccess.java` | 删 REPORTER 只读分支；`ReportMapper` 依赖随之无用 → 改**无参构造**；权限矩阵注释删「报修人」行 |
+| `controller/ReportController.java` | 删 `POST /api/reports`（登录式创建）及其 REPORTER 权限判断 |
+| `service/ReportService.java` | 删 `createReport()` |
+| `controller/WorkOrderController.java` | 删 `POST /api/work-orders`（原本「只有报修人能发起」，绕开报修单→派单流程，架构上已不该存在） |
+| `service/WorkOrderService.java` | 删 `createWorkOrder()`、`nextRepairerId()`、`assignCursor` 字段与 `AtomicLong` import |
+| `dto/ReportCreateRequest.java`、`dto/WorkOrderCreateRequest.java` | 整文件删除 |
+| `test/WorkOrderAccessTest.java` | 删 REPORTER 用例与其 `@Mock ReportMapper`、相关 import |
+| `js/admin/store.js`、`js/admin/views/users.js` | 删 `REPORTER` 的显示映射 |
+| `static/login.html` | 删已不可达的 `REPORTER` 登录分支（枚举都不存在了） |
+
+**保留**：`report.reporter_name` 字段、科室端「报修人姓名」输入框、各处 `报修人` 列头/搜索字段——
+姓名仍是业务字段（消息文案展示、防重复口径），与「身份识别只认设备号」（D-031）不冲突。
+
+**验证**：`mvn clean package`（**带单测**）Tests run 17 / Failures 0；启动后
+`POST /api/reports` → 405、`POST /api/work-orders` → 405、`/create.html` → 404；
+免登录报修 → 派单 → 管理员通知链路完好。

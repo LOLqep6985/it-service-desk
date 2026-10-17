@@ -1,7 +1,5 @@
 package com.itservice.desk.service;
 
-import com.itservice.desk.mapper.ReportMapper;
-import com.itservice.desk.model.Report;
 import com.itservice.desk.model.User;
 import com.itservice.desk.model.UserRole;
 import com.itservice.desk.model.WorkOrder;
@@ -10,7 +8,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Arrays;
@@ -20,7 +17,6 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.when;
 
 /**
  * 工单权限矩阵测试：行级权限（能看哪条）× 状态机动态权限（这条现在能做什么）。
@@ -28,9 +24,6 @@ import static org.mockito.Mockito.when;
  */
 @ExtendWith(MockitoExtension.class)
 class WorkOrderAccessTest {
-
-    @Mock
-    private ReportMapper reportMapper;
 
     @InjectMocks
     private WorkOrderAccess access;
@@ -142,23 +135,7 @@ class WorkOrderAccessTest {
     void otherDepartmentIsDenied() {
         WorkOrder wo = order(WorkOrderStatus.PENDING_SIGN, 3L, 13L, 5L);
         assertTrue(actions(access, null, 14L, wo).isEmpty(), "别的科室不能看也不能签");
-        assertTrue(actions(access, user(9L, UserRole.REPORTER), null, wo).isEmpty(), "无关报修人不可见");
-    }
-
-    @Test
-    @DisplayName("报修人：仅自己的报修单产生的工单可见，且只读")
-    void reporterSeesOwnReportOnly() {
-        WorkOrder wo = order(WorkOrderStatus.IN_PROGRESS, 3L, 13L, null);
-        wo.setReportId(77L);
-        User mine = user(5L, UserRole.REPORTER);
-
-        Report report = new Report();
-        report.setId(77L);
-        report.setCreatorId(5L);
-        when(reportMapper.selectById(77L)).thenReturn(report);
-
-        assertTrue(access.canView(mine, wo));
-        assertEquals(Collections.singletonList(WorkOrderAccess.VIEW), actions(access, mine, null, wo));
+        assertTrue(actions(access, user(9L, UserRole.REPAIRER), null, wo).isEmpty(), "非指派维修工不可见");
     }
 
     @Test

@@ -7,7 +7,7 @@
   'use strict';
   var Admin = global.Admin = global.Admin || {};
 
-  var ROLE_LABEL = { ADMIN: '管理员', DISPATCHER: '调度员', REPAIRER: '维修工', REPORTER: '报修人', FINANCE: '财务' };
+  var ROLE_LABEL = { ADMIN: '管理员', DISPATCHER: '调度员', REPAIRER: '维修工', FINANCE: '财务' };
 
   var state = {
     user: null,

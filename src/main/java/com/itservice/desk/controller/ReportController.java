@@ -3,7 +3,6 @@ package com.itservice.desk.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.itservice.desk.dto.AnonymousReportRequest;
 import com.itservice.desk.dto.ApiResponse;
-import com.itservice.desk.dto.ReportCreateRequest;
 import com.itservice.desk.mapper.DepartmentBindingMapper;
 import com.itservice.desk.mapper.DepartmentMapper;
 import com.itservice.desk.mapper.UserMapper;
@@ -41,23 +40,6 @@ public class ReportController {
         this.bindingMapper = bindingMapper;
         this.departmentMapper = departmentMapper;
         this.notificationService = notificationService;
-    }
-
-    @PostMapping
-    public ApiResponse create(@RequestBody ReportCreateRequest req,
-                              @RequestHeader(value = "X-Token", required = false) String token) {
-        User user = resolveUser(token);
-        if (user == null) {
-            return ApiResponse.error(401, "未登录或登录已过期");
-        }
-        if (user.getRole() != UserRole.REPORTER) {
-            return ApiResponse.error(403, "无权限：只有报修人可以提交报修单");
-        }
-        try {
-            return ApiResponse.ok(reportService.createReport(req, user.getId()));
-        } catch (IllegalArgumentException e) {
-            return ApiResponse.error(e.getMessage());
-        }
     }
 
     @PostMapping("/anonymous")

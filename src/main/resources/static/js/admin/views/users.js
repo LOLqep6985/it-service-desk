@@ -16,7 +16,7 @@
     { value: 'REPAIRER', label: '维修工' }
   ];
 
-  var ROLE_TONE = { ADMIN: 'danger', DISPATCHER: 'warn', REPAIRER: 'success', REPORTER: 'muted' };
+  var ROLE_TONE = { ADMIN: 'danger', DISPATCHER: 'warn', REPAIRER: 'success', FINANCE: 'muted' };
 
   async function load() {
     state.rows = await Admin.api.get('/api/users', state.role ? { role: state.role } : null) || [];

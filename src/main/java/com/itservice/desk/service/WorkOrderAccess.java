@@ -1,7 +1,5 @@
 package com.itservice.desk.service;
 
-import com.itservice.desk.mapper.ReportMapper;
-import com.itservice.desk.model.Report;
 import com.itservice.desk.model.User;
 import com.itservice.desk.model.UserRole;
 import com.itservice.desk.model.WorkOrder;
@@ -21,7 +19,6 @@ import java.util.Set;
  * |-----------------|-----------------------|---------------------------------------------------------------|
  * | 管理员/调度员   | 全部工单              | VIEW + 待核价时 PRICE                                         |
  * | 维修工          | 仅派给自己的工单      | VIEW + 待接单时 ACCEPT + 维修中时 REPAIR                      |
- * | 报修人          | 仅自己的报修单产生的工单 | VIEW                                                        |
  * | 科室端(免登录)  | 仅本科室工单          | VIEW + 待签字时 SIGN                                          |
  * | 财务            | 不可见工单            | —（只在「月度报销单」页面做财务回填）                          |
  *
@@ -41,10 +38,8 @@ public class WorkOrderAccess {
     public static final String PRICE = "PRICE";
     public static final String SIGN = "SIGN";
 
-    private final ReportMapper reportMapper;
-
-    public WorkOrderAccess(ReportMapper reportMapper) {
-        this.reportMapper = reportMapper;
+    /** 纯规则类：不含任何外部依赖（报修人角色已移除，D-033） */
+    public WorkOrderAccess() {
     }
 
     /** 行级权限：该登录用户能否看到这条工单 */
@@ -58,17 +53,6 @@ public class WorkOrderAccess {
         }
         if (role == UserRole.REPAIRER) {
             return user.getId().equals(wo.getAssigneeId());
-        }
-        if (role == UserRole.REPORTER) {
-            if (user.getId().equals(wo.getCreatorId())) {
-                return true;
-            }
-            // 报修单派单后生成的工单：按报修单归属判断
-            if (wo.getReportId() != null) {
-                Report report = reportMapper.selectById(wo.getReportId());
-                return report != null && user.getId().equals(report.getCreatorId());
-            }
-            return false;
         }
         // FINANCE 等角色不接触工单
         return false;

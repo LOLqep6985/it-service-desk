@@ -1119,3 +1119,49 @@
 **踩坑记录（编码）**：用 `Get-Content -Raw | Set-Content -Encoding UTF8` 改 `report.html` 后担心 PS 5.1 按 GBK 解码导致中文写坏。
 实测确认：本会话 `pwsh` 是 PowerShell 7（默认 UTF-8，`-Encoding UTF8` 不带 BOM），文件 51,699 字节、无 BOM、中文完好、改动标记齐全。
 **教训**：改源码文件优先用 `edit` 工具；必须用 shell 改时，用 `[System.IO.File]::ReadAllText/WriteAllText` 明确编码，避免依赖默认编码。
+### S-046 | 2026-10-17：清理 REPORTER 不可达代码并回归
+
+**依据**：用户确认继续清理（`D-034`）。
+
+**改动 11 处**：`UserRole` 删枚举；`WorkOrderAccess` 删分支+去依赖改无参构造；`ReportController` 删登录式创建接口；`ReportService` 删 `createReport`；`WorkOrderController` 删 `POST /api/work-orders`；`WorkOrderService` 删 `createWorkOrder`/`nextRepairerId`/`assignCursor`；删 2 个 DTO；`WorkOrderAccessTest` 删 REPORTER 用例；`store.js`/`users.js` 删 REPORTER 映射；`login.html` 删不可达分支。
+
+**验证**
+| 项 | 结果 |
+|---|---|
+| `mvn clean package`（含单测） | Tests run: **17**, Failures: 0, Errors: 0 ✅（原 12 个权限用例减为 11，删掉的是报修人那条） |
+| 启动 | `Started ItServiceDeskApplication in 2.293 seconds` ✅ |
+| `POST /api/reports` | 405（已移除）✅ |
+| `POST /api/work-orders` | 405（已移除）✅ |
+| `/create.html` | 404 ✅ |
+| `/api/users` | 5 人 ✅ |
+| 免登录报修 → 派单 → 通知 | code=0、ASSIGNED、管理员收到 REPORT_CREATED ✅ |
+| 登录页 REPORTER 分支 | 已无 ✅ |
+
+测试数据已清理，基线 `sys_user=5 / dept=68 / 业务表 0`；服务已停止。
+### S-047 | 2026-10-17：仅清理可明确判定的残留冗余代码
+
+**用户约束（逐字）**："仅删除残留的冗余代码，其他内容一律不要改动（包括非冗余代码、格式、注释、命名等）。" / "存在疑义的不做改动" / "不做与清理无关的重构、优化或格式化。"
+
+**审计结果（先查后删）**
+| 检查项 | 结论 |
+|---|---|
+| 本轮改动文件的未使用 import | 0（逐个符号统计正文引用） |
+| 未使用字段 | 0 |
+| 未调用私有方法 | 0 |
+| 孤儿静态资源（js/css 零引用） | 0 |
+| 零引用后端类 | 3 个（`WebConfig`/`FileController`/`HomeController`）→ **误报**：由 Spring 注解驱动，非按名引用，不动 |
+| 前端 `REPORTER` 逻辑 | 0（仅剩 `reporterName` 业务字段，保留） |
+
+**实际删除（`today.html` 一处无争议死代码簇）**
+| 位置 | 内容 | 判定依据 |
+|---|---|---|
+| 原 L90 | `<button class="logout report" id="reportBtn">＋ 报修</button>` | 元素存在但**无条件隐藏**，无任何分支可显示 |
+| 原 L112 | `document.getElementById('reportBtn').style.display = 'none';` | 唯一作用就是隐藏上面那个按钮（不删会因元素不存在而抛异常，导致后续脚本中断） |
+| 原 L46 | CSS `.header .report { ... }` | 仅服务该按钮，删除后无引用 |
+
+**有意未改（遵约束）**
+- `today.html` 原 L111 注释「维修端不显示报修按钮（报修按钮只属于报修人端）」**原样保留**——用户明确要求不动注释；但该注释现已指向已删除的代码，属**待用户决定**项。
+- `report.reporter_name`、科室端姓名输入框、各列表「报修人」列头与搜索字段：业务字段，非冗余。
+- 历史迁移脚本 `sql/2026-10-14-signature-and-bcrypt.sql` 里的 `reporter1`：历史记录，非代码。
+
+**验证**：`node --check` 内联脚本通过；`mvn clean package` BUILD SUCCESS；服务端下发的 `today.html` 不含 `reportBtn` / `＋ 报修` / `.header .report`，`logoutBtn` 与页面其余内容完好；`report.html`/`login.html`/`admin.html` 均 200。
