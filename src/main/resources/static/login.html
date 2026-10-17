@@ -109,15 +109,7 @@
       localStorage.setItem('itsdUser', JSON.stringify(json.data));
       const roleCode = json.data.roleCode;
       const uid = json.data.userId;
-      if (roleCode === 'REPORTER') {
-        // 报修人登录通道已停用：科室报修统一走免登录入口（report.html），不再有登录式报修
-        try { localStorage.removeItem('itsdUser'); } catch (e) { /* ignore */ }
-        msg.textContent = '报修人账号已停用，请使用下方的「科室免登录报修入口」';
-        submitting = false;
-        loginBtn.disabled = false;
-        loginBtn.textContent = '登 录';
-        return;
-      } else if (roleCode === 'REPAIRER') {
+      if (roleCode === 'REPAIRER') {
         window.location.href = 'today.html?userId=' + uid;
       } else {
         // 管理员 / 调度员 / 财务 → PC 管理后台（后台再按角色渲染菜单）

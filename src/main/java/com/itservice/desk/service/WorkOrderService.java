@@ -2,7 +2,6 @@ package com.itservice.desk.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.itservice.desk.dto.ConsumableItem;
-import com.itservice.desk.dto.WorkOrderCreateRequest;
 import com.itservice.desk.dto.WorkOrderDetail;
 import com.itservice.desk.mapper.ConsumableMapper;
 import com.itservice.desk.mapper.DepartmentMapper;
@@ -16,7 +15,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class WorkOrderService {
@@ -29,7 +27,6 @@ public class WorkOrderService {
     private final ReimbursementItemMapper reimbursementItemMapper;
     private final ReimbursementMapper reimbursementMapper;
     private final NotificationService notificationService;
-    private final AtomicLong assignCursor = new AtomicLong(0);
 
     public WorkOrderService(WorkOrderMapper workOrderMapper,
                             DepartmentMapper departmentMapper,
@@ -82,41 +79,6 @@ public class WorkOrderService {
             }
         }
         return detail;
-    }
-
-    public WorkOrder createWorkOrder(WorkOrderCreateRequest req, Long creatorId) {
-        Department dept = departmentMapper.selectById(req.getDepartmentId());
-        if (dept == null) {
-            throw new IllegalArgumentException("科室不存在");
-        }
-        WorkOrder wo = new WorkOrder();
-        wo.setTitle(req.getTitle());
-        wo.setDescription(req.getDescription());
-        wo.setDepartmentId(dept.getId());
-        wo.setDepartmentName(dept.getName());
-        wo.setCampus(dept.getCampus());
-        wo.setLocation(req.getLocation() == null ? dept.getBuilding() : req.getLocation());
-        wo.setContactPerson(req.getContactPerson());
-        wo.setContactPhone(req.getContactPhone());
-        wo.setPriority(req.getPriority() == null ? "MEDIUM" : req.getPriority());
-        wo.setStatus(WorkOrderStatus.ASSIGNED);
-        wo.setAssigneeId(nextRepairerId());
-        wo.setCreatorId(creatorId);
-        wo.setSignStatus(SignStatus.UNSIGNED);
-        wo.setCreatedAt(LocalDateTime.now());
-        workOrderMapper.insert(wo);
-        return wo;
-    }
-
-    private Long nextRepairerId() {
-        List<User> repairers = userMapper.selectList(new LambdaQueryWrapper<User>()
-                .eq(User::getRole, UserRole.REPAIRER)
-                .orderByAsc(User::getId));
-        if (repairers.isEmpty()) {
-            throw new IllegalStateException("没有可用的维修人员");
-        }
-        long idx = assignCursor.getAndIncrement() % repairers.size();
-        return repairers.get((int) idx).getId();
     }
 
     public List<WorkOrder> listAll(String status) {

@@ -43,7 +43,6 @@
     .header .user { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
     .header .user .role { font-size: 12px; color: var(--dk-text-2); font-weight: 400; margin-left: 4px; }
     .header .logout { background: var(--dk-surface-2); border: none; color: var(--dk-text-2); padding: 8px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; }
-    .header .report { background: var(--dk-accent); color: var(--dk-accent-ink); font-weight: 700; }
 
     .container { max-width: 520px; margin: 0 auto; padding: 8px 16px 48px; }
 
@@ -87,7 +86,7 @@
 <div class="header">
   <span class="user" id="userName">加载中...</span>
   <span>
-    <button class="logout report" id="reportBtn" style="margin-right:8px;">＋ 报修</button><button class="logout" id="logoutBtn">退出</button>
+    <button class="logout" id="logoutBtn">退出</button>
   </span>
 </div>
 <div class="container">
@@ -109,7 +108,6 @@
   document.getElementById('userName').innerHTML = user.name + '<span class="role">' + (user.role || '') + '</span>';
 
   // 维修端不显示报修按钮（报修按钮只属于报修人端）
-  document.getElementById('reportBtn').style.display = 'none';
 
   document.getElementById('logoutBtn').addEventListener('click', () => {
     ItsdGuard.logout();
