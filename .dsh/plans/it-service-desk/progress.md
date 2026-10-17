@@ -923,3 +923,51 @@
 - 决策原则落盘：D-024 报修单/工单清单归属（后台不重复展示报修单）
 - 验证状态：用户开始走全流程，中途遇到报修记录加载崩溃（已修）+ 工单管理签字列冗余（已删）；企微群机器人因单微信号无法同时验证管理员+维修工，**暂缓**，待日后条件具备再接
 - 下一会话起点：用户继续全流程验证 → 验证通过后进入 Day 7（README/简历）或接企微
+### S-039 | 2026-10-17：内网单机部署打通（Day 7 部署部分）+ 数据库迁移到干净基线
+
+**用户优先级**：部署最先做，其余后置。决策见 `D-028`。
+
+**1. 平台选择**：无服务器/域名/公网 IP + 手机在院内 WiFi → 本机常驻 jar + 内网直连（`deploy/README.md` 全流程）。
+
+**2. 数据库迁移（口径：保留结构+基础数据，清空业务）**
+- 迁移前实测（`COUNT(*)`，非 `table_rows` 估算）：sys_user 6、department 68、report 5、work_order 5、consumable 3、reimbursement 3、reimbursement_item 6、department_binding 0，库总大小 0.17 MB
+- 备份：`.rdoc_inspect/backup/pre-deploy-20261017-143714.sql`（19,227 字节，7 张表数据齐全，尾部 `Dump completed` 已校验）
+- 签名图归档（不删除）：`uploads/` 8 个 PNG（108 KB）→ `.rdoc_inspect/backup/uploads-pre-deploy-20261017-143731/`
+- TRUNCATE 6 张业务表（无外键约束，已确认 `information_schema.key_column_usage` 无 REFERENCES）
+- 迁移后实测：sys_user 6、department 68、业务表全 0；部署实例重启后 `counts` 仍为 6/68/0 → **`schema.sql`/`data.sql` 幂等性已被真实重启验证**（`CREATE TABLE IF NOT EXISTS` + `INSERT IGNORE`）
+
+**3. 后端打包 + 部署**
+- 打包：`mvn clean package -DskipTests -Dmaven.repo.local=.m2repo`（JAVA_HOME=jdk17）→ `target/desk-0.1.0.jar` 25.28 MB，BUILD SUCCESS（4.6 s）
+- 新增 `deploy/start-desk.ps1`（端口检查→内网 IP 探测→JDK17 校验→启动→轮询 200 才报 READY）与 `deploy/stop-desk.ps1`
+- 部署实例：PID 14636，端口 8081（8080 被用户 IDEA 实例占用），`NOTIFY_PUBLIC_HOST=http://10.31.67.107:8081`
+- 实测 `/api/system/info`：`serverPort=8081`、`javaVersion=17.0.12`、`uploadDir=D:\...\it-service-desk\uploads`、`publicHost=http://10.31.67.107:8081`、`counts={users:6,departments:68,reports:0,workOrders:0}`
+
+**4. 内网可达性**
+- `http://10.31.67.107:8081/login.html` → 200 (6,473 B)；`/report.html` → 200 (50,180 B)；`/` → 200
+- 入口二维码已生成：`deploy/qr/{report,today,login}.png`（240×240，真实可扫，已验证渲染）
+- **防火墙未能验证/放行**：非管理员，`netsh advfirewall show allprofiles` 报 needs elevation。命令已写入 `deploy/README.md` 第五节，需用户以管理员执行。
+- 明确边界：同机访问内网 IP 成功 **≠** 手机可访问（不经入站规则）。**手机实测是唯一验收。**
+
+**错误与修复记录**
+
+| 错误 | 尝试 | 解决方案 |
+|---|---|---|
+| `mvn -Dmaven.repo.local=.m2repo` 报 Unknown lifecycle phase ".repo.local=.m2repo" | 直接传参 | PowerShell 把参数在 `-Dmaven` 处切分 → **加引号** `"-Dmaven.repo.local=.m2repo"` |
+| .ps1 报 "The string is missing the terminator" | 用 `pwsh` 跑能过 | PS 5.1 按 GBK 读脚本 → **存 UTF-8 with BOM**（edit 工具会丢 BOM，改完需补） |
+| `UnsupportedClassVersionError: class file version 61.0` | 沿用 `$env:JAVA_HOME` | 默认 JAVA_HOME=jdk8 → 改为实测 `java -version` 主版本 ≥17 |
+| JDK 探测在脚本内恒失败（连 jdk17 也被 SKIP） | — | `ErrorActionPreference=Stop` + `java -version` 走 stderr → 函数内临时改 `Continue` 并 `Out-String` |
+| 自动探测到的对外地址是 `172.23.240.1`（WSL 虚拟网卡） | 用 `ipconfig` 首个 IPv4 | 改用 .NET `NetworkInterface`，只要 Wireless80211/Ethernet 且 Description 排除 Virtual/VMware/Hyper-V |
+| 启动报 `Port 8080 is already in use`，但脚本预检说空闲 | `Get-NetTCPConnection` 查端口 | 沙箱 CIM 受限导致该 cmdlet 静默返回空 → 用 `netstat -ano` 复核，发现用户 IDEA 实例（PID 19992）占 8080 |
+
+**未完成 / 下一步**
+1. 防火墙放行（需管理员）→ 手机实测 `http://<IP>:<端口>`
+2. 端口归一：现网 8080=用户 IDEA 实例、8081=受控部署。建议停 IDEA 实例后 `start-desk.ps1 -Port 8080` 统一到 8080（二维码/历史通知链接都指 8080）
+3. 开机自启/服务化（NSSM/WinSW）未做，当前手动启动
+4. 企微 webhook 仍为空（`wecomEnabled:false`），接通知需先有 webhook → `S-026`
+5. Day 7 剩余：README 面向仓库的总说明、简历项目描述、演示截图
+**S-039 补充（同日，收尾时发现并修复）**
+- **`stop-desk.ps1` 原版失效**：只用 `Get-CimInstance Win32_Process` 匹配 jar 命令行，受限环境下该 cmdlet 返回空 → 误报"没有发现运行中的 jar"，进程杀不掉。已改为「先按 jar 命令行，再按 `-Port` 用 `netstat` 兜底」，且端口兜底**只杀 java.exe**，非 java 一律 SKIP。
+- **`start-desk.ps1` 端口预检同样失效**：`Get-NetTCPConnection` 静默返回空 → 误判端口空闲 → 启动到一半报 `Port 8080 is already in use`。已改为解析 `netstat -ano` 的 `LISTENING` 行取 PID，并在 ABORT 时直接提示 `stop-desk.ps1 -Port <端口>`。
+- **停-起循环实测通过**：`stop -Port 8081` → 杀 PID 14636、端口释放、**8080 的用户 IDEA 实例不受影响**；再 `start -Port 8081` → `Tomcat started on port 8081`、`Started ItServiceDeskApplication in 2.364 seconds`、`[READY] 200`。
+- **重启幂等性实测通过**（关键）：重启后 `counts` 仍 `users:6, departments:68, reports:0, workOrders:0`，直连 DB `COUNT(*)` 复核一致 → `schema.sql`/`data.sql` 的 `CREATE TABLE IF NOT EXISTS` + `INSERT IGNORE` 不会重复灌科室。
+- **二维码与端口绑定**：`deploy/qr/*.png` 由 `/api/qr` 按请求 Host 生成，**当前三张指向 8081**。换端口（如统一到 8080）后必须重新生成，否则扫码到旧端口。

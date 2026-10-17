@@ -772,3 +772,32 @@
 - REIMB_STATUS 字典加 VOIDED/RETURNED。
 
 **遗留**：财务退回后工单回退到 PENDING_REIMBURSE（已签字），管理员重新生成新单时不需要护士长重签——这条已由占用校验调整覆盖。但若财务退回后想"修改金额再生成"，需要管理员先撤回旧单（已 RETURNED 不可撤回，只能重新勾选生成新单，旧单保持 RETURNED 留痕）。
+## D-028 | 2026-10-17：部署形态定为「院内内网单机部署」，不做公网云
+
+**来源：用户明确要求 + 用户选择**
+
+> 原话："部署上云必须最先做，否则手机会访问不到，企业微信通知里的链接也打不开。"
+> 原话（选择资源时）："什么都没有（无服务器、无域名、无公网 IP）"
+> 原话（手机网络）："基本都在医院内网 WiFi 下（推荐按此判断）"
+> 原话（数据口径）："保留结构 + 基础数据（科室/账号），业务数据清空（推荐）"
+> 原话（期限）："今天内（2-3 小时，先能打开再优化）"
+
+**决策**：用户无云服务器/域名/公网 IP，且手机都在院内 WiFi → 「上云」在成本与合规上都不成立，改为**本机常驻 + 内网直连**。公网暴露含科室/维修/报销数据的系统本身也不合适。技术上不做任何妥协：配置全部外置为环境变量，将来换云只需改 `DB_URL`/`FILE_UPLOAD_DIR`/`NOTIFY_PUBLIC_HOST`。
+
+**关键事实：`notify.publicHost` 为空 = 企微通知链接打不开的根因**
+用户 8080 上的 IDEA 实例 `/api/system/info` 实测 `notify.publicHost: ""`，`wecomEnabled: false`。通知消息里拼不出可点地址。启动脚本已改为自动探测内网 IP 注入该值。
+
+**本轮踩到的 5 个坑（都不是业务 bug，是部署环境坑）**
+1. **PowerShell 脚本必须存成 UTF-8 with BOM**：Windows PowerShell 5.1 按 GBK 读 .ps1，中文注释会把字符串提前截断，报 "The string is missing the terminator"。用 `pwsh` 7 跑没事，但用户双击/`powershell -File` 会炸。
+2. **`JAVA_HOME` 默认是 jdk8** → `UnsupportedClassVersionError: class file version 61.0`。脚本改为遍历候选 JDK 并**实测 `java -version` 主版本 ≥17** 才用；不能用"JAVA_HOME 存在即通过"。
+3. **`java -version` 走 stderr**，而脚本顶部 `$ErrorActionPreference='Stop'` 会把它当异常，导致探测函数静默失败 → 全部候选被跳过。需在函数内临时改回 `Continue`。
+4. **DSH 沙箱下 CIM 受限**：`Get-NetTCPConnection` / `Get-NetFirewallProfile` / `Get-CimInstance Win32_Process` / `tasklist` 全部静默失败或 Access denied（只看得到 12 个进程）。→ **端口占用检查不能只信 `Get-NetTCPConnection`，要用 `netstat -ano`**；防火墙状态在沙箱内根本查不了。
+5. **内网 IP 探测必须排除虚拟网卡**：`ipconfig` 首个 IPv4 是 WSL/Hyper-V 的 `172.23.240.1`，真实 WLAN 是 `10.31.67.107`。改用 .NET `NetworkInterface` 过滤 `Wireless80211/Ethernet` 且 Description 不含 Virtual/VMware/Hyper-V/WAN Miniport。
+
+**其它实测结论**
+- 手机走 `http://10.31.67.107:8080` 时 **PWA 不可用**（service worker 需安全上下文；页面已有 `'serviceWorker' in navigator` 守卫，不会报错，只是不能"添加到主屏"）。要 PWA 必须上 HTTPS。
+- 本机 `Invoke-WebRequest http://10.31.67.107:8080` 返回 200 **只能证明监听在 0.0.0.0、没有绑 localhost**，**不能证明手机可访问**（同机访问不经入站防火墙规则）。手机实测是唯一验收。
+- QR 码由 `QrController` 按请求 `Host` 头动态拼 URL（`/api/qr?path=...&token=token-<userId>`），换端口二维码自动跟着变，无硬编码。
+- 源码无任何硬编码 `10.31.67.107` / `:8080`（grep 已确认）。
+- 源码 `sys_user` 实测 6 行、`department` 68 行；`information_schema.table_rows` 是估算值（曾显示 5 行）。**取真实行数必须 `COUNT(*)`**。
+- 8080 上跑的是用户 14:06 在 IDEA 启动的开发实例，沙箱内不可见/不可管理 → 正式部署先用 8081 并存验证，避免误杀用户进程。
