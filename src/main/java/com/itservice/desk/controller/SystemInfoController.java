@@ -12,7 +12,6 @@ import com.itservice.desk.model.User;
 import com.itservice.desk.model.UserRole;
 import com.itservice.desk.model.WorkOrder;
 import com.itservice.desk.model.WorkOrderStatus;
-import com.itservice.desk.service.WecomWebhookNotifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -53,38 +52,17 @@ public class SystemInfoController {
     private final DepartmentMapper departmentMapper;
     private final ReportMapper reportMapper;
     private final WorkOrderMapper workOrderMapper;
-    /** 未配置 webhook 时 Bean 不存在 → null */
-    private final WecomWebhookNotifier wecomNotifier;
 
     public SystemInfoController(Environment environment,
                                 UserMapper userMapper,
                                 DepartmentMapper departmentMapper,
                                 ReportMapper reportMapper,
-                                WorkOrderMapper workOrderMapper,
-                                org.springframework.beans.factory.ObjectProvider<WecomWebhookNotifier> wecomNotifierProvider) {
+                                WorkOrderMapper workOrderMapper) {
         this.environment = environment;
         this.userMapper = userMapper;
         this.departmentMapper = departmentMapper;
         this.reportMapper = reportMapper;
         this.workOrderMapper = workOrderMapper;
-        this.wecomNotifier = wecomNotifierProvider.getIfAvailable();
-    }
-
-    /** 管理端「发送测试通知」：验证企微群机器人是否配通（同步返回结果，便于自助排查） */
-    @org.springframework.web.bind.annotation.PostMapping("/notify-test")
-    public ApiResponse notifyTest(@RequestHeader(value = "X-Token", required = false) String token) {
-        User user = resolveUser(token);
-        if (user == null) {
-            return ApiResponse.error(401, "未登录或登录已过期");
-        }
-        if (user.getRole() != UserRole.ADMIN && user.getRole() != UserRole.DISPATCHER) {
-            return ApiResponse.error(403, "无权限：只有管理员或调度员可以测试通知");
-        }
-        if (wecomNotifier == null) {
-            return ApiResponse.error("未配置 notify.wecom.webhook：请先在 application.yml 填入企微群机器人地址并重启");
-        }
-        String err = wecomNotifier.sendTest();
-        return err == null ? ApiResponse.ok("测试通知已发送，请查看企业微信群") : ApiResponse.error(err);
     }
 
     @GetMapping("/info")
@@ -113,13 +91,9 @@ public class SystemInfoController {
         data.put("dbUrl", environment.getProperty("spring.datasource.url"));
         data.put("dbUsername", environment.getProperty("spring.datasource.username"));
 
-        // 通知渠道状态（不回传 webhook 地址本身，只报配置与否/是否可用）
-        Map<String, Object> notify = new LinkedHashMap<>();
-        notify.put("wecomEnabled", wecomNotifier != null && wecomNotifier.enabled());
-        notify.put("wecomConfigured", environment.getProperty("notify.wecom.webhook") != null
-                && !environment.getProperty("notify.wecom.webhook").isBlank());
-        notify.put("publicHost", environment.getProperty("notify.public-host"));
-        data.put("notify", notify);
+        // 手机能访问的入口根地址（二维码文案用，避免显示 localhost）
+        String lan = com.itservice.desk.util.LanAddress.resolve();
+        data.put("accessBaseUrl", "http://" + (lan == null || lan.isBlank() ? "localhost" : lan) + ":" + serverPort);
 
         Map<String, Object> counts = new LinkedHashMap<>();
         counts.put("users", count(userMapper.selectCount(null)));

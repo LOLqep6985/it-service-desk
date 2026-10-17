@@ -5,7 +5,7 @@
  * - 图标等极少变动资源：缓存优先
  * - /api/ 与 /uploads/ 一律不缓存（数据实时）
  */
-const CACHE = 'itsd-v20';
+const CACHE = 'itsd-v22';
 const APP_SHELL = [
   '/report.html',
   '/today.html',
@@ -19,7 +19,7 @@ const APP_SHELL = [
   '/js/department-cascade.js',
   '/js/signature-pad.js',
   '/js/guard.js',
-  '/js/pwa-install.js',
+  '/js/notifications.js',
   '/js/admin/api.js',
   '/js/admin/store.js',
   '/js/admin/ui.js',
@@ -29,7 +29,6 @@ const APP_SHELL = [
   '/js/admin/views/dashboard.js',
   '/js/admin/views/reports-pending.js',
   '/js/admin/views/work-orders.js',
-  '/js/admin/views/reports-history.js',
   '/js/admin/views/reimbursements.js',
   '/js/admin/views/departments.js',
   '/js/admin/views/users.js',

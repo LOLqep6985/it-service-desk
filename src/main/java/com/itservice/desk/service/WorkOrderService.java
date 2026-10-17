@@ -28,6 +28,7 @@ public class WorkOrderService {
     private final ReportMapper reportMapper;
     private final ReimbursementItemMapper reimbursementItemMapper;
     private final ReimbursementMapper reimbursementMapper;
+    private final NotificationService notificationService;
     private final AtomicLong assignCursor = new AtomicLong(0);
 
     public WorkOrderService(WorkOrderMapper workOrderMapper,
@@ -36,7 +37,8 @@ public class WorkOrderService {
                             ConsumableMapper consumableMapper,
                             ReportMapper reportMapper,
                             ReimbursementItemMapper reimbursementItemMapper,
-                            ReimbursementMapper reimbursementMapper) {
+                            ReimbursementMapper reimbursementMapper,
+                            NotificationService notificationService) {
         this.workOrderMapper = workOrderMapper;
         this.departmentMapper = departmentMapper;
         this.userMapper = userMapper;
@@ -44,6 +46,7 @@ public class WorkOrderService {
         this.reportMapper = reportMapper;
         this.reimbursementItemMapper = reimbursementItemMapper;
         this.reimbursementMapper = reimbursementMapper;
+        this.notificationService = notificationService;
     }
 
     /**
@@ -226,6 +229,10 @@ public class WorkOrderService {
         // 有耗材 → 待核价（管理员填金额）；无耗材 → 待签字（跳过核价，科室直接验收）
         wo.setStatus(hasConsumables ? WorkOrderStatus.PENDING_PRICING : WorkOrderStatus.PENDING_SIGN);
         workOrderMapper.updateById(wo);
+        // 无耗材直接进入待签字 → 事件4：通知报修人设备 + 护士长设备
+        if (wo.getStatus() == WorkOrderStatus.PENDING_SIGN) {
+            notificationService.notifyPendingSign(wo);
+        }
         return wo;
     }
 
@@ -240,6 +247,8 @@ public class WorkOrderService {
         }
         wo.setStatus(WorkOrderStatus.PENDING_SIGN);
         workOrderMapper.updateById(wo);
+        // 核价完成进入待签字 → 事件4
+        notificationService.notifyPendingSign(wo);
         return wo;
     }
 

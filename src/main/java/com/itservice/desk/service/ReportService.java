@@ -22,23 +22,16 @@ public class ReportService {
     private final ReportMapper reportMapper;
     private final DepartmentMapper departmentMapper;
     private final WorkOrderMapper workOrderMapper;
-    private final com.itservice.desk.mapper.UserMapper userMapper;
-    /** 企微群机器人通知：notify.wecom.webhook 未配置时 Bean 不存在，此处可为 null（派单不受影响） */
-    private final WecomWebhookNotifier wecomNotifier;
-    /** 院区码 → 中文名（通知文案用） */
-    private static final java.util.Map<String, String> CAMPUS_LABEL = java.util.Map.of(
-            "LAOYUAN", "老院", "XIYUAN", "西院", "DONGYUAN", "东院");
+    private final NotificationService notificationService;
 
     public ReportService(ReportMapper reportMapper,
                           DepartmentMapper departmentMapper,
                           WorkOrderMapper workOrderMapper,
-                          com.itservice.desk.mapper.UserMapper userMapper,
-                          org.springframework.beans.factory.ObjectProvider<WecomWebhookNotifier> wecomNotifierProvider) {
+                          NotificationService notificationService) {
         this.reportMapper = reportMapper;
         this.departmentMapper = departmentMapper;
         this.workOrderMapper = workOrderMapper;
-        this.userMapper = userMapper;
-        this.wecomNotifier = wecomNotifierProvider.getIfAvailable();
+        this.notificationService = notificationService;
     }
 
     public void insertReport(Report r) {
@@ -151,16 +144,13 @@ public class ReportService {
         r.setStatus(ReportStatus.DISPATCHED);
         reportMapper.updateById(r);
 
-        // 派单成功后发企微群通知（旁路：失败不影响派单；未配置 webhook 时为空操作）
-        if (wecomNotifier != null && wecomNotifier.enabled()) {
-            com.itservice.desk.model.User assignee = userMapper.selectById(assigneeId);
-            wecomNotifier.notifyDispatch(
-                    assignee == null ? "未知" : assignee.getName(),
-                    wo.getTitle(),
-                    wo.getDepartmentName(),
-                    CAMPUS_LABEL.getOrDefault(wo.getCampus(), "院区未记录"),
-                    wo.getId());
-        }
+        // 事件2：派单 → 维修工（旁路，失败不影响派单）
+        notificationService.notifyUser(assigneeId, NotificationType.DISPATCHED,
+                "DISPATCH:" + wo.getId(),
+                "新工单：" + (wo.getTitle() == null ? "" : wo.getTitle()),
+                (wo.getDepartmentName() == null ? "" : wo.getDepartmentName()) + "，请及时接单",
+                NotificationService.LEVEL_URGENT, wo.getId(), r.getId());
+
         return wo;
     }
 }

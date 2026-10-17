@@ -2,16 +2,15 @@
   启动「多院区 IT 运维工单系统」（院内内网常驻部署）
   用法：
     powershell -ExecutionPolicy Bypass -File deploy\start-desk.ps1
-    powershell -ExecutionPolicy Bypass -File deploy\start-desk.ps1 -Port 8080 -PublicHost http://10.31.67.107:8080
+    powershell -ExecutionPolicy Bypass -File deploy\start-desk.ps1 -Port 8080
 
   说明：
-    - 监听 0.0.0.0，同一 WiFi 下的手机可用 http://<本机内网IP>:<Port> 访问
-    - NOTIFY_PUBLIC_HOST 会写进企业微信通知里的链接，必须是手机能访问到的地址
+    - 监听 0.0.0.0，同一 WiFi 下的手机可用 http://<本机内网IP>:<Port> 访问（扫码/输入地址即可）
+    - 桌面图标由使用人员自行用手机浏览器菜单「添加到主屏幕」创建，不做安装引导
     - 数据库口令不写在本文件里：沿用 application.yml 默认值，或用环境变量 DB_URL/DB_USERNAME/DB_PASSWORD 覆盖
 #>
 param(
-  [int]$Port = 8080,
-  [string]$PublicHost = ""
+  [int]$Port = 8080
 )
 
 $ErrorActionPreference = "Stop"
@@ -61,14 +60,14 @@ function Get-LanIPv4 {
   return $null
 }
 
-if (-not $PublicHost) {
-  $ip = Get-LanIPv4
-  if ($ip) {
-    $PublicHost = "http://${ip}:$Port"
-    Write-Host "[INFO] 自动探测内网地址：$PublicHost"
-  } else {
-    Write-Host "[WARN] 未探测到内网 IPv4，企业微信通知链接将为空（不影响页面访问）" -ForegroundColor Yellow
-  }
+# ---- 2b. 打印手机访问地址（仅提示用，不写入任何配置）----
+$lanIp = Get-LanIPv4
+if ($lanIp) {
+  $phoneUrl = "http://${lanIp}:$Port"
+  Write-Host "[INFO] 手机访问地址：$phoneUrl"
+} else {
+  $phoneUrl = "(未探测到内网 IPv4)"
+  Write-Host "[WARN] 未探测到内网 IPv4，手机请用本机实际内网地址访问" -ForegroundColor Yellow
 }
 
 # ---- 3. JDK：必须 17+（本机默认 JAVA_HOME 是 jdk8，会报 Class Version 61）----
@@ -110,7 +109,6 @@ Write-Host "[INFO] 使用 Java：$java"
 
 # ---- 4. 运行期环境变量 ----
 $env:FILE_UPLOAD_DIR = Join-Path $AppRoot "uploads"
-$env:NOTIFY_PUBLIC_HOST = $PublicHost
 $env:SERVER_PORT = "$Port"
 # 首次启动由后端自动建表 + 灌基础数据（schema.sql/data.sql 均为幂等语句）
 if (-not $env:SQL_INIT_MODE) { $env:SQL_INIT_MODE = "always" }
@@ -133,7 +131,7 @@ $proc = Start-Process -FilePath $java `
 
 Write-Host "[OK] 已启动 PID=$($proc.Id)"
 Write-Host "     端口    : $Port"
-Write-Host "     对外地址: $PublicHost"
+Write-Host "     手机访问: $phoneUrl"
 Write-Host "     日志    : $outLog"
 Write-Host "     停止    : powershell -ExecutionPolicy Bypass -File deploy\stop-desk.ps1"
 

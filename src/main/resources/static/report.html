@@ -167,6 +167,10 @@
       <div class="picker-panel" id="deptPickerPanel"></div>
     </div>
     <button class="primary" id="bindBtn" style="margin-top:14px;">绑定</button>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:#374151;">
+      <input type="checkbox" id="headChk" style="width:auto;margin:0;">
+      我是本科室负责人（护士长）——勾选后，工单待签字时本机会收到提醒
+    </label>
     <div class="msg" id="bindMsg"></div>
   </div>
 
@@ -287,6 +291,28 @@
   let lastSubmitAt = 0;           // 上次提交时间戳（ms）；点击时距此 <10 秒直接拦下
   let countdownTimer = null;
   let departmentId = Number(localStorage.getItem('itsdDepartmentId')) || null;
+
+  // 本机设备标识：服务端据此把「待签字」消息只投给报修人这台手机（登记在 department_binding）
+  function getOrCreateDeviceId() {
+    let id = localStorage.getItem('itsdDeviceId');
+    if (!id) {
+      id = 'dev-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem('itsdDeviceId', id);
+    }
+    return id;
+  }
+  const deviceId = getOrCreateDeviceId();
+
+  // 向服务端登记本设备（科室 + 是否护士长）；失败不阻塞绑定，下次绑定会重试
+  async function registerSelf(deptId, isHead) {
+    try {
+      await fetch('/api/bindings/self', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId: deviceId, departmentId: deptId, isHead: !!isHead })
+      });
+    } catch (e) { /* 旁路 */ }
+  }
   let selectedDeptId = null;   // 三级联动当前选中的科室（点击「绑定」后落库到 localStorage）
   let currentSignWoId = null;
   let currentReimbId = null;
@@ -341,11 +367,14 @@
     onChange: () => { bindMsg.textContent = ''; }
   });
 
-  function doBind() {
+  async function doBind() {
     const dept = cascade.selected();
     if (!dept) { bindMsg.textContent = '请选择科室'; return; }
+    const isHead = !!(document.getElementById('headChk') || {}).checked;
     localStorage.setItem('itsdDepartmentId', String(dept.id));
     localStorage.setItem('itsdDepartmentName', dept.name);
+    localStorage.setItem('itsdIsHead', isHead ? '1' : '0');
+    await registerSelf(dept.id, isHead);
     location.reload();
   }
 
@@ -376,6 +405,8 @@
         localStorage.setItem('itsdDepartmentId', String(dept.id));
         localStorage.setItem('itsdDepartmentName', dept.name);
         departmentId = dept.id;
+        // 每次进入都补登记一次（服务端可能被清过库，登记失败不影响使用）
+        registerSelf(dept.id, localStorage.getItem('itsdIsHead') === '1');
         showBound(dept);
         loadAccept();
         loadReimbursements();
@@ -422,7 +453,7 @@
       const res = await fetch('/api/reports/anonymous', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ departmentId, reporterName, deviceName, problemDesc, departmentHead })
+        body: JSON.stringify({ departmentId, reporterName, deviceName, problemDesc, departmentHead, deviceId })
       });
       const json = await res.json();
       if (json.code !== 0) {
@@ -923,6 +954,7 @@
     });
   }
 </script>
-<script src="/js/pwa-install.js"></script>
+<script src="/js/notifications.js"></script>
+<script>ITSNotice.start();</script>
 </body>
 </html>

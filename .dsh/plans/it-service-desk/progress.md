@@ -971,3 +971,76 @@
 - **停-起循环实测通过**：`stop -Port 8081` → 杀 PID 14636、端口释放、**8080 的用户 IDEA 实例不受影响**；再 `start -Port 8081` → `Tomcat started on port 8081`、`Started ItServiceDeskApplication in 2.364 seconds`、`[READY] 200`。
 - **重启幂等性实测通过**（关键）：重启后 `counts` 仍 `users:6, departments:68, reports:0, workOrders:0`，直连 DB `COUNT(*)` 复核一致 → `schema.sql`/`data.sql` 的 `CREATE TABLE IF NOT EXISTS` + `INSERT IGNORE` 不会重复灌科室。
 - **二维码与端口绑定**：`deploy/qr/*.png` 由 `/api/qr` 按请求 Host 生成，**当前三张指向 8081**。换端口（如统一到 8080）后必须重新生成，否则扫码到旧端口。
+### S-040 | 2026-10-17：按用户意见移除企微相关业务 + 取消 PWA 安装引导
+
+**依据**：用户 5 条修改意见 + 背景"此前已明确不做企业微信方面的业务" → 决策 `D-029`（推翻 D-021 的 PWA 安装引导部分、S-026 企微派单通知）。
+
+**改动文件（11 个）**
+| 类型 | 文件 | 改动 |
+|---|---|---|
+| 删除 | `service/WecomWebhookNotifier.java` | 整文件 |
+| 删除 | `static/js/pwa-install.js` | 整文件（安装引导气泡） |
+| 改 | `service/ReportService.java` | 去 notifier/CAMPUS_LABEL/userMapper 依赖与派单通知调用（构造器从 5 参降为 3 参） |
+| 改 | `controller/SystemInfoController.java` | 去 import/字段/构造参数/`POST /api/system/notify-test`/`data.notify` |
+| 改 | `resources/application.yml` | 删整个 `notify:` 块 |
+| 改 | `static/js/admin/views/system.js` | 删 `notifyRows()` 与「派单通知」行；KNOWN_LIMITS 的「PWA 安装条件」改为「桌面图标」；二维码说明改为"自行用浏览器菜单添加" |
+| 改 | `static/service-worker.js` | 去 `pwa-install.js` 与死链 `reports-history.js`；`itsd-v20`→`itsd-v21` |
+| 改 | `static/{report,today,detail,login,create}.html` | 各删 1 行 `pwa-install.js` 引用 |
+| 改 | `deploy/start-desk.ps1` | 删 `-PublicHost` 与 `NOTIFY_PUBLIC_HOST`；保留内网 IP 探测但只打印「手机访问地址」 |
+| 改 | `deploy/README.md` | 去 `NOTIFY_PUBLIC_HOST`；第四节加"保存到桌面（自行完成）"；第七节改写限制；新增第九节「明确不做的部分」 |
+
+**验证证据（真实执行）**
+- `mvn compile` exit=0；`mvn clean package` BUILD SUCCESS
+- `node --check` 通过：`system.js`、`service-worker.js`
+- 启动：`Started ItServiceDeskApplication in 2.407 seconds`（构造器参数变更未破坏 Spring 装配）
+- `GET /api/system/info` 响应实测**不含** `notify` / `wecom` / `publicHost` 三个键
+- `POST /api/system/notify-test` → **404**（接口已移除）
+- 页面 200：`/login.html`、`/report.html`、`/today.html`、`/admin.html`、`/service-worker.js`
+- 全项目残留扫描（排除 node_modules/target/.m2repo）：`企微|企业微信|wecom|群机器人|推送|notify` 在 `src/main` 下**零命中**
+
+**顺手修掉的既有 bug**：SW 的 `APP_SHELL` 里含已删除的 `/js/admin/views/reports-history.js`，`cache.addAll` 遇 404 会导致整个 SW 安装失败（即 SW 从未真正生效过）。本次一并移除并 bump 缓存版本。
+
+**未做/待定**
+- 「手机端弹出消息」按用户要求**只标注、不设计**，已写入 `deploy/README.md` 第九节与 `task_plan.md` 待办
+- 系统信息页的最终视觉呈现未在浏览器里人工确认（仅 `node --check` + 页面 200 + 接口无 notify 字段），需用户在后台点开「系统信息」页目视一次
+- `.rdoc_inspect/` 内本机验证脚本仍引用已删的 `reports-history.js`（该目录被 gitignore、不随仓库交付）
+### S-041 | 2026-10-17：实现站内消息通知（A 档 4 事件）+ 修复二维码 localhost 残留
+
+**依据**：用户决策 `D-030`。
+
+**一、修复「系统信息」页二维码显示 localhost（用户点名的残留问题）**
+- 新增 `util/LanAddress.java`：枚举网卡取站点本地 IPv4，排除 virtual/vmware/hyper-v/docker/wsl/tailscale 等（与 `start-desk.ps1` 同一策略）
+- `QrController`：请求 Host 为 loopback（localhost/127.x/0.0.0.0/::1）时替换为内网 IP
+- `SystemInfoController`：新增 `accessBaseUrl` 字段
+- `system.js`：入口卡文案改用 `info.accessBaseUrl`，不再用 `location.origin`
+
+**二、通知功能**
+
+| 层 | 实现 |
+|---|---|
+| 数据 | `notification` 表（`event_key`+`target_kind`+`target_id` 唯一索引）；`report.client_device_id`；`department_binding.is_head`；迁移脚本 `sql/2026-10-17-notification.sql` |
+| 后端 | `Notification`/`NotificationType`/`NotificationMapper`(INSERT IGNORE)/`NotificationService`/`NotificationController`/`UnacceptedTimeoutJob`(@Scheduled 60s)；`@EnableScheduling` |
+| 事件挂点 | `ReportController.createAnonymous`→事件1；`ReportService.dispatch`→事件2；`WorkOrderService.submitRepair`+`completePricing`→事件4；`UnacceptedTimeoutJob`→事件9 |
+| 前端 | `js/notifications.js`（10s 轮询 + 声音/震动/标题角标/横幅 + since 游标）；`report.html`/`today.html`/`admin.html` 挂载；`report.html` 加「我是科室负责人」勾选 + 设备自助登记 + 报修带 deviceId |
+| SW | `APP_SHELL` 加 `/js/notifications.js`，缓存版本 `itsd-v21`→`itsd-v22` |
+
+**三、端到端实测（真实起服务跑通，8081）**
+
+| 验证 | 结果 |
+|---|---|
+| 设备登记 | `dev-test-report`(isHead=0)/`dev-test-head`(isHead=1) → code=0 |
+| 事件1 报修提交 | 管理员收到 `REPORT_CREATED` URGENT「新报修单：门诊楼-一层-收费室」 |
+| 事件2 派单 | repairer1 收到 `DISPATCHED` URGENT「新工单：打印机A报修」 |
+| 事件4 待签字 | 报修人机 1 条、护士长机 1 条，均为 `PENDING_SIGN` |
+| **同名去重** | 设科室负责人=「王护士」后，同人报修 → 报修人机 1→1（不变）、护士长机 1→2（+1）✅ 与用户要求一致 |
+| 事件9 超时 | `created_at` 拨回 20 分钟 → 下一轮扫描产生 `TIMEOUT_UNACCEPTED`：维修工 URGENT + 管理员 NORMAL |
+| 幂等 | 多轮扫描后 notification 总计 15 行 = 精确预期（admin+dispatcher 各 4 + repairer1 4 + 设备 3），无重复 |
+| 编译/构建 | `mvn compile` exit=0、`mvn clean package` BUILD SUCCESS、`node --check` 通过 |
+
+**四、收尾**：测试数据已清理（notification/consumable/work_order/report/department_binding 全 TRUNCATE），`department_head` 还原为 NULL；基线恢复 sys_user=6 / department=68 / 业务表 0；8081 实例已停。
+
+**五、遗留/待办**
+1. **68 个科室的 `department_head` 全为空** → 姓名同名去重规则不生效（同机场景已天然去重）。要在「科室索引管理」补负责人姓名，或接受此限制。
+2. 「我是科室负责人」勾选目前只在**首次绑定/重新绑定**时出现；已绑定的老设备需点一次「重新绑定科室」才能标记。
+3. 前端只做了 HTTP 层验证（接口 404/200、数据结构、语法），**声音/震动/角标未在真机浏览器实测**，需要用户在安卓工作机上点一次（首击解锁音频）。
+4. B 档（锁屏弹窗）未做，需 HTTPS 或原生 App，见 `D-030` 技术闸门。
