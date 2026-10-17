@@ -3,11 +3,9 @@ package com.itservice.desk.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.itservice.desk.mapper.DepartmentBindingMapper;
-import com.itservice.desk.mapper.DepartmentMapper;
 import com.itservice.desk.mapper.NotificationMapper;
 import com.itservice.desk.mapper.ReportMapper;
 import com.itservice.desk.mapper.UserMapper;
-import com.itservice.desk.model.Department;
 import com.itservice.desk.model.DepartmentBinding;
 import com.itservice.desk.model.Notification;
 import com.itservice.desk.model.NotificationType;
@@ -42,18 +40,15 @@ public class NotificationService {
     private final NotificationMapper notificationMapper;
     private final UserMapper userMapper;
     private final DepartmentBindingMapper bindingMapper;
-    private final DepartmentMapper departmentMapper;
     private final ReportMapper reportMapper;
 
     public NotificationService(NotificationMapper notificationMapper,
                                UserMapper userMapper,
                                DepartmentBindingMapper bindingMapper,
-                               DepartmentMapper departmentMapper,
                                ReportMapper reportMapper) {
         this.notificationMapper = notificationMapper;
         this.userMapper = userMapper;
         this.bindingMapper = bindingMapper;
-        this.departmentMapper = departmentMapper;
         this.reportMapper = reportMapper;
     }
 
@@ -107,7 +102,7 @@ public class NotificationService {
 
     // ---------- 业务事件 ----------
 
-    /** 事件4：维修完成待签字 → 报修人设备 + 护士长设备（同名时只发护士长设备） */
+    /** 事件4：维修完成待签字 → 该报修单的提交设备 + 本科室护士长设备；只认设备号，按设备号去重 */
     public void notifyPendingSign(WorkOrder wo) {
         if (wo == null) {
             return;
@@ -120,39 +115,34 @@ public class NotificationService {
                 return;
             }
 
-            List<DepartmentBinding> heads = bindingMapper.selectList(new LambdaQueryWrapper<DepartmentBinding>()
+            // 收件设备（只认设备号，不认姓名）：
+            //   ① 该报修单在提交时内部留存的提交设备（report.client_device_id）
+            //   ② 本科室标记为护士长的设备
+            List<DepartmentBinding> targets = new ArrayList<>();
+            DepartmentBinding submitter = resolveSubmitterBinding(report);
+            if (submitter != null) {
+                targets.add(submitter);
+            }
+            targets.addAll(bindingMapper.selectList(new LambdaQueryWrapper<DepartmentBinding>()
                     .eq(DepartmentBinding::getDepartmentId, deptId)
                     .eq(DepartmentBinding::getIsHead, true)
-                    .eq(DepartmentBinding::getActive, true));
+                    .eq(DepartmentBinding::getActive, true)));
 
-            List<DepartmentBinding> submitters = new ArrayList<>();
-            if (report != null && report.getClientDeviceId() != null && !report.getClientDeviceId().isBlank()) {
-                submitters.addAll(bindingMapper.selectList(new LambdaQueryWrapper<DepartmentBinding>()
-                        .eq(DepartmentBinding::getDeviceCode, report.getClientDeviceId())
-                        .eq(DepartmentBinding::getActive, true)));
-            }
-
-            // 报修人 == 护士长（同人）→ 只发护士长设备，避免本人手机上收到两条
-            boolean samePerson = report != null && sameName(report.getReporterName(), headNameOf(deptId));
-
-            List<DepartmentBinding> targets = new ArrayList<>();
-            if (samePerson) {
-                targets.addAll(heads);
-            } else {
-                targets.addAll(submitters);
-                targets.addAll(heads);
-            }
             if (targets.isEmpty()) {
                 return;
             }
 
             String title = "工单待签字：" + safe(wo.getTitle());
-            String body = safe(wo.getDepartmentName()) + " · " + safe(report == null ? null : report.getReporterName())
+            // 姓名只用于文案展示（让护士长看出是谁报的），不参与任何身份判断
+            String reporter = report == null ? "" : safe(report.getReporterName()).trim();
+            String body = safe(wo.getDepartmentName())
+                    + (reporter.isEmpty() ? "" : " · " + reporter)
                     + " 报修，维修已完成，请签字确认";
             String eventKey = "PENDING_SIGN:" + wo.getId();
 
             List<Long> sent = new ArrayList<>();
             for (DepartmentBinding b : targets) {
+                // 同一台设备既提交了报修、又被标记为护士长 → 只发一条（按设备号去重）
                 if (b == null || b.getId() == null || sent.contains(b.getId())) {
                     continue;
                 }
@@ -224,19 +214,26 @@ public class NotificationService {
 
     // ---------- 工具 ----------
 
-    private String headNameOf(Long deptId) {
-        Department d = departmentMapper.selectById(deptId);
-        return d == null ? null : d.getDepartmentHead();
-    }
-
-    /** 姓名比对：去空白、全角空格，规避手工输入差异 */
-    private boolean sameName(String a, String b) {
-        if (a == null || b == null) {
-            return false;
+    /**
+     * 取报修单的「提交设备」绑定 —— 只认设备号，不做任何姓名推断。
+     * 优先 report.client_device_id（报修提交时内部留存）；
+     * 兼容旧数据：无设备号但存了 binding_id 时，直接按该绑定取。
+     */
+    private DepartmentBinding resolveSubmitterBinding(Report report) {
+        if (report == null) {
+            return null;
         }
-        String x = a.replaceAll("[\\s\\u3000]", "");
-        String y = b.replaceAll("[\\s\\u3000]", "");
-        return !x.isEmpty() && x.equals(y);
+        if (report.getClientDeviceId() != null && !report.getClientDeviceId().isBlank()) {
+            List<DepartmentBinding> list = bindingMapper.selectList(new LambdaQueryWrapper<DepartmentBinding>()
+                    .eq(DepartmentBinding::getDeviceCode, report.getClientDeviceId())
+                    .eq(DepartmentBinding::getActive, true)
+                    .last("LIMIT 1"));
+            return list.isEmpty() ? null : list.get(0);
+        }
+        if (report.getBindingId() != null) {
+            return bindingMapper.selectById(report.getBindingId());
+        }
+        return null;
     }
 
     private String safe(String s) {
