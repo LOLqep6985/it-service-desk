@@ -74,8 +74,8 @@ public class DepartmentBindingController {
     @PostMapping("/self")
     public ApiResponse selfBind(@RequestBody Map<String, Object> req) {
         String deviceId = req.get("deviceId") == null ? null : String.valueOf(req.get("deviceId")).trim();
-        if (deviceId == null || deviceId.length() < 8 || deviceId.length() > 64) {
-            return ApiResponse.error("设备标识无效");
+        if (deviceId == null || deviceId.length() < 4 || deviceId.length() > 64) {
+            return ApiResponse.error("设备标识无效（长度需 4-64）");
         }
         Long deptId;
         try {
