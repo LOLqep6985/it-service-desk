@@ -1,6 +1,8 @@
 package com.itservice.desk.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.itservice.desk.mapper.*;
 import com.itservice.desk.model.*;
 import org.springframework.stereotype.Service;
@@ -171,6 +173,31 @@ public class ReimbursementService {
         return list;
     }
 
+    /** 分页查询报销单（待办三扩展）；fillDepartmentName 只处理本页数据 */
+    public IPage<Reimbursement> pageAll(String status, long page, long size) {
+        LocalDateTime since = LocalDateTime.now().minusDays(RETENTION_DAYS);
+        LambdaQueryWrapper<Reimbursement> qw = new LambdaQueryWrapper<Reimbursement>()
+                .ge(Reimbursement::getCreatedAt, since)
+                .orderByDesc(Reimbursement::getCreatedAt);
+        if (status != null && !status.isBlank()) {
+            qw.eq(Reimbursement::getStatus, status);
+        }
+        IPage<Reimbursement> result = reimbursementMapper.selectPage(new Page<>(page, size), qw);
+        fillDepartmentName(result.getRecords());
+        return result;
+    }
+
+    /** 分页查询某科室报销单（科室端） */
+    public IPage<Reimbursement> pageByDepartment(Long departmentId, long page, long size) {
+        LocalDateTime since = LocalDateTime.now().minusDays(RETENTION_DAYS);
+        LambdaQueryWrapper<Reimbursement> qw = new LambdaQueryWrapper<Reimbursement>()
+                .eq(Reimbursement::getDepartmentId, departmentId)
+                .ge(Reimbursement::getCreatedAt, since)
+                .orderByDesc(Reimbursement::getCreatedAt);
+        IPage<Reimbursement> result = reimbursementMapper.selectPage(new Page<>(page, size), qw);
+        fillDepartmentName(result.getRecords());
+        return result;
+    }
     public List<Reimbursement> listByDepartment(Long departmentId) {
         LocalDateTime since = LocalDateTime.now().minusDays(RETENTION_DAYS);
         List<Reimbursement> list = reimbursementMapper.selectList(new LambdaQueryWrapper<Reimbursement>()
@@ -193,7 +220,7 @@ public class ReimbursementService {
     public Reimbursement getById(Long id) {
         Reimbursement r = reimbursementMapper.selectById(id);
         if (r == null) {
-            throw new IllegalArgumentException("报销单不存在");
+            throw new com.itservice.desk.exception.NotFoundException("报销单不存在");
         }
         return r;
     }

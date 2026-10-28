@@ -1,5 +1,6 @@
 package com.itservice.desk.controller;
 
+import com.itservice.desk.security.AuthUserResolver;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.itservice.desk.dto.ApiResponse;
 import com.itservice.desk.mapper.DepartmentMapper;
@@ -35,6 +36,8 @@ import java.util.Map;
 @RequestMapping("/api/system")
 public class SystemInfoController {
 
+    private final AuthUserResolver authUserResolver;
+
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final long STARTED_AT = System.currentTimeMillis();
 
@@ -57,7 +60,9 @@ public class SystemInfoController {
                                 UserMapper userMapper,
                                 DepartmentMapper departmentMapper,
                                 ReportMapper reportMapper,
-                                WorkOrderMapper workOrderMapper) {
+                                WorkOrderMapper workOrderMapper,
+                                AuthUserResolver authUserResolver) {
+        this.authUserResolver = authUserResolver;
         this.environment = environment;
         this.userMapper = userMapper;
         this.departmentMapper = departmentMapper;
@@ -121,14 +126,6 @@ public class SystemInfoController {
     }
 
     private User resolveUser(String token) {
-        if (token == null || !token.startsWith("token-")) {
-            return null;
-        }
-        try {
-            Long userId = Long.valueOf(token.substring("token-".length()));
-            return userMapper.selectById(userId);
-        } catch (NumberFormatException e) {
-            return null;
-        }
+        return authUserResolver.resolve(token);
     }
 }

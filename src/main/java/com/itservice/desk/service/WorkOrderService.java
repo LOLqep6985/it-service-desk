@@ -1,6 +1,8 @@
 package com.itservice.desk.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.itservice.desk.dto.ConsumableItem;
 import com.itservice.desk.dto.WorkOrderDetail;
 import com.itservice.desk.mapper.ConsumableMapper;
@@ -12,6 +14,7 @@ import com.itservice.desk.mapper.UserMapper;
 import com.itservice.desk.mapper.WorkOrderMapper;
 import com.itservice.desk.model.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -89,6 +92,47 @@ public class WorkOrderService {
         }
         return workOrderMapper.selectList(qw);
     }
+
+    /**
+     * 分页查询工单（待办三）。
+     *
+     * <p>与 {@link #listAll(String)} 并存而非替换：老接口保持返回 List，
+     * 前端既有代码（{@code state.rows.filter(...)}）不受影响；
+     * 新页面可传 page/size 走分页，逐步迁移。
+     *
+     * <p><b>为什么必须支持 keyword</b>：前端原先是"全量拉取 → 浏览器端搜索"。
+     * 一旦改成服务端分页而不同时支持服务端搜索，用户只能搜到当前页的 10 条，
+     * 搜索功能会<b>静默退化</b>——不报错，但用户会以为"数据丢了"。
+     *
+     * @param keyword 模糊匹配工单标题 / 科室名 / 故障描述；空白视为不过滤
+     */
+    public IPage<WorkOrder> pageAll(String status, String keyword, long page, long size) {
+        LambdaQueryWrapper<WorkOrder> qw = new LambdaQueryWrapper<WorkOrder>()
+                .orderByDesc(WorkOrder::getCreatedAt);
+        if (status != null && !status.isBlank()) {
+            qw.eq(WorkOrder::getStatus, status);
+        }
+        if (keyword != null && !keyword.isBlank()) {
+            String kw = keyword.trim();
+            // 用 and(...) 包住 or 条件，避免 OR 污染外层的 status 过滤
+            qw.and(w -> w.like(WorkOrder::getTitle, kw)
+                    .or().like(WorkOrder::getDepartmentName, kw)
+                    .or().like(WorkOrder::getDescription, kw));
+        }
+        return workOrderMapper.selectPage(new Page<>(page, size), qw);
+    }
+
+    /** 分页查询某科室工单（科室端历史记录较多，最需要分页） */
+    public IPage<WorkOrder> pageByDepartment(Long departmentId, String status, long page, long size) {
+        LambdaQueryWrapper<WorkOrder> qw = new LambdaQueryWrapper<WorkOrder>()
+                .eq(WorkOrder::getDepartmentId, departmentId)
+                .orderByDesc(WorkOrder::getCreatedAt);
+        if (status != null && !status.isBlank()) {
+            qw.eq(WorkOrder::getStatus, status);
+        }
+        return workOrderMapper.selectPage(new Page<>(page, size), qw);
+    }
+
     public List<WorkOrder> listTodayTasks(Long assigneeId) {
         return workOrderMapper.selectList(new LambdaQueryWrapper<WorkOrder>()
                 .eq(WorkOrder::getAssigneeId, assigneeId)
@@ -99,7 +143,7 @@ public class WorkOrderService {
     public WorkOrder getById(Long id) {
         WorkOrder wo = workOrderMapper.selectById(id);
         if (wo == null) {
-            throw new IllegalArgumentException("工单不存在");
+            throw new com.itservice.desk.exception.NotFoundException("工单不存在");
         }
         return wo;
     }
@@ -130,6 +174,12 @@ public class WorkOrderService {
                 .orderByDesc(WorkOrder::getCreatedAt));
     }
 
+    /**
+     * 签字（待办二：加事务）。
+     * 该方法同时改 {@code work_order}（状态/签字字段）与 {@code report}（同步为已完成），
+     * 修复前无事务包裹：若第二步失败，工单已变「待报销」但报修单仍是「已派单」，数据不一致。
+     */
+    @Transactional(rollbackFor = Exception.class)
     public WorkOrder sign(Long id, String signerName, boolean isDelegate, String delegatedName,
                           String signatureUrl, String signType) {
         WorkOrder wo = getById(id);
@@ -164,6 +214,7 @@ public class WorkOrderService {
                 .eq(Consumable::getWorkOrderId, workOrderId)
                 .orderByAsc(Consumable::getId));
     }
+    @Transactional(rollbackFor = Exception.class)
     public WorkOrder submitRepair(Long id, String record, List<ConsumableItem> consumables) {
         WorkOrder wo = getById(id);
         if (wo.getStatus() != WorkOrderStatus.IN_PROGRESS) {
@@ -202,6 +253,7 @@ public class WorkOrderService {
      * 管理员核价完成：填好金额后提交，工单从待核价 → 待签字。
      * 耗材单价已在 pricing 接口写入；此动作只推进状态。
      */
+    @Transactional(rollbackFor = Exception.class)
     public WorkOrder completePricing(Long id) {
         WorkOrder wo = getById(id);
         if (wo.getStatus() != WorkOrderStatus.PENDING_PRICING) {
@@ -218,6 +270,7 @@ public class WorkOrderService {
      * 月度报销：把待报销工单推进为已报销。
      * 由 ReimbursementService.reimburse() 在报销单回填时按明细逐条调用。
      */
+    @Transactional(rollbackFor = Exception.class)
     public WorkOrder reimburse(Long id) {
         WorkOrder wo = getById(id);
         if (wo.getStatus() != WorkOrderStatus.PENDING_REIMBURSE) {

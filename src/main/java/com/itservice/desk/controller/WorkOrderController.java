@@ -1,5 +1,7 @@
 package com.itservice.desk.controller;
 
+import com.itservice.desk.security.AuthUserResolver;
+import com.itservice.desk.security.DeptTokenService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.itservice.desk.dto.*;
 import com.itservice.desk.mapper.ConsumableMapper;
@@ -9,12 +11,17 @@ import com.itservice.desk.model.*;
 import com.itservice.desk.service.WorkOrderAccess;
 import com.itservice.desk.service.WorkOrderService;
 import org.springframework.web.bind.annotation.*;
+import javax.validation.Valid;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/work-orders")
 public class WorkOrderController {
+
+    private final DeptTokenService deptTokenService;
+
+    private final AuthUserResolver authUserResolver;
 
     private final WorkOrderService workOrderService;
     private final WorkOrderAccess access;
@@ -26,7 +33,11 @@ public class WorkOrderController {
                                 WorkOrderAccess access,
                                 UserMapper userMapper,
                                 DepartmentBindingMapper bindingMapper,
-                                ConsumableMapper consumableMapper) {
+                                ConsumableMapper consumableMapper,
+                                AuthUserResolver authUserResolver,
+                                DeptTokenService deptTokenService) {
+        this.deptTokenService = deptTokenService;
+        this.authUserResolver = authUserResolver;
         this.workOrderService = workOrderService;
         this.access = access;
         this.userMapper = userMapper;
@@ -34,9 +45,19 @@ public class WorkOrderController {
         this.consumableMapper = consumableMapper;
     }
 
+    /**
+     * 工单列表（待办三：可选分页）。
+     *
+     * <p><b>兼容策略</b>：不传 {@code page} 时仍返回数组（老前端
+     * {@code state.rows.filter(...)} 不受影响）；传了 {@code page} 才返回分页对象。
+     * 这样分页能力是"增量可选"的，不需要前后端同时上线。
+     */
     @GetMapping
     public ApiResponse list(@RequestHeader(value = "X-Token", required = false) String token,
-                            @RequestParam(required = false) String status) {
+                            @RequestParam(required = false) String status,
+                            @RequestParam(required = false) Integer page,
+                            @RequestParam(required = false) Integer size,
+                            @RequestParam(required = false) String keyword) {
         User user = resolveUserByToken(token);
         if (user == null) {
             return ApiResponse.error(401, "未登录或登录已过期");
@@ -44,7 +65,13 @@ public class WorkOrderController {
         if (user.getRole() != UserRole.ADMIN && user.getRole() != UserRole.DISPATCHER) {
             return ApiResponse.error(403, "无权限：只有管理员或调度员可以查看工单列表");
         }
-        return ApiResponse.ok(workOrderService.listAll(status));
+        if (page == null) {
+            return ApiResponse.ok(workOrderService.listAll(status));
+        }
+        long safePage = Math.max(1, page);
+        long safeSize = size == null ? 20 : Math.min(Math.max(1, size), 200);
+        return ApiResponse.ok(new PageResult<>(
+                workOrderService.pageAll(status, keyword, safePage, safeSize)));
     }
 
     @GetMapping("/today")
@@ -62,19 +89,19 @@ public class WorkOrderController {
     }
 
     @GetMapping("/by-department")
-    public ApiResponse byDepartment(@RequestParam(required = false) Long departmentId,
+    public ApiResponse byDepartment(@RequestParam(value = "deptToken", required = false) String deptToken,
                                     @RequestParam(required = false) String deviceCode,
                                     @RequestParam(required = false) String status) {
-        Long deptId = resolveDepartmentId(departmentId, deviceCode);
+        Long deptId = resolveDepartmentId(deptToken, deviceCode);
         if (deptId == null) {
             return ApiResponse.error(401, "请选择有效的科室");
         }
         return ApiResponse.ok(workOrderService.listByDepartment(deptId, status));
     }
     @GetMapping("/pending-accept")
-    public ApiResponse pendingAccept(@RequestParam(required = false) Long departmentId,
+    public ApiResponse pendingAccept(@RequestParam(value = "deptToken", required = false) String deptToken,
                                      @RequestParam(required = false) String deviceCode) {
-        Long deptId = resolveDepartmentId(departmentId, deviceCode);
+        Long deptId = resolveDepartmentId(deptToken, deviceCode);
         if (deptId == null) {
             return ApiResponse.error(401, "请选择有效的科室");
         }
@@ -84,11 +111,11 @@ public class WorkOrderController {
     @GetMapping("/{id}")
     public ApiResponse detail(@PathVariable Long id,
                               @RequestHeader(value = "X-Token", required = false) String token,
-                              @RequestParam(required = false) Long departmentId,
+                              @RequestParam(value = "deptToken", required = false) String deptToken,
                               @RequestParam(required = false) String deviceCode) {
         WorkOrder wo = workOrderService.getById(id);
         // 科室端免登录（按科室做行级过滤）或登录用户（按角色做行级过滤）
-        Long deptId = resolveDepartmentId(departmentId, deviceCode);
+        Long deptId = resolveDepartmentId(deptToken, deviceCode);
         User user = resolveUserByToken(token);
         if (deptId != null) {
             if (!deptId.equals(wo.getDepartmentId())) {
@@ -111,10 +138,10 @@ public class WorkOrderController {
     @GetMapping("/{id}/consumables")
     public ApiResponse consumables(@PathVariable Long id,
                                      @RequestHeader(value = "X-Token", required = false) String token,
-                                     @RequestParam(required = false) Long departmentId,
+                                     @RequestParam(value = "deptToken", required = false) String deptToken,
                                      @RequestParam(required = false) String deviceCode) {
         WorkOrder wo = workOrderService.getById(id);
-        Long deptId = resolveDepartmentId(departmentId, deviceCode);
+        Long deptId = resolveDepartmentId(deptToken, deviceCode);
         if (deptId != null) {
             if (!deptId.equals(wo.getDepartmentId())) {
                 return ApiResponse.error(403, "无权查看该工单的耗材记录");
@@ -169,8 +196,8 @@ public class WorkOrderController {
     }
 
     @PostMapping("/{id}/sign")
-    public ApiResponse sign(@PathVariable Long id, @RequestBody SignRequest req) {
-        Long deptId = resolveDepartmentId(req.getDepartmentId(), req.getDeviceCode());
+    public ApiResponse sign(@PathVariable Long id, @Valid @RequestBody SignRequest req) {
+        Long deptId = resolveDepartmentId(req.getDeptToken(), req.getDeviceCode());
         if (deptId == null) {
             return ApiResponse.error(401, "请选择有效的科室");
         }
@@ -227,24 +254,29 @@ public class WorkOrderController {
                 .eq(DepartmentBinding::getActive, true));
     }
 
-    /** 新方式优先 departmentId；旧方式 deviceCode 兼容 */
-    private Long resolveDepartmentId(Long departmentId, String deviceCode) {
-        if (departmentId != null) {
-            return departmentId;
+    /**
+     * 解析科室身份（缺陷 D3 修复）。
+     *
+     * 修复前：`if (departmentId != null) return departmentId;` —— 直接采信调用方报的数字，
+     * 任何人遍历 departmentId=1..N 即可读全院数据（实测 HTTP 200）。
+     *
+     * 修复后：**只认签名过的科室凭证 deptToken**，departmentId 由签名反解得出，
+     * 调用方传什么数字都不再被直接信任。deviceCode 路径保留（内部会查绑定表校验）。
+     *
+     * @param deptToken 科室凭证（完成设备自助登记后由服务端签发）
+     * @param deviceCode 已绑定设备码（旧路径，仍校验 binding 表）
+     * @return 可信的 departmentId；无法证明归属时返回 null（调用方应返回 401）
+     */
+    private Long resolveDepartmentId(String deptToken, String deviceCode) {
+        Long fromToken = deptTokenService.verify(deptToken);
+        if (fromToken != null) {
+            return fromToken;
         }
         DepartmentBinding b = findActiveBinding(deviceCode);
         return b == null ? null : b.getDepartmentId();
     }
 
     private User resolveUserByToken(String token) {
-        if (token == null || !token.startsWith("token-")) {
-            return null;
-        }
-        try {
-            Long userId = Long.valueOf(token.substring("token-".length()));
-            return userMapper.selectById(userId);
-        } catch (NumberFormatException e) {
-            return null;
-        }
+        return authUserResolver.resolve(token);
     }
 }

@@ -303,14 +303,25 @@
   }
   const deviceId = getOrCreateDeviceId();
 
+    // 科室凭证（缺陷 D3 修复）：服务端在绑定/登记设备时签发，
+    // 是所有免登录科室接口证明「科室归属」的唯一凭据。
+    function deptToken() {
+      return localStorage.getItem('itsdDeptToken') || '';
+    }
+
   // 向服务端登记本设备（科室 + 是否护士长）；失败不阻塞绑定，下次绑定会重试
   async function registerSelf(deptId, isHead) {
     try {
-      await fetch('/api/bindings/self', {
+      var res = await fetch('/api/bindings/self', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deviceId: deviceId, departmentId: deptId, isHead: !!isHead })
       });
+      var json = await res.json();
+      // 缺陷 D3 修复：保存服务端签发的科室凭证，后续免登录接口凭此证明科室归属
+      if (json && json.data && json.data.deptToken) {
+        localStorage.setItem('itsdDeptToken', json.data.deptToken);
+      }
     } catch (e) { /* 旁路 */ }
   }
   let selectedDeptId = null;   // 三级联动当前选中的科室（点击「绑定」后落库到 localStorage）
@@ -384,6 +395,7 @@
   document.getElementById('rebindBtn').addEventListener('click', () => {
     if (!confirm('重新绑定后，本机将切换到新科室，确定继续？')) return;
     localStorage.removeItem('itsdDepartmentId');
+      localStorage.removeItem('itsdDeptToken');
     localStorage.removeItem('itsdDepartmentName');
     location.href = 'report.html';
   });
@@ -414,6 +426,7 @@
         return;
       }
       localStorage.removeItem('itsdDepartmentId');
+      localStorage.removeItem('itsdDeptToken');
       localStorage.removeItem('itsdDepartmentName');
     }
   })();
@@ -453,7 +466,7 @@
       const res = await fetch('/api/reports/anonymous', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ departmentId, reporterName, deviceName, problemDesc, departmentHead, deviceId })
+        body: JSON.stringify({ deptToken: deptToken(), reporterName, deviceName, problemDesc, departmentHead, deviceId })
       });
       const json = await res.json();
       if (json.code !== 0) {
@@ -509,7 +522,7 @@
   // ---------- 待验收列表 ----------
   async function loadAccept() {
     try {
-      const res = await fetch('/api/work-orders/pending-accept?departmentId=' + departmentId);
+      const res = await fetch('/api/work-orders/pending-accept?deptToken=' + encodeURIComponent(deptToken()));
       const json = await res.json();
       if (json.code !== 0) { document.getElementById('acceptList').innerHTML = '<div class="history-item">' + json.message + '</div>'; return; }
       const list = json.data || [];
@@ -530,7 +543,7 @@
   // ---------- 月度报销单 ----------
   async function loadReimbursements() {
     try {
-      const res = await fetch('/api/reimbursements/by-department?departmentId=' + departmentId);
+      const res = await fetch('/api/reimbursements/by-department?deptToken=' + encodeURIComponent(deptToken()));
       const json = await res.json();
       if (json.code !== 0) { document.getElementById('reimbList').innerHTML = '<div class="history-item">' + json.message + '</div>'; return; }
       const list = json.data || [];
@@ -555,7 +568,7 @@
     info.innerHTML = '加载中...';
     document.getElementById('detailModal').classList.add('show');
     try {
-      const res = await fetch('/api/reimbursements/' + reimbId + '?departmentId=' + departmentId);
+      const res = await fetch('/api/reimbursements/' + reimbId + '?deptToken=' + encodeURIComponent(deptToken()));
       const json = await res.json();
       if (json.code !== 0) { info.innerHTML = json.message; return; }
       const d = json.data;
@@ -590,7 +603,7 @@
     resetSignPad();
     requestAnimationFrame(function () { sigPad.resize(); });   // 弹窗显示后才能量到真实尺寸
     try {
-      const res = await fetch('/api/reimbursements/' + reimbId + '?departmentId=' + departmentId);
+      const res = await fetch('/api/reimbursements/' + reimbId + '?deptToken=' + encodeURIComponent(deptToken()));
       const json = await res.json();
       if (json.code === 0) {
         const r = json.data.reimbursement || {};
@@ -661,7 +674,7 @@
       const res = await fetch('/api/reimbursements/' + currentReimbId + '/return-nurse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ departmentId: departmentId })
+        body: JSON.stringify({ deptToken: deptToken() })
       });
       const json = await res.json();
       if (json.code === 0) {
@@ -707,8 +720,8 @@
     try {
       // 并行拉详情 + 耗材费用（签字前展示核价后费用，签字即确认金额）
       const [detailRes, consRes] = await Promise.all([
-        fetch('/api/work-orders/' + woId + '?departmentId=' + departmentId),
-        fetch('/api/work-orders/' + woId + '/consumables?departmentId=' + departmentId)
+        fetch('/api/work-orders/' + woId + '?deptToken=' + encodeURIComponent(deptToken())),
+        fetch('/api/work-orders/' + woId + '/consumables?deptToken=' + encodeURIComponent(deptToken()))
       ]);
       const json = await detailRes.json();
       if (json.code === 0) {
@@ -788,7 +801,7 @@
         const res = await fetch('/api/reimbursements/' + currentReimbId + '/sign', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ departmentId, signerName, signatureUrl, signType: signMode })
+          body: JSON.stringify({ deptToken: deptToken(), signerName, signatureUrl, signType: signMode })
         });
         json = await res.json();
       } else {
@@ -796,7 +809,7 @@
         const res = await fetch('/api/work-orders/' + currentSignWoId + '/sign', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ departmentId, signerName, isDelegate, delegatedName, signatureUrl, signType: signMode })
+          body: JSON.stringify({ deptToken: deptToken(), signerName, isDelegate, delegatedName, signatureUrl, signType: signMode })
         });
         json = await res.json();
       }
@@ -826,9 +839,9 @@
       // 并发拉报修单 + 本科室全部工单（按 reportId 建索引，附带工单号/签字/完成时间）
       // + 本科室报销单（按 workOrderId 建反查索引，展示关联报销单号与报销状态）
       const [reportRes, woRes, reimbRes] = await Promise.all([
-        fetch('/api/reports/by-department?departmentId=' + departmentId),
-        fetch('/api/work-orders/by-department?departmentId=' + departmentId),
-        fetch('/api/reimbursements/by-department?departmentId=' + departmentId)
+        fetch('/api/reports/by-department?deptToken=' + encodeURIComponent(deptToken())),
+        fetch('/api/work-orders/by-department?deptToken=' + encodeURIComponent(deptToken())),
+        fetch('/api/reimbursements/by-department?deptToken=' + encodeURIComponent(deptToken()))
       ]);
       const reportJson = await reportRes.json();
       if (reportJson.code !== 0) { host.innerHTML = '<div class="history-item">' + reportJson.message + '</div>'; return; }
@@ -846,7 +859,7 @@
       // 逐张拉报销单详情建反查索引
       try {
         await Promise.all(reimbList.map(async r => {
-          const d = await fetch('/api/reimbursements/' + r.id + '?departmentId=' + departmentId);
+          const d = await fetch('/api/reimbursements/' + r.id + '?deptToken=' + encodeURIComponent(deptToken()));
           const dj = await d.json();
           if (dj.code === 0) {
             const wos = dj.data.workOrders || [];
@@ -904,8 +917,8 @@
     document.getElementById('detailModal').classList.add('show');
     try {
       const [woRes, consRes] = await Promise.all([
-        fetch('/api/work-orders/' + woId + '?departmentId=' + departmentId),
-        fetch('/api/work-orders/' + woId + '/consumables?departmentId=' + departmentId)
+        fetch('/api/work-orders/' + woId + '?deptToken=' + encodeURIComponent(deptToken())),
+        fetch('/api/work-orders/' + woId + '/consumables?deptToken=' + encodeURIComponent(deptToken()))
       ]);
       const woJson = await woRes.json();
       if (woJson.code !== 0) { info.innerHTML = woJson.message; return; }

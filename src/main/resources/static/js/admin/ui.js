@@ -367,8 +367,18 @@
     var tableHost = h('div');
     var pagerHost = h('div');
     var countHint = h('span', { class: 'count-hint' });
+    // 服务端分页模式：提供 fetchPage 时启用。
+    // fetchPage({page, size, keyword}) -> { records, total, page, pages }
+    // 未提供时保持原有的「全量拉取 + 浏览器端过滤分页」，两者互不影响。
+    var serverMode = typeof opts.fetchPage === 'function';
+    var serverCache = { records: [], total: 0, pages: 0 };
+    var loading = false;
 
     function draw() {
+      if (serverMode) {
+        drawServer();
+        return;
+      }
       var filtered = filterBy(opts.rows, state.keyword, opts.searchFields || []);
       var page = paginate(filtered, state.page, pageSize);
       state.page = page.page;
@@ -384,6 +394,41 @@
       countHint.textContent = opts.rows && opts.rows.length !== filtered.length
         ? '（' + filtered.length + ' / ' + opts.rows.length + '）'
         : '（' + (opts.rows ? opts.rows.length : 0) + '）';
+    }
+
+    /**
+     * 服务端分页绘制。
+     * 关键点：搜索交给服务端（keyword 参数），否则用户只能搜到当前页的 10 条，
+     * 会出现「明明有数据却搜不到」的静默退化。
+     */
+    function drawServer() {
+      if (loading) return;
+      loading = true;
+      tableHost.innerHTML = '';
+      tableHost.appendChild(skeletonLines(4));
+      opts.fetchPage({ page: state.page, size: pageSize, keyword: state.keyword })
+        .then(function (res) {
+          var rows = (res && res.records) || [];
+          serverCache.records = rows;
+          serverCache.total = (res && res.total) || 0;
+          serverCache.pages = (res && res.pages) || 0;
+          state.page = (res && res.page) || state.page;
+          tableHost.innerHTML = '';
+          tableHost.appendChild(dataTable({ columns: opts.columns, rows: rows, empty: opts.empty }));
+          pagerHost.innerHTML = '';
+          if (serverCache.pages > 1) {
+            pagerHost.appendChild(pagination({
+              page: state.page, pages: serverCache.pages, total: serverCache.total,
+              onChange: function (p) { state.page = p; draw(); }
+            }));
+          }
+          countHint.textContent = '（共 ' + serverCache.total + ' 条）';
+        })
+        .catch(function (e) {
+          tableHost.innerHTML = '';
+          tableHost.appendChild(h('div', { class: 'empty', text: (e && e.message) || '加载失败' }));
+        })
+        .then(function () { loading = false; });
     }
 
     var toolbar = h('div', { class: 'toolbar' },
@@ -406,7 +451,7 @@
     });
 
     draw();
-    return { node: node, redraw: draw };
+    return { node: node, redraw: draw, currentPage: function () { return state.page; } };
   }
 
   /**

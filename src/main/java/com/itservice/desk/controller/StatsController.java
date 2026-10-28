@@ -1,5 +1,6 @@
 package com.itservice.desk.controller;
 
+import com.itservice.desk.security.AuthUserResolver;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.itservice.desk.dto.ApiResponse;
 import com.itservice.desk.mapper.UserMapper;
@@ -19,10 +20,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/stats")
 public class StatsController {
 
+    private final AuthUserResolver authUserResolver;
+
     private final StatsService statsService;
     private final UserMapper userMapper;
 
-    public StatsController(StatsService statsService, UserMapper userMapper) {
+    public StatsController(StatsService statsService, UserMapper userMapper,
+                                AuthUserResolver authUserResolver) {
+        this.authUserResolver = authUserResolver;
         this.statsService = statsService;
         this.userMapper = userMapper;
     }
@@ -40,14 +45,6 @@ public class StatsController {
     }
 
     private User resolveUser(String token) {
-        if (token == null || !token.startsWith("token-")) {
-            return null;
-        }
-        try {
-            Long userId = Long.valueOf(token.substring("token-".length()));
-            return userMapper.selectById(userId);
-        } catch (NumberFormatException e) {
-            return null;
-        }
+        return authUserResolver.resolve(token);
     }
 }

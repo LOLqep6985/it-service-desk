@@ -1,5 +1,6 @@
 package com.itservice.desk.controller;
 
+import com.itservice.desk.security.AuthUserResolver;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.EncodeHintType;
 import com.google.zxing.client.j2se.MatrixToImageWriter;
@@ -28,11 +29,15 @@ import java.util.Map;
 @RestController
 public class QrController {
 
+    private final AuthUserResolver authUserResolver;
+
     private static final int SIZE = 240;
 
     private final UserMapper userMapper;
 
-    public QrController(UserMapper userMapper) {
+    public QrController(UserMapper userMapper,
+                                AuthUserResolver authUserResolver) {
+        this.authUserResolver = authUserResolver;
         this.userMapper = userMapper;
     }
 
@@ -89,14 +94,6 @@ public class QrController {
     }
 
     private User resolveUser(String token) {
-        if (token == null || !token.startsWith("token-")) {
-            return null;
-        }
-        try {
-            Long userId = Long.valueOf(token.substring("token-".length()));
-            return userMapper.selectById(userId);
-        } catch (NumberFormatException e) {
-            return null;
-        }
+        return authUserResolver.resolve(token);
     }
 }

@@ -1,5 +1,7 @@
 package com.itservice.desk.controller;
 
+import com.itservice.desk.security.AuthUserResolver;
+import com.itservice.desk.security.DeptTokenService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.itservice.desk.dto.ApiResponse;
 import com.itservice.desk.dto.BindingCreateRequest;
@@ -21,13 +23,21 @@ import java.util.Map;
 @RequestMapping("/api/bindings")
 public class DepartmentBindingController {
 
+    private final DeptTokenService deptTokenService;
+
+    private final AuthUserResolver authUserResolver;
+
     private final DepartmentBindingMapper bindingMapper;
     private final DepartmentMapper departmentMapper;
     private final UserMapper userMapper;
 
     public DepartmentBindingController(DepartmentBindingMapper bindingMapper,
                                        DepartmentMapper departmentMapper,
-                                       UserMapper userMapper) {
+                                       UserMapper userMapper,
+                                AuthUserResolver authUserResolver,
+                                       DeptTokenService deptTokenService) {
+        this.deptTokenService = deptTokenService;
+        this.authUserResolver = authUserResolver;
         this.bindingMapper = bindingMapper;
         this.departmentMapper = departmentMapper;
         this.userMapper = userMapper;
@@ -109,6 +119,8 @@ public class DepartmentBindingController {
         data.put("departmentId", dept.getId());
         data.put("departmentName", dept.getName());
         data.put("isHead", isHead);
+        // 缺陷 D3 修复：绑定成功后签发科室凭证，后续免登录接口凭此证明科室归属
+        data.put("deptToken", deptTokenService.issue(dept.getId()));
         return ApiResponse.ok(data);
     }
 
@@ -128,6 +140,8 @@ public class DepartmentBindingController {
         data.put("bindingId", b.getId());
         data.put("departmentId", dept.getId());
         data.put("departmentName", dept.getName());
+        // 缺陷 D3 修复：已绑定设备可重新换取科室凭证（换手机/清缓存后恢复会话）
+        data.put("deptToken", deptTokenService.issue(dept.getId()));
         data.put("campus", dept.getCampus());
         data.put("departmentHead", dept.getDepartmentHead());
         data.put("isHead", Boolean.TRUE.equals(b.getIsHead()));
@@ -135,14 +149,6 @@ public class DepartmentBindingController {
     }
 
     private User resolveUser(String token) {
-        if (token == null || !token.startsWith("token-")) {
-            return null;
-        }
-        try {
-            Long userId = Long.valueOf(token.substring("token-".length()));
-            return userMapper.selectById(userId);
-        } catch (NumberFormatException e) {
-            return null;
-        }
+        return authUserResolver.resolve(token);
     }
 }

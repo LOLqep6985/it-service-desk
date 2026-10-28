@@ -1,5 +1,6 @@
 package com.itservice.desk.controller;
 
+import com.itservice.desk.security.AuthUserResolver;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.itservice.desk.dto.ApiResponse;
 import com.itservice.desk.mapper.DepartmentBindingMapper;
@@ -24,13 +25,17 @@ import java.util.Map;
 @RequestMapping("/api/notifications")
 public class NotificationController {
 
+    private final AuthUserResolver authUserResolver;
+
     private final NotificationService notificationService;
     private final UserMapper userMapper;
     private final DepartmentBindingMapper bindingMapper;
 
     public NotificationController(NotificationService notificationService,
                                   UserMapper userMapper,
-                                  DepartmentBindingMapper bindingMapper) {
+                                  DepartmentBindingMapper bindingMapper,
+                                AuthUserResolver authUserResolver) {
+        this.authUserResolver = authUserResolver;
         this.notificationService = notificationService;
         this.userMapper = userMapper;
         this.bindingMapper = bindingMapper;
@@ -87,14 +92,7 @@ public class NotificationController {
     }
 
     private User resolveUser(String token) {
-        if (token == null || !token.startsWith("token-")) {
-            return null;
-        }
-        try {
-            return userMapper.selectById(Long.valueOf(token.substring("token-".length())));
-        } catch (NumberFormatException e) {
-            return null;
-        }
+        return authUserResolver.resolve(token);
     }
 
     private DepartmentBinding resolveBinding(String deviceCode) {

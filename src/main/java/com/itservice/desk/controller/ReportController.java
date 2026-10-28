@@ -1,8 +1,11 @@
 package com.itservice.desk.controller;
 
+import com.itservice.desk.security.AuthUserResolver;
+import com.itservice.desk.security.DeptTokenService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.itservice.desk.dto.AnonymousReportRequest;
 import com.itservice.desk.dto.ApiResponse;
+import com.itservice.desk.dto.PageResult;
 import com.itservice.desk.mapper.DepartmentBindingMapper;
 import com.itservice.desk.mapper.DepartmentMapper;
 import com.itservice.desk.mapper.UserMapper;
@@ -16,6 +19,7 @@ import com.itservice.desk.model.UserRole;
 import com.itservice.desk.service.NotificationService;
 import com.itservice.desk.service.ReportService;
 import org.springframework.web.bind.annotation.*;
+import javax.validation.Valid;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,6 +27,10 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/reports")
 public class ReportController {
+
+    private final DeptTokenService deptTokenService;
+
+    private final AuthUserResolver authUserResolver;
 
     private final ReportService reportService;
     private final UserMapper userMapper;
@@ -34,7 +42,11 @@ public class ReportController {
                             UserMapper userMapper,
                             DepartmentBindingMapper bindingMapper,
                             DepartmentMapper departmentMapper,
-                            NotificationService notificationService) {
+                            NotificationService notificationService,
+                                AuthUserResolver authUserResolver,
+                            DeptTokenService deptTokenService) {
+        this.deptTokenService = deptTokenService;
+        this.authUserResolver = authUserResolver;
         this.reportService = reportService;
         this.userMapper = userMapper;
         this.bindingMapper = bindingMapper;
@@ -43,8 +55,8 @@ public class ReportController {
     }
 
     @PostMapping("/anonymous")
-    public ApiResponse createAnonymous(@RequestBody AnonymousReportRequest req) {
-        Department dept = resolveDepartment(req.getDepartmentId(), req.getDeviceCode());
+    public ApiResponse createAnonymous(@Valid @RequestBody AnonymousReportRequest req) {
+        Department dept = resolveDepartment(req.getDeptToken(), req.getDeviceCode());
         if (dept == null) {
             return ApiResponse.error(401, "请选择有效的科室");
         }
@@ -80,7 +92,9 @@ public class ReportController {
 
     @GetMapping
     public ApiResponse list(@RequestHeader(value = "X-Token", required = false) String token,
-                            @RequestParam(required = false) String status) {
+                            @RequestParam(required = false) String status,
+                            @RequestParam(required = false) Integer page,
+                            @RequestParam(required = false) Integer size) {
         User user = resolveUser(token);
         if (user == null) {
             return ApiResponse.error(401, "未登录或登录已过期");
@@ -88,7 +102,13 @@ public class ReportController {
         if (user.getRole() != UserRole.ADMIN && user.getRole() != UserRole.DISPATCHER) {
             return ApiResponse.error(403, "无权限：只有管理员或调度员可以查看报修单列表");
         }
-        return ApiResponse.ok(reportService.listReports(status));
+        // 不传 page 保持老行为（返回数组）；传了才返回分页对象
+        if (page == null) {
+            return ApiResponse.ok(reportService.listReports(status));
+        }
+        long safePage = Math.max(1, page);
+        long safeSize = size == null ? 20 : Math.min(Math.max(1, size), 200);
+        return ApiResponse.ok(new PageResult<>(reportService.pageReports(status, safePage, safeSize)));
     }
 
     @GetMapping("/{id}")
@@ -152,24 +172,21 @@ public class ReportController {
                 .eq(DepartmentBinding::getActive, true));
     }
 
-    /** 新方式优先 departmentId；旧方式 deviceCode 兼容 */
-    private Department resolveDepartment(Long departmentId, String deviceCode) {
-        if (departmentId != null) {
-            return departmentMapper.selectById(departmentId);
+    /**
+     * 解析科室（缺陷 D3 修复）：只认签名科室凭证，或已绑定 deviceCode。
+     * 修复前 `if (departmentId != null) return departmentMapper.selectById(departmentId);`
+     * 会直接采信调用方报的数字，导致任意科室数据可被遍历读取。
+     */
+    private Department resolveDepartment(String deptToken, String deviceCode) {
+        Long fromToken = deptTokenService.verify(deptToken);
+        if (fromToken != null) {
+            return departmentMapper.selectById(fromToken);
         }
         DepartmentBinding b = findActiveBinding(deviceCode);
         return b == null ? null : departmentMapper.selectById(b.getDepartmentId());
     }
 
     private User resolveUser(String token) {
-        if (token == null || !token.startsWith("token-")) {
-            return null;
-        }
-        try {
-            Long userId = Long.valueOf(token.substring("token-".length()));
-            return userMapper.selectById(userId);
-        } catch (NumberFormatException e) {
-            return null;
-        }
+        return authUserResolver.resolve(token);
     }
 }

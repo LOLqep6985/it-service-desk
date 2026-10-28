@@ -20,15 +20,21 @@
     { value: 'REIMBURSED', label: '已报销' }
   ];
 
-  /** 全量加载后在浏览器端按状态过滤 */
-  function visibleRows() {
-    if (state.scope === 'ALL') return state.rows;
-    return state.rows.filter(function (w) { return w.status === state.scope; });
+  /**
+   * 服务端分页取数。
+   * 关键：搜索词一并传给后端（keyword），而不是拉全量再在浏览器过滤 ——
+   * 否则分页后只能搜到当前页的 10 条，属于"功能静默退化"。
+   * scope=ALL 时不传 status，让后端返回全部状态。
+   */
+  async function fetchPage(query) {
+    var params = { page: query.page, size: query.size };
+    if (state.scope !== 'ALL') params.status = state.scope;
+    if (query.keyword) params.keyword = query.keyword;
+    return await Admin.api.get('/api/work-orders', params);
   }
 
   async function load() {
-    // 一次取全量后在浏览器端按范围过滤（服务端分页为已知待优化项）
-    state.rows = await Admin.api.get('/api/work-orders') || [];
+    // 列表数据改由 listSection 按页拉取；这里只加载维修工姓名映射
     try {
       await Admin.store.loadUsers(true);
       state.userMap = Admin.store.userMap();
@@ -195,9 +201,11 @@
     var list = ui.listSection({
       title: '工单管理',
       hint: '（派单后生成；默认显示全部状态）',
-      searchPlaceholder: '搜索工单号 / 标题 / 科室 / 维修工',
+      searchPlaceholder: '搜索标题 / 科室 / 故障描述',
       searchFields: ['id', 'title', 'departmentName'],
-      rows: visibleRows(),
+      // 服务端分页模式：列表只渲染当前页，搜索与翻页都交给后端
+      fetchPage: fetchPage,
+      rows: [],
       empty: '暂无工单',
       pageSize: 10,
       controls: scopeSelect,

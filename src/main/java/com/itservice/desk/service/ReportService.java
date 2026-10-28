@@ -1,11 +1,14 @@
 package com.itservice.desk.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.itservice.desk.mapper.DepartmentMapper;
 import com.itservice.desk.mapper.ReportMapper;
 import com.itservice.desk.mapper.WorkOrderMapper;
 import com.itservice.desk.model.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -82,14 +85,46 @@ public class ReportService {
         return reportMapper.selectList(qw);
     }
 
+    /**
+     * 分页查询报修单（待办三扩展）。
+     * 与 {@link #listReports(String)} 并存：不传 page 走老接口返回 List，传了才走这里。
+     * 保留 60 天留存过滤口径，避免分页把历史数据"翻"出来。
+     */
+    public IPage<Report> pageReports(String status, long page, long size) {
+        LocalDateTime since = LocalDateTime.now().minusDays(RETENTION_DAYS);
+        LambdaQueryWrapper<Report> qw = new LambdaQueryWrapper<Report>()
+                .ge(Report::getCreatedAt, since)
+                .orderByDesc(Report::getCreatedAt);
+        if (status != null && !status.isBlank()) {
+            qw.eq(Report::getStatus, status);
+        }
+        return reportMapper.selectPage(new Page<>(page, size), qw);
+    }
+
+    /** 分页查询某科室报修单（科室端历史记录） */
+    public IPage<Report> pageReportsByDepartment(Long departmentId, long page, long size) {
+        LocalDateTime since = LocalDateTime.now().minusDays(RETENTION_DAYS);
+        LambdaQueryWrapper<Report> qw = new LambdaQueryWrapper<Report>()
+                .eq(Report::getDepartmentId, departmentId)
+                .ge(Report::getCreatedAt, since)
+                .orderByDesc(Report::getCreatedAt);
+        return reportMapper.selectPage(new Page<>(page, size), qw);
+    }
     public Report getById(Long id) {
         Report r = reportMapper.selectById(id);
         if (r == null) {
-            throw new IllegalArgumentException("报修单不存在");
+            throw new com.itservice.desk.exception.NotFoundException("报修单不存在");
         }
         return r;
     }
 
+    /**
+     * 派单（待办二：加事务）。
+     * 插入 {@code work_order} + 更新 {@code report} 状态必须原子：
+     * 修复前若更新 report 失败，会留下「已生成工单但报修单仍是待受理」的孤儿数据，
+     * 管理员会重复派单。
+     */
+    @Transactional(rollbackFor = Exception.class)
     public WorkOrder dispatch(Long reportId, Long assigneeId, Long dispatcherId) {
         Report r = getById(reportId);
         if (r.getStatus() != ReportStatus.PENDING) {

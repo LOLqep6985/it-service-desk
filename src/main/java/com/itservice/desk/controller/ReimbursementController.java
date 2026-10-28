@@ -1,7 +1,10 @@
 package com.itservice.desk.controller;
 
+import com.itservice.desk.security.AuthUserResolver;
+import com.itservice.desk.security.DeptTokenService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.itservice.desk.dto.ApiResponse;
+import com.itservice.desk.dto.PageResult;
 import com.itservice.desk.dto.ReimbursementSignRequest;
 import com.itservice.desk.mapper.DepartmentBindingMapper;
 import com.itservice.desk.mapper.UserMapper;
@@ -16,13 +19,21 @@ import java.util.Map;
 @RequestMapping("/api/reimbursements")
 public class ReimbursementController {
 
+    private final DeptTokenService deptTokenService;
+
+    private final AuthUserResolver authUserResolver;
+
     private final ReimbursementService reimbursementService;
     private final UserMapper userMapper;
     private final DepartmentBindingMapper bindingMapper;
 
     public ReimbursementController(ReimbursementService reimbursementService,
                                    UserMapper userMapper,
-                                   DepartmentBindingMapper bindingMapper) {
+                                   DepartmentBindingMapper bindingMapper,
+                                AuthUserResolver authUserResolver,
+                                DeptTokenService deptTokenService) {
+        this.deptTokenService = deptTokenService;
+        this.authUserResolver = authUserResolver;
         this.reimbursementService = reimbursementService;
         this.userMapper = userMapper;
         this.bindingMapper = bindingMapper;
@@ -94,7 +105,9 @@ public class ReimbursementController {
     /** 管理员/调度员：报销单列表 */
     @GetMapping
     public ApiResponse list(@RequestHeader(value = "X-Token", required = false) String token,
-                            @RequestParam(required = false) String status) {
+                            @RequestParam(required = false) String status,
+                            @RequestParam(required = false) Integer page,
+                            @RequestParam(required = false) Integer size) {
         User user = resolveUser(token);
         if (user == null) {
             return ApiResponse.error(401, "未登录或登录已过期");
@@ -102,7 +115,13 @@ public class ReimbursementController {
         if (!isReimbursementStaff(user)) {
             return ApiResponse.error(403, "无权限：只有管理员、调度员或财务可以查看报销单");
         }
-        return ApiResponse.ok(reimbursementService.listAll(status));
+        // 不传 page 保持老行为（返回数组）；传了才返回分页对象
+        if (page == null) {
+            return ApiResponse.ok(reimbursementService.listAll(status));
+        }
+        long safePage = Math.max(1, page.intValue());
+        long safeSize = size == null ? 20 : Math.min(Math.max(1, size.intValue()), 200);
+        return ApiResponse.ok(new PageResult<>(reimbursementService.pageAll(status, safePage, safeSize)));
     }
 
     /** 科室端免登录：本科室报销单列表 */
@@ -116,9 +135,9 @@ public class ReimbursementController {
 
     /** 兼容旧设备码方式 */
     @GetMapping("/by-device")
-    public ApiResponse listByDevice(@RequestParam(required = false) Long departmentId,
+    public ApiResponse listByDevice(@RequestParam(value = "deptToken", required = false) String deptToken,
                                     @RequestParam(required = false) String deviceCode) {
-        Long deptId = resolveDepartmentId(departmentId, deviceCode);
+        Long deptId = resolveDepartmentId(deptToken, deviceCode);
         if (deptId == null) {
             return ApiResponse.error(401, "请选择有效的科室");
         }
@@ -129,9 +148,9 @@ public class ReimbursementController {
     @GetMapping("/{id}")
     public ApiResponse detail(@PathVariable Long id,
                               @RequestHeader(value = "X-Token", required = false) String token,
-                              @RequestParam(required = false) Long departmentId,
+                              @RequestParam(value = "deptToken", required = false) String deptToken,
                               @RequestParam(required = false) String deviceCode) {
-        Long deptId = resolveDepartmentId(departmentId, deviceCode);
+        Long deptId = resolveDepartmentId(deptToken, deviceCode);
         if (deptId != null) {
             Reimbursement r = reimbursementService.getById(id);
             if (!deptId.equals(r.getDepartmentId())) {
@@ -156,7 +175,7 @@ public class ReimbursementController {
     /** 科室端免登录：护士长/主任签字确认报销单 */
     @PostMapping("/{id}/sign")
     public ApiResponse sign(@PathVariable Long id, @RequestBody ReimbursementSignRequest req) {
-        Long deptId = resolveDepartmentId(req.getDepartmentId(), req.getDeviceCode());
+        Long deptId = resolveDepartmentId(req.getDeptToken(), req.getDeviceCode());
         if (deptId == null) {
             return ApiResponse.error(401, "请选择有效的科室");
         }
@@ -228,7 +247,7 @@ public class ReimbursementController {
     /** 科室端免登录：护士长退回报销单 → RETURNED（工单回退入池可重新勾选） */
     @PostMapping("/{id}/return-nurse")
     public ApiResponse returnNurse(@PathVariable Long id, @RequestBody ReimbursementSignRequest req) {
-        Long deptId = resolveDepartmentId(req.getDepartmentId(), req.getDeviceCode());
+        Long deptId = resolveDepartmentId(req.getDeptToken(), req.getDeviceCode());
         if (deptId == null) {
             return ApiResponse.error(401, "请选择有效的科室");
         }
@@ -252,10 +271,23 @@ public class ReimbursementController {
                 .eq(DepartmentBinding::getActive, true));
     }
 
-    /** 新方式优先 departmentId；旧方式 deviceCode 兼容 */
-    private Long resolveDepartmentId(Long departmentId, String deviceCode) {
-        if (departmentId != null) {
-            return departmentId;
+    /**
+     * 解析科室身份（缺陷 D3 修复）。
+     *
+     * 修复前：`if (departmentId != null) return departmentId;` —— 直接采信调用方报的数字，
+     * 任何人遍历 departmentId=1..N 即可读全院数据（实测 HTTP 200）。
+     *
+     * 修复后：**只认签名过的科室凭证 deptToken**，departmentId 由签名反解得出，
+     * 调用方传什么数字都不再被直接信任。deviceCode 路径保留（内部会查绑定表校验）。
+     *
+     * @param deptToken 科室凭证（完成设备自助登记后由服务端签发）
+     * @param deviceCode 已绑定设备码（旧路径，仍校验 binding 表）
+     * @return 可信的 departmentId；无法证明归属时返回 null（调用方应返回 401）
+     */
+    private Long resolveDepartmentId(String deptToken, String deviceCode) {
+        Long fromToken = deptTokenService.verify(deptToken);
+        if (fromToken != null) {
+            return fromToken;
         }
         DepartmentBinding b = findActiveBinding(deviceCode);
         return b == null ? null : b.getDepartmentId();
@@ -285,14 +317,6 @@ public class ReimbursementController {
     }
 
     private User resolveUser(String token) {
-        if (token == null || !token.startsWith("token-")) {
-            return null;
-        }
-        try {
-            Long userId = Long.valueOf(token.substring("token-".length()));
-            return userMapper.selectById(userId);
-        } catch (NumberFormatException e) {
-            return null;
-        }
+        return authUserResolver.resolve(token);
     }
 }

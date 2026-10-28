@@ -5,6 +5,7 @@ import com.itservice.desk.dto.ApiResponse;
 import com.itservice.desk.dto.LoginRequest;
 import com.itservice.desk.mapper.UserMapper;
 import com.itservice.desk.model.User;
+import com.itservice.desk.security.TokenService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -26,9 +27,11 @@ public class AuthController {
     private static final BCryptPasswordEncoder ENCODER = new BCryptPasswordEncoder();
 
     private final UserMapper userMapper;
+    private final TokenService tokenService;
 
-    public AuthController(UserMapper userMapper) {
+    public AuthController(UserMapper userMapper, TokenService tokenService) {
         this.userMapper = userMapper;
+        this.tokenService = tokenService;
     }
 
     @PostMapping("/login")
@@ -43,7 +46,8 @@ public class AuthController {
         data.put("name", user.getName());
         data.put("role", user.getRole().getLabel());
         data.put("roleCode", user.getRole().name());
-        data.put("token", "token-" + user.getId());
+        // 缺陷 D2 修复：改为 HMAC 签名 + 过期的凭证，不再可凭 userId 推导伪造
+        data.put("token", tokenService.issue(user.getId()));
         return ApiResponse.ok(data);
     }
 
